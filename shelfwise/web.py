@@ -13,7 +13,7 @@ from .config import BASE_DIR
 from .db import get_db
 from .deps import optional_user
 from .models import Patron
-from .security import has_permission
+from .security import RESTRICTED_ATTR, has_permission
 from .services import settings as settings_svc
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -79,6 +79,8 @@ def _staff(page: str, template: str):
     def view(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
         if user is None:
             return RedirectResponse(f"/login?next={request.url.path}", status_code=303)
+        if getattr(user, RESTRICTED_ATTR, False):  # staff must enrol in 2FA first (security policy)
+            return RedirectResponse("/staff/security?enroll=1", status_code=303)
         if not has_permission(user, "catalog:read"):
             return RedirectResponse("/account", status_code=303)
         return _render(request, template, page, user, db, path_params=request.path_params)
@@ -93,3 +95,26 @@ router.add_api_route("/staff/catalog/new", _staff("staff-record-edit", "staff/re
 router.add_api_route("/staff/catalog/{biblio_id}", _staff("staff-record", "staff/record.html"), methods=["GET"])
 router.add_api_route("/staff/catalog/{biblio_id}/edit", _staff("staff-record-edit", "staff/record_edit.html"), methods=["GET"])
 router.add_api_route("/staff/patrons/{patron_id}", _staff("staff-patron", "staff/patron.html"), methods=["GET"])
+
+
+# ------------------------------------------------------------------ identity & access
+
+templates.env.globals["can"] = has_permission
+STAFF_NAV.append(("roles", "/staff/roles", "Roles & permissions", "shield"))
+router.add_api_route("/staff/roles", _staff("staff-roles", "staff/roles.html"), methods=["GET"],
+                     response_class=HTMLResponse)
+
+
+@router.get("/staff/security", response_class=HTMLResponse)
+def staff_security(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    """My account / Security. Reachable even while 2FA enrolment is pending (enforced by policy)."""
+    if user is None:
+        return RedirectResponse("/login?next=/staff/security", status_code=303)
+    if not user.is_staff:
+        return RedirectResponse("/account#settings", status_code=303)
+    return _render(request, "staff/security.html", "staff-security", user, db, path_params={})
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+def reset_password_page(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    return _render(request, "reset_password.html", "reset-password", user, db)

@@ -285,6 +285,8 @@ const COMMANDS = [
     { group: "Actions", label: "Register a patron", run: () => (location.href = "/staff/patrons#new"), icon: "user-plus" },
     { group: "Actions", label: "Ask the AI copilot", hint: "Ctrl+J", run: () => openCopilot(), icon: "sparkle" },
     { group: "Go to", label: "Public catalogue (OPAC)", run: () => (location.href = "/"), icon: "globe" },
+    { group: "Go to", label: "My account & security (2FA, sessions, API tokens)", run: () => (location.href = "/staff/security"), icon: "shield" },
+    { group: "Go to", label: "Roles & permissions", run: () => (location.href = "/staff/roles"), icon: "shield" },
   ] : [
     { group: "Go to", label: "Home", run: () => (location.href = "/"), icon: "home" },
     { group: "Go to", label: "My account", run: () => (location.href = "/account"), icon: "user" },

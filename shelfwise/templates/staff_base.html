@@ -5,7 +5,7 @@
   <aside class="sidebar" aria-label="Staff navigation">
     <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon"><use href="#i-book"></use></svg></span>Shelfwise</a>
     {% for key, href, label, ic in staff_nav %}
-      {% if key != 'admin' or user.role.value == 'admin' %}
+      {% if (key != 'admin' or user.role.value == 'admin') and (key != 'roles' or can(user, 'patrons:manage_staff')) %}
       <a class="nav-link" href="{{ href }}" {% if page == 'staff-' ~ key or (key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
         <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ label }}<span class="kbd-hint">Alt+{{ loop.index }}</span>
       </a>
@@ -25,7 +25,7 @@
       <div class="row tight" style="margin-left:auto">
         <button class="btn ai sm" data-open-copilot title="AI copilot (Ctrl+J)"><svg class="icon"><use href="#i-sparkle"></use></svg><span>Copilot</span></button>
         <button class="btn ghost icon-only" data-appearance aria-label="Appearance settings" title="Appearance"><svg class="icon"><use href="#i-palette"></use></svg></button>
-        <div class="avatar" title="{{ user.full_name }} ({{ user.role.value }})" style="width:2.1rem;height:2.1rem;font-size:.8rem">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
+        <a class="avatar" href="/staff/security" title="{{ user.full_name }} ({{ user.role.value }}) · My account &amp; security" aria-label="My account and security" style="width:2.1rem;height:2.1rem;font-size:.8rem;text-decoration:none">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</a>
         <button class="btn ghost icon-only" data-logout aria-label="Sign out" title="Sign out"><svg class="icon"><use href="#i-logout"></use></svg></button>
       </div>
     </header>

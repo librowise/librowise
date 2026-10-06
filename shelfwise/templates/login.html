@@ -4,9 +4,12 @@
 <div class="wrap" style="max-width:440px;padding-top:3rem">
   <div class="card pad stack">
     <div>
-      <h1 style="font-size:1.5rem">Welcome back</h1>
-      <p class="muted">Sign in with your library card number or email.</p>
+      <h1 style="font-size:1.5rem" id="login-title">Welcome back</h1>
+      <p class="muted" id="login-sub">Sign in with your library card number or email.</p>
     </div>
+    <div id="login-error" class="alert bad hidden" role="alert"></div>
+    <div id="login-info" class="alert info hidden" role="status"></div>
+
     <form id="login-form" class="stack" novalidate>
       <div class="field">
         <label for="username">Card number or email</label>
@@ -16,10 +19,40 @@
         <label for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
-      <div id="login-error" class="alert bad hidden" role="alert"></div>
       <button class="btn primary lg" type="submit">Sign in</button>
+      <button class="btn ghost sm" type="button" data-view="forgot" style="align-self:flex-start">Forgot password?</button>
     </form>
-    <details class="small muted">
+
+    <div id="sso" class="stack tight hidden" aria-label="Single sign-on">
+      <div class="auth-divider"><span>or</span></div>
+      <div id="sso-buttons" class="stack tight"></div>
+    </div>
+
+    <form id="mfa-form" class="stack hidden" novalidate>
+      <div class="field">
+        <label for="mfa-code" id="mfa-label">Authentication code</label>
+        <input id="mfa-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" required
+               aria-describedby="mfa-hint" spellcheck="false">
+        <span class="hint" id="mfa-hint">Enter the 6-digit code from your authenticator app.</span>
+      </div>
+      <button class="btn primary lg" type="submit">Verify</button>
+      <div class="row between">
+        <button class="btn ghost sm" type="button" id="mfa-toggle">Use a recovery code instead</button>
+        <button class="btn ghost sm" type="button" data-view="login">Start over</button>
+      </div>
+    </form>
+
+    <form id="forgot-form" class="stack hidden" novalidate>
+      <div class="field">
+        <label for="identifier">Card number or email</label>
+        <input id="identifier" name="identifier" autocomplete="username" required>
+        <span class="hint">We'll e-mail a link to reset your password. The link expires in 30 minutes.</span>
+      </div>
+      <button class="btn primary lg" type="submit">Send reset link</button>
+      <button class="btn ghost sm" type="button" data-view="login" style="align-self:flex-start">Back to sign in</button>
+    </form>
+
+    <details class="small muted" id="demo-accounts">
       <summary>Demo accounts</summary>
       <div class="stack tight" style="margin-top:.5rem">
         <button type="button" class="chip" data-demo="admin">Administrator</button>

@@ -428,3 +428,188 @@ class AuditLog(Base):
     ip: Mapped[str | None] = mapped_column(String(64))
 
     actor: Mapped[Patron | None] = relationship(lazy="joined")
+
+
+# ---- serials & course reserves ----
+# Serials control (subscriptions, predicted issues, claims) and course reserves. Koha equivalents:
+# subscription / serial / claims and course_reserves / course_items.
+
+
+class SubscriptionStatus(enum.StrEnum):
+    active = "active"
+    expired = "expired"
+    cancelled = "cancelled"
+
+
+class SerialIssueStatus(enum.StrEnum):
+    expected = "expected"
+    arrived = "arrived"
+    late = "late"
+    missing = "missing"
+    claimed = "claimed"
+    not_published = "not_published"
+
+
+class Subscription(TimestampMixin, Base):
+    """A standing order for a serial title. ``numbering`` holds the enumeration levels, outermost first:
+    ``{"X": {"start": 1, "increment": 1, "max": None, "reset": 1, "yearly": False, "labels": []}, ...}``."""
+
+    __tablename__ = "serial_subscriptions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    biblio_id: Mapped[int] = mapped_column(ForeignKey("biblios.id", ondelete="CASCADE"), index=True)
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"), index=True)
+    budget_id: Mapped[int | None] = mapped_column(ForeignKey("budgets.id", ondelete="SET NULL"))
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), index=True)
+    status: Mapped[SubscriptionStatus] = mapped_column(
+        Enum(SubscriptionStatus), default=SubscriptionStatus.active, index=True
+    )
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date, index=True)
+    first_issue_on: Mapped[date | None] = mapped_column(Date)  # defaults to start_date
+    frequency: Mapped[str] = mapped_column(String(20), default="monthly")
+    frequency_interval: Mapped[int] = mapped_column(Integer, default=1)  # N for every_n_* frequencies
+    skip_weekdays: Mapped[list] = mapped_column(JSON, default=list)  # 0=Mon … 6=Sun (day-based only)
+    numbering_pattern: Mapped[str] = mapped_column(String(160), default="No. {X}")
+    numbering: Mapped[dict] = mapped_column(JSON, default=dict)
+    grace_days: Mapped[int] = mapped_column(Integer, default=7)
+    create_items: Mapped[bool] = mapped_column(Boolean, default=True)
+    item_type_id: Mapped[int | None] = mapped_column(ForeignKey("item_types.id", ondelete="SET NULL"))
+    shelf_location: Mapped[str | None] = mapped_column(String(64))
+    call_number: Mapped[str | None] = mapped_column(String(48))  # prefix; the issue enumeration is appended
+    price: Mapped[int | None] = mapped_column(Integer)  # annual cost in minor units (informational)
+    vendor_reference: Mapped[str | None] = mapped_column(String(64))  # the vendor's subscription number
+    notes: Mapped[str | None] = mapped_column(Text)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    biblio: Mapped[Biblio] = relationship(lazy="joined")
+    vendor: Mapped[Vendor | None] = relationship(lazy="joined")
+    budget: Mapped[Budget | None] = relationship(lazy="joined")
+    branch: Mapped[Branch] = relationship(lazy="joined")
+    item_type: Mapped[ItemType | None] = relationship(lazy="joined")
+    routing: Mapped[list[SerialRouting]] = relationship(
+        cascade="all, delete-orphan", lazy="selectin", order_by="SerialRouting.position"
+    )
+
+
+class SerialRouting(Base):
+    """Ordered routing list: each received issue is passed from person to person in this order."""
+
+    __tablename__ = "serial_routing"
+    __table_args__ = (UniqueConstraint("subscription_id", "patron_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(
+        ForeignKey("serial_subscriptions.id", ondelete="CASCADE"), index=True
+    )
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    notes: Mapped[str | None] = mapped_column(String(255))
+
+    patron: Mapped[Patron] = relationship(lazy="joined")
+
+
+class SerialIssue(TimestampMixin, Base):
+    __tablename__ = "serial_issues"
+    __table_args__ = (
+        UniqueConstraint("subscription_id", "sequence"),
+        Index("ix_serial_issues_status_expected", "status", "expected_on"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(
+        ForeignKey("serial_subscriptions.id", ondelete="CASCADE"), index=True
+    )
+    sequence: Mapped[int | None] = mapped_column(Integer)  # 0-based position in the prediction; NULL = manual
+    numbers: Mapped[list] = mapped_column(JSON, default=list)  # numbering-level values, outermost first
+    enumeration: Mapped[str] = mapped_column(String(160))
+    chronology: Mapped[str | None] = mapped_column(String(64))
+    expected_on: Mapped[date] = mapped_column(Date)
+    received_on: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[SerialIssueStatus] = mapped_column(
+        Enum(SerialIssueStatus), default=SerialIssueStatus.expected
+    )
+    manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    claim_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_claimed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"))
+    notes: Mapped[str | None] = mapped_column(String(255))
+
+    subscription: Mapped[Subscription] = relationship(lazy="joined")
+    item: Mapped[Item | None] = relationship(lazy="joined")
+
+
+class SerialClaim(Base):
+    """One claim sent to a vendor for a late or missing issue. Claims generated together share a batch."""
+
+    __tablename__ = "serial_claims"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    batch: Mapped[str] = mapped_column(String(32), index=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("serial_issues.id", ondelete="CASCADE"), index=True)
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
+    claimed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    claimed_by_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"))
+    note: Mapped[str | None] = mapped_column(String(500))
+
+    issue: Mapped[SerialIssue] = relationship(lazy="joined")
+    vendor: Mapped[Vendor | None] = relationship(lazy="joined")
+    claimed_by: Mapped[Patron | None] = relationship(lazy="joined")
+
+
+class CourseInstructor(Base):
+    __tablename__ = "course_instructors"
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), primary_key=True)
+
+    patron: Mapped[Patron] = relationship(lazy="joined")
+
+
+class Course(TimestampMixin, Base):
+    __tablename__ = "courses"
+    __table_args__ = (UniqueConstraint("code", "section", "term"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), index=True)
+    section: Mapped[str] = mapped_column(String(16), default="")
+    name: Mapped[str] = mapped_column(String(200))
+    department: Mapped[str | None] = mapped_column(String(120), index=True)
+    term: Mapped[str] = mapped_column(String(40), default="", index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    public_notes: Mapped[str | None] = mapped_column(Text)
+    staff_notes: Mapped[str | None] = mapped_column(Text)
+
+    instructors: Mapped[list[CourseInstructor]] = relationship(cascade="all, delete-orphan", lazy="selectin")
+    reserves: Mapped[list[CourseReserve]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class CourseItem(TimestampMixin, Base):
+    """Reserve settings for one item (or a whole title when ``item_id`` is NULL), shared by every course
+    that reserves it. While any of those courses is active the overrides are applied to the item and the
+    item's previous values are kept in ``original_*`` so they can be restored afterwards."""
+
+    __tablename__ = "course_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    biblio_id: Mapped[int] = mapped_column(ForeignKey("biblios.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), unique=True)
+    item_type_id: Mapped[int | None] = mapped_column(ForeignKey("item_types.id", ondelete="SET NULL"))
+    shelf_location: Mapped[str | None] = mapped_column(String(64))
+    swapped: Mapped[bool] = mapped_column(Boolean, default=False)
+    original_item_type_id: Mapped[int | None] = mapped_column(ForeignKey("item_types.id", ondelete="SET NULL"))
+    original_shelf_location: Mapped[str | None] = mapped_column(String(64))
+
+    biblio: Mapped[Biblio] = relationship(lazy="joined")
+    item: Mapped[Item | None] = relationship(lazy="joined")
+    item_type: Mapped[ItemType | None] = relationship(foreign_keys=[item_type_id], lazy="joined")
+    original_item_type: Mapped[ItemType | None] = relationship(foreign_keys=[original_item_type_id], lazy="joined")
+    reserves: Mapped[list[CourseReserve]] = relationship(back_populates="course_item", lazy="selectin")
+
+
+class CourseReserve(TimestampMixin, Base):
+    __tablename__ = "course_reserves"
+    __table_args__ = (UniqueConstraint("course_id", "course_item_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    course_item_id: Mapped[int] = mapped_column(ForeignKey("course_items.id", ondelete="CASCADE"), index=True)
+    public_note: Mapped[str | None] = mapped_column(String(500))
+    staff_note: Mapped[str | None] = mapped_column(String(500))
+
+    course: Mapped[Course] = relationship(back_populates="reserves", lazy="joined")
+    course_item: Mapped[CourseItem] = relationship(back_populates="reserves", lazy="joined")

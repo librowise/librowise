@@ -1,4 +1,14 @@
-"""Database engine, session handling and full-text index maintenance."""
+"""Database engine, session handling and full-text index maintenance.
+
+Two databases are first-class:
+
+* **SQLite** (default) — WAL mode, FTS5 virtual table ``biblio_fts`` with BM25 ranking.
+* **PostgreSQL** — ``biblio_search`` table holding a weighted ``tsvector`` (title/ISBN = A,
+  authors = B, subjects = C, series/publisher/description = D) behind a GIN index, queried with
+  ``websearch_to_tsquery`` + prefix matching and ranked with ``ts_rank_cd``.
+
+Any other SQLAlchemy dialect still works; search then falls back to ``ILIKE`` matching.
+"""
 
 from __future__ import annotations
 
@@ -27,18 +37,37 @@ def _sqlite_pragmas(dbapi_conn, _record) -> None:  # pragma: no cover - exercise
     cur.execute("PRAGMA foreign_keys=ON")
     cur.execute("PRAGMA busy_timeout=5000")
     cur.execute("PRAGMA temp_store=MEMORY")
+    cur.execute("PRAGMA cache_size=-65536")  # up to 64 MB page cache per connection
     cur.close()
+    # Unicode-aware lower() (SQLite's built-in only folds ASCII); used by catalogue filters.
+    dbapi_conn.create_function("py_lower", 1, _py_lower, deterministic=True)
+
+
+def _py_lower(value):
+    return value.lower() if isinstance(value, str) else value
 
 
 def init_engine(url: str | None = None) -> Engine:
     """(Re)create the global engine. Tests call this with an isolated database URL."""
     global _engine, _SessionLocal
-    url = url or get_settings().database_url
+    settings = get_settings()
+    url = url or settings.database_url
     kwargs: dict = {"future": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
     else:
-        kwargs.update(pool_pre_ping=True, pool_size=10, max_overflow=20)
+        kwargs.update(
+            pool_pre_ping=True,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_recycle=settings.db_pool_recycle,
+            pool_timeout=settings.db_pool_timeout,
+        )
+        if url.startswith("postgresql") and settings.db_statement_timeout_ms:
+            kwargs["connect_args"] = {
+                "application_name": "shelfwise",
+                "options": f"-c statement_timeout={int(settings.db_statement_timeout_ms)}",
+            }
     _engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
         event.listen(_engine, "connect", _sqlite_pragmas)
@@ -82,9 +111,17 @@ def session_scope() -> Iterator[Session]:
         db.close()
 
 
+def dialect_name(bind=None) -> str:
+    """``sqlite`` | ``postgresql`` | other dialect name, for an engine, connection or session."""
+    if bind is None:
+        bind = get_engine()
+    elif isinstance(bind, Session):
+        bind = bind.get_bind()
+    return bind.dialect.name
+
+
 # --------------------------------------------------------------------------------------
-# Full-text search (SQLite FTS5). Postgres deployments fall back to ILIKE queries; a
-# tsvector index can be added with a migration without touching the service layer.
+# Full-text search DDL
 # --------------------------------------------------------------------------------------
 
 FTS_DDL = [
@@ -96,10 +133,29 @@ FTS_DDL = [
     """,
 ]
 
+PG_SEARCH_DDL = [
+    """
+    CREATE TABLE IF NOT EXISTS biblio_search (
+        biblio_id integer PRIMARY KEY REFERENCES biblios(id) ON DELETE CASCADE,
+        document tsvector NOT NULL,
+        title_len smallint NOT NULL DEFAULT 0
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS ix_biblio_search_document ON biblio_search USING GIN (document)",
+]
+
+#: Tables that live outside SQLAlchemy metadata (raw DDL above).
+EXTRA_TABLES = {"sqlite": ["biblio_fts"], "postgresql": ["biblio_search"]}
+
 
 def fts_available(engine: Engine | None = None) -> bool:
-    engine = engine or get_engine()
-    return engine.dialect.name == "sqlite"
+    """True when the SQLite FTS5 index is in use (kept for backwards compatibility)."""
+    return dialect_name(engine) == "sqlite"
+
+
+def search_backend(bind=None) -> str:
+    """``fts5`` (SQLite), ``tsvector`` (PostgreSQL) or ``like`` (portable fallback)."""
+    return {"sqlite": "fts5", "postgresql": "tsvector"}.get(dialect_name(bind), "like")
 
 
 def create_all() -> None:
@@ -107,17 +163,48 @@ def create_all() -> None:
 
     engine = get_engine()
     Base.metadata.create_all(engine)
-    if fts_available(engine):
+    backend = search_backend(engine)
+    ddl = FTS_DDL if backend == "fts5" else PG_SEARCH_DDL if backend == "tsvector" else []
+    if ddl:
         with engine.begin() as conn:
-            for ddl in FTS_DDL:
-                conn.execute(text(ddl))
+            for stmt in ddl:
+                conn.execute(text(stmt))
 
 
 def drop_all() -> None:
     from . import models  # noqa: F401
 
     engine = get_engine()
-    if fts_available(engine):
-        with engine.begin() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS biblio_fts"))
+    cascade = " CASCADE" if engine.dialect.name == "postgresql" else ""
+    with engine.begin() as conn:
+        for table in EXTRA_TABLES.get(engine.dialect.name, []):
+            conn.execute(text(f"DROP TABLE IF EXISTS {table}{cascade}"))
     Base.metadata.drop_all(engine)
+
+
+def truncate_all() -> None:
+    """Delete every row from every table (fast per-test reset on PostgreSQL)."""
+    from . import models  # noqa: F401
+
+    engine = get_engine()
+    quote = engine.dialect.identifier_preparer.quote
+    names = [t.name for t in Base.metadata.sorted_tables] + EXTRA_TABLES.get(engine.dialect.name, [])
+    with engine.begin() as conn:
+        if engine.dialect.name == "postgresql":
+            conn.execute(text(f"TRUNCATE TABLE {', '.join(quote(n) for n in names)} RESTART IDENTITY CASCADE"))
+        else:
+            for name in reversed(names):
+                conn.execute(text(f"DELETE FROM {quote(name)}"))
+
+
+def pool_stats(engine: Engine | None = None) -> dict[str, int]:
+    """Connection-pool counters for metrics (zeros for pools that do not track them)."""
+    pool = (engine or get_engine()).pool
+    out = {}
+    for key in ("size", "checkedin", "checkedout", "overflow"):
+        fn = getattr(pool, key, None)
+        try:
+            out[key] = int(fn()) if callable(fn) else 0
+        except Exception:  # pragma: no cover - pool implementations vary
+            out[key] = 0
+    return out

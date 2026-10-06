@@ -28,7 +28,7 @@ def config(db: Session = Depends(get_db)):
 def home(db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
     """Landing-page shelves: trending, new arrivals and (if signed in) personal picks."""
     trending_ids = [b for b, _ in recommend.trending(db, days=120, limit=12)]
-    new_ids = catalog.search(db, None, page=1, per_page=12, sort="newest").ids
+    new_ids = catalog.search(db, None, page=1, per_page=12, sort="newest", facets=False).ids
     shelves = [{"key": "trending", "title": "Trending now", "ids": trending_ids},
                {"key": "new", "title": "New arrivals", "ids": new_ids}]
     if user is not None:

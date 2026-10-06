@@ -93,3 +93,28 @@ router.add_api_route("/staff/catalog/new", _staff("staff-record-edit", "staff/re
 router.add_api_route("/staff/catalog/{biblio_id}", _staff("staff-record", "staff/record.html"), methods=["GET"])
 router.add_api_route("/staff/catalog/{biblio_id}/edit", _staff("staff-record-edit", "staff/record_edit.html"), methods=["GET"])
 router.add_api_route("/staff/patrons/{patron_id}", _staff("staff-patron", "staff/patron.html"), methods=["GET"])
+
+
+# ---- serials & course reserves ----
+STAFF_NAV += [
+    ("serials", "/staff/serials", "Serials", "inbox"),
+    ("courses", "/staff/courses", "Course reserves", "list"),
+]
+router.add_api_route("/staff/serials", _staff("staff-serials", "staff/serials.html"), methods=["GET"],
+                     response_class=HTMLResponse)
+router.add_api_route("/staff/serials/claims/{batch}", _staff("staff-serials", "staff/serial_claims.html"), methods=["GET"])
+router.add_api_route("/staff/serials/{subscription_id}", _staff("staff-serials", "staff/serial.html"), methods=["GET"])
+router.add_api_route("/staff/courses", _staff("staff-courses", "staff/courses.html"), methods=["GET"],
+                     response_class=HTMLResponse)
+router.add_api_route("/staff/courses/{course_id}", _staff("staff-courses", "staff/course.html"), methods=["GET"])
+
+
+@router.get("/courses", response_class=HTMLResponse)
+def opac_courses(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    return _render(request, "opac/courses.html", "opac-courses", user, db, path_params={})
+
+
+@router.get("/courses/{course_id}", response_class=HTMLResponse)
+def opac_course(course_id: int, request: Request, db: Session = Depends(get_db),
+                user: Patron | None = Depends(optional_user)):
+    return _render(request, "opac/courses.html", "opac-courses", user, db, path_params={"course_id": course_id})

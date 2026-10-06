@@ -1,4 +1,4 @@
-import { $, BOOT, api, authors, availabilityBadge, badge, cover, empty, html, icon, modal, raw, relative, toast, withBusy } from "/static/js/core.js";
+import { $, BOOT, api, authors, availabilityBadge, badge, cover, date, empty, html, icon, modal, raw, relative, toast, withBusy } from "/static/js/core.js";
 import { bookCard } from "/static/js/pages/opac-home.js";
 
 const LANG = { en: "English", hi: "Hindi", bn: "Bengali", fr: "French", es: "Spanish", de: "German" };
@@ -66,6 +66,7 @@ export default async function init() {
       <div class="card"><div class="card-head"><h3>Reviews</h3></div><div class="card-body" id="reviews">${reviews(b)}</div></div>
     </div></div>`;
 
+  if (b.material_type === "serial") latestIssues(b.id);
   $("#share").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(location.href); toast("Link copied", "success"); } catch { toast(location.href); }
   });
@@ -129,4 +130,21 @@ export default async function init() {
       $("#related-section").hidden = false;
     }
   } catch { /* recommendations are optional */ }
+}
+
+// ---- serials: "Latest issues" card for serial records (additive; fails silently) ----
+async function latestIssues(biblioId) {
+  let r;
+  try { r = await api(`/serials/public/biblios/${biblioId}/issues`); } catch { return; }
+  if (!r.results.length && !r.next_expected_on) return;
+  const anchor = $("#reviews")?.closest(".card");
+  if (!anchor) return;
+  anchor.insertAdjacentHTML("beforebegin", html`<section class="card" aria-labelledby="latest-issues-h">
+    <div class="card-head"><h3 id="latest-issues-h">Latest issues</h3>
+      <span class="muted small">${r.frequency || ""}${r.next_expected_on ? ` · next expected ${date(r.next_expected_on)}` : ""}</span></div>
+    <div class="card-body" style="padding-top:.5rem">${r.results.length ? html`<div class="table-wrap"><table class="table">
+      <thead><tr><th>Issue</th><th>Received</th><th>Location</th><th>Status</th></tr></thead>
+      <tbody>${r.results.map((i) => html`<tr><td><strong>${i.enumeration}</strong><div class="tiny muted">${i.chronology || ""}</div></td>
+        <td class="nowrap">${date(i.received_on)}</td><td>${i.branch}</td><td>${i.status ? badge(i.status) : html`<span class="muted small">In library</span>`}</td></tr>`)}</tbody>
+      </table></div>` : html`<p class="muted small">No issues received yet.</p>`}</div></section>`);
 }

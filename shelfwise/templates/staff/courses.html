@@ -1,0 +1,35 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Course reserves{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Course reserves</h1>
+    <div class="sub">Courses, instructors and short-loan reserve copies. Deactivating a course restores its items.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" id="end-term"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>End of term…</button>
+    <button class="btn primary" id="new-course"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New course</button>
+  </div>
+</div>
+
+<form class="card pad row" id="course-filters" role="search" style="margin-bottom:1.25rem">
+  <div class="field grow"><label for="cf-q">Search</label>
+    <input id="cf-q" name="q" type="search" placeholder="Code, name, department or instructor" autocomplete="off" data-search-focus></div>
+  <div class="field"><label for="cf-dept">Department</label><select id="cf-dept" name="department"><option value="">All departments</option></select></div>
+  <div class="field"><label for="cf-term">Term</label><select id="cf-term" name="term"><option value="">All terms</option></select></div>
+  <div class="field"><label for="cf-active">Status</label>
+    <select id="cf-active" name="active"><option value="true">Active</option><option value="false">Inactive</option><option value="">All</option></select></div>
+</form>
+
+<section class="card flush" aria-labelledby="courses-h">
+  <div class="card-head" style="padding-bottom:var(--pad)">
+    <h2 id="courses-h">Courses <span class="muted small" id="course-count"></span></h2>
+    <div class="row tight" id="course-bulk" hidden>
+      <span class="small muted" id="course-selected"></span>
+      <button class="btn sm" data-bulk="activate">Activate selected</button>
+      <button class="btn sm danger" data-bulk="deactivate">Deactivate selected</button>
+    </div>
+  </div>
+  <div class="card-body" id="course-list"></div>
+</section>
+{% endblock %}

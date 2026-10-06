@@ -402,3 +402,50 @@ dialog.wide { width: min(860px, calc(100vw - 2rem)); }
 @media (max-width: 1000px) { .grid.split { grid-template-columns: 1fr; } }
 .record-layout > *, .results-layout > *, .desk > *, .grid > * { min-width: 0; }
 @media (max-width: 640px) { .opac-header .inner { flex-wrap: wrap; } .opac-header nav { margin-left: 0; } .hero .inner { padding: 2rem 1rem; } .searchbox { flex-wrap: wrap; } .searchbox input { flex: 1 1 100%; } }
+
+/* ---------------------------------------------------------------- serials & course reserves */
+.sc-form fieldset, .sc-fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .75rem .9rem .9rem; margin: 0; min-width: 0; }
+.sc-form legend, .sc-fieldset > legend { font-weight: 700; font-size: .85rem; padding: 0 .35rem; color: var(--text-2); }
+.sc-form .sc-weekdays { border: 0; padding: 0; }
+.sc-form .sc-weekdays > legend { padding: 0; margin-bottom: .3rem; font-weight: 600; }
+.label-like { display: block; font-weight: 600; font-size: .85rem; color: var(--text-2); margin-bottom: .3rem; }
+dialog.sc-xwide { width: min(1180px, calc(100vw - 2rem)); }
+.sc-levels input[type=number] { width: 5.5rem; padding: .35rem .5rem; }
+.sc-levels input[type=text] { min-width: 10rem; padding: .35rem .5rem; }
+.sc-levels th, .sc-levels td { padding: .35rem .5rem; }
+.sc-levels label.checkbox { margin: 0; font-family: var(--mono); }
+.sc-preview { position: sticky; top: 0; background: var(--surface-2); }
+.sc-predicted { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: .5rem; }
+.sc-predicted li { display: flex; flex-direction: column; }
+.sc-filters { align-items: flex-end; }
+.sc-counts { margin: -.5rem 0 .5rem; }
+.sc-count { font-size: .85rem; color: var(--muted); padding: .2rem .6rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.sc-count .num { font-weight: 700; color: var(--text); }
+.sc-bulkbar { padding: .6rem var(--pad); border-bottom: 1px solid var(--border); background: var(--surface-2); margin-top: var(--pad); }
+.sc-bulkbar .spacer { flex: 1; }
+.sc-issues tr[data-row]:focus { outline: none; background: color-mix(in srgb, var(--focus) 10%, transparent); box-shadow: inset 3px 0 0 var(--focus); }
+.sc-issues td .btn + .btn { margin-left: .25rem; }
+.sc-kbd-hint { margin: .75rem 0 0; }
+.sc-routing, .sc-claims { margin: .6rem 0 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: .3rem; font-size: .92rem; }
+.sc-claims { padding-left: 1rem; }
+.sc-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.sc-people.ordered { counter-reset: sc-people; }
+.sc-people li { display: flex; align-items: center; gap: .3rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.sc-people.ordered li:not(.muted)::before { counter-increment: sc-people; content: counter(sc-people) "."; font-weight: 700; color: var(--muted); min-width: 1.4rem; }
+.sc-people .sc-note { margin-top: .25rem; padding: .25rem .5rem; font-size: .85rem; }
+.sc-people-results { display: flex; flex-wrap: wrap; gap: .35rem; }
+.sc-claim-list { margin: 0; padding-left: 1.2rem; }
+.sc-find { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem 0; border-bottom: 1px dashed var(--border); }
+.sc-copies { flex-basis: 100%; display: flex; flex-direction: column; gap: .35rem; padding: .35rem 0 .2rem .75rem; border-left: 2px solid var(--border); }
+.sc-sep { border: 0; border-top: 1px solid var(--border); margin: .25rem 0; width: 100%; }
+.sc-course-card { min-height: 9rem; }
+.sc-letter { display: flex; flex-direction: column; gap: .75rem; max-width: 860px; }
+.sc-letter-to { padding: .75rem 0; }
+.sc-letter-subject { font-size: 1.15rem; margin: 0; }
+.sc-letter p { margin: 0; line-height: 1.55; }
+@media print {
+  .claim-letters-head, .sc-letter-actions { display: none !important; }
+  .content { padding: 0 !important; }
+  .sc-letter { border: 0 !important; box-shadow: none !important; max-width: none; page-break-after: always; break-after: page; }
+  .sc-letter:last-child { page-break-after: auto; break-after: auto; }
+}

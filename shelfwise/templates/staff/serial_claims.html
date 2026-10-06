@@ -1,0 +1,15 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Claim letters{% endblock %}
+{% block content %}
+<div class="page-head claim-letters-head">
+  <div>
+    <nav class="small muted" style="margin-bottom:.5rem"><a href="/staff/serials">← Serials</a></nav>
+    <h1>Claim letters</h1>
+    <div class="sub">One letter per vendor. Print them or email the vendor directly.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn primary" id="print-letters"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Print letters</button>
+  </div>
+</div>
+<div id="claim-letters" class="stack"><div class="card pad"><div class="skeleton" style="height:12rem"></div></div></div>
+{% endblock %}

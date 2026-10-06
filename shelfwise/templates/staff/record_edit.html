@@ -1,0 +1,47 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Edit record{% endblock %}
+{% block content %}
+<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/catalog">Catalogue</a> / <span id="crumb">New record</span></nav>
+<div class="page-head">
+  <div><h1 id="heading">New record</h1><div class="sub">Start from an ISBN to fetch metadata, then let AI suggest subjects and classification.</div></div>
+</div>
+<div class="grid split">
+  <form id="rec-form" class="card pad stack" novalidate>
+    <div class="field"><label for="isbn">ISBN</label>
+      <div class="input-group"><input id="isbn" name="isbn" placeholder="978…" autocomplete="off">
+        <button class="btn" type="button" id="isbn-lookup"><svg class="icon"><use href="#i-search"></use></svg>Fetch metadata</button></div>
+      <span class="hint" id="isbn-hint">Looks up Open Library and checks for duplicates in your catalogue.</span></div>
+    <div class="grid cols-2">
+      <div class="field" style="grid-column:1/-1"><label for="title">Title *</label><input id="title" name="title" required maxlength="500"></div>
+      <div class="field" style="grid-column:1/-1"><label for="subtitle">Subtitle</label><input id="subtitle" name="subtitle" maxlength="500"></div>
+      <div class="field" style="grid-column:1/-1"><label for="authors">Authors</label><input id="authors" name="authors" placeholder="Surname, Forename; Surname, Forename"><span class="hint">Separate multiple authors with semicolons.</span></div>
+      <div class="field"><label for="publisher">Publisher</label><input id="publisher" name="publisher"></div>
+      <div class="field"><label for="pub_year">Year</label><input id="pub_year" name="pub_year" type="number" min="0" max="2100"></div>
+      <div class="field"><label for="edition">Edition</label><input id="edition" name="edition"></div>
+      <div class="field"><label for="pages">Pages</label><input id="pages" name="pages" type="number" min="0"></div>
+      <div class="field"><label for="material_type">Format</label><select id="material_type" name="material_type"></select></div>
+      <div class="field"><label for="language">Language (ISO code)</label><input id="language" name="language" value="en" maxlength="8"></div>
+      <div class="field"><label for="audience">Audience</label><select id="audience" name="audience"><option value="">—</option><option value="children">Children</option><option value="young_adult">Young adult</option><option value="adult">Adult</option></select></div>
+      <div class="field"><label for="classification">Classification (Dewey)</label><input id="classification" name="classification" class="mono"></div>
+      <div class="field"><label for="series">Series</label><input id="series" name="series"></div>
+      <div class="field"><label for="cover_url">Cover image URL</label><input id="cover_url" name="cover_url" type="url"></div>
+      <div class="field" style="grid-column:1/-1"><label for="subjects">Subjects</label><input id="subjects" name="subjects" placeholder="Subject; Subject -- Subdivision"><span class="hint">Separate with semicolons.</span></div>
+      <div class="field" style="grid-column:1/-1"><label for="description">Description / summary</label><textarea id="description" name="description" maxlength="20000"></textarea></div>
+    </div>
+    <div id="dupes"></div>
+    <div class="row end"><a class="btn" href="/staff/catalog" id="cancel">Cancel</a><button class="btn primary" type="submit" id="save">Save record</button></div>
+  </form>
+  <aside class="stack">
+    <div class="card panel-ai"><div class="card-head"><h3><svg class="icon"><use href="#i-sparkle"></use></svg> AI assistant</h3><span class="badge ai" id="ai-engine">…</span></div>
+      <div class="card-body stack">
+        <p class="small muted">Fill in a title and a description (or fetch by ISBN), then ask for suggestions. Nothing is applied until you click.</p>
+        <button class="btn ai" type="button" id="suggest"><svg class="icon"><use href="#i-sparkle"></use></svg>Suggest subjects & classification</button>
+        <div id="suggestions"></div>
+      </div></div>
+    <div class="card pad small muted stack tight"><strong>Tips</strong>
+      <span>• Required: title only. Everything else improves search and recommendations.</span>
+      <span>• Items (barcodes) are added from the record page after saving.</span>
+      <span>• Bulk loads: import MARC21/MARCXML (including Koha exports with 952 holdings) in Administration → System.</span></div>
+  </aside>
+</div>
+{% endblock %}

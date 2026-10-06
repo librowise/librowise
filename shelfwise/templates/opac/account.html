@@ -1,0 +1,24 @@
+{% extends "opac_base.html" %}
+{% block title %}My account · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-head">
+    <div class="row">
+      <div class="avatar lg">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
+      <div><h1>Hello, {{ user.first_name }}</h1><div class="sub">Card {{ user.card_number }} · {{ user.category.name }} · {{ user.home_branch.name }}{% if user.expires_on %} · member until {{ user.expires_on.strftime('%d %b %Y') }}{% endif %}</div></div>
+    </div>
+  </div>
+  <div id="blocks"></div>
+  <div class="grid cols-4" id="stats" style="margin-bottom:1.25rem"></div>
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="loans" aria-selected="true">Loans</button>
+    <button role="tab" data-tab="holds" aria-selected="false">Holds</button>
+    <button role="tab" data-tab="foryou" aria-selected="false">For you</button>
+    <button role="tab" data-tab="lists" aria-selected="false">Reading lists</button>
+    <button role="tab" data-tab="history" aria-selected="false">History</button>
+    <button role="tab" data-tab="charges" aria-selected="false">Charges</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+  </div>
+  <div id="panel" role="tabpanel"></div>
+</div>
+{% endblock %}

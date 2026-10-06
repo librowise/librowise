@@ -1,0 +1,70 @@
+{% extends "staff_base.html" %}
+{% block page_title %}AI Insights{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>AI Insights <span id="ai-engine"></span></h1>
+    <div class="sub">Transparent models over your live data: late-return risk, duplicate records, weeding and purchase demand.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" id="insights-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
+    <button class="btn ai" id="ask-copilot"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>Ask copilot</button>
+  </div>
+</div>
+
+<section class="card" aria-labelledby="risk-h" style="margin-bottom:1.25rem">
+  <div class="card-head">
+    <div>
+      <h2 id="risk-h">Overdue risk</h2>
+      <div class="small muted">Open loans scored by the probability of a late return (patron history, renewals, days left, current overdues).</div>
+    </div>
+    <div class="row tight" id="risk-filter" role="group" aria-label="Filter by risk level"></div>
+  </div>
+  <div class="card-body" id="ins-risk"></div>
+</section>
+
+<section class="card panel-ai" aria-labelledby="nl-h" style="margin-bottom:1.25rem">
+  <div class="card-head">
+    <div>
+      <h2 id="nl-h">Natural-language query lab</h2>
+      <div class="small muted">See exactly how the smart search understands a patron's query before it runs.</div>
+    </div>
+  </div>
+  <div class="card-body stack">
+    <form id="nl-form" class="stack tight" role="search">
+      <label for="nl-q">Query</label>
+      <div class="input-group">
+        <input id="nl-q" name="q" type="search" maxlength="500" autocomplete="off" placeholder="e.g. mystery novels by Agatha Christie available now" required>
+        <button class="btn primary" type="submit">Interpret</button>
+      </div>
+      <div class="row tight" id="nl-examples"></div>
+    </form>
+    <div id="nl-result" aria-live="polite"></div>
+  </div>
+</section>
+
+<div class="grid cols-2" style="margin-bottom:1.25rem">
+  <section class="card" aria-labelledby="dup-h">
+    <div class="card-head">
+      <h2 id="dup-h">Duplicate records</h2>
+      <span class="small muted">Same ISBN or near-identical title &amp; author</span>
+    </div>
+    <div class="card-body" id="ins-dups"></div>
+  </section>
+  <section class="card" aria-labelledby="demand-h">
+    <div class="card-head">
+      <h2 id="demand-h">Purchase demand</h2>
+      <a class="btn sm" href="/staff/acquisitions">Open acquisitions</a>
+    </div>
+    <div class="card-body" id="ins-demand"></div>
+  </section>
+</div>
+
+<section class="card" aria-labelledby="weed-h">
+  <div class="card-head">
+    <h2 id="weed-h">Weeding candidates</h2>
+    <a class="btn sm" href="/staff/reports#weeding">Full report</a>
+  </div>
+  <div class="card-body" id="ins-weeding"></div>
+</section>
+{% endblock %}

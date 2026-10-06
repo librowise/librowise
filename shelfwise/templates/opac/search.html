@@ -1,0 +1,35 @@
+{% extends "opac_base.html" %}
+{% block title %}{% if q %}{{ q }} · {% endif %}Search · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap">
+  <form class="searchbox" id="search-form" role="search" style="margin-bottom:1.25rem">
+    <svg class="icon muted" style="margin-left:.6rem"><use href="#i-search"></use></svg>
+    <input name="q" id="q" type="search" value="{{ q }}" placeholder="Search titles, authors, subjects, ISBN — or describe what you want" aria-label="Search the catalogue" data-search-focus autocomplete="off">
+    <input type="hidden" name="mode" value="keyword">
+    <div class="mode" role="group" aria-label="Search mode">
+      <button type="button" data-mode="smart" aria-pressed="false" title="Understands natural language"><svg class="icon"><use href="#i-sparkle"></use></svg>AI</button>
+      <button type="button" data-mode="keyword" aria-pressed="true">Keyword</button>
+    </div>
+    <button class="btn primary" type="submit">Search</button>
+  </form>
+  <div class="results-layout">
+    <aside class="facets" id="facets" aria-label="Refine results"></aside>
+    <section>
+      <div class="row between" style="margin-bottom:.75rem">
+        <div id="summary" class="muted small" aria-live="polite"></div>
+        <div class="row tight">
+          <label class="checkbox small"><input type="checkbox" id="available-only"> Available now</label>
+          <label for="sort" class="sr-only">Sort</label>
+          <select id="sort" style="width:auto">
+            <option value="relevance">Best match</option><option value="newest">Newest additions</option>
+            <option value="title">Title A–Z</option><option value="year_desc">Year (newest)</option><option value="year_asc">Year (oldest)</option>
+          </select>
+        </div>
+      </div>
+      <div id="interpretation"></div>
+      <div class="card flush"><div class="card-body" id="results"></div></div>
+      <div id="pager" class="pager"></div>
+    </section>
+  </div>
+</div>
+{% endblock %}

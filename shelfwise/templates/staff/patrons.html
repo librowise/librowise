@@ -1,0 +1,16 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Patrons{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Patrons</h1><div class="sub">Search members, register new ones, and manage accounts.</div></div>
+  <button class="btn primary" id="new-patron"><svg class="icon"><use href="#i-user-plus"></use></svg>Register patron</button>
+</div>
+<form id="p-search" class="card pad row" role="search">
+  <div class="field grow"><label for="pq">Name, card number or email</label><input id="pq" name="q" type="search" data-search-focus autocomplete="off"></div>
+  <div class="field"><label for="prole">Role</label><select id="prole" name="role"><option value="">All</option><option value="patron">Patrons</option><option value="librarian">Librarians</option><option value="admin">Admins</option></select></div>
+  <div class="field"><label>&nbsp;</label><button class="btn primary">Search</button></div>
+</form>
+<div class="row between" style="margin:1rem 0 .5rem"><span id="p-summary" class="muted small"></span></div>
+<div class="card flush"><div class="table-wrap" id="p-results"></div></div>
+<div class="pager" id="p-pager"></div>
+{% endblock %}

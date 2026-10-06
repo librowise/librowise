@@ -1,0 +1,20 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Reports{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Reports</h1>
+    <div class="sub">Live library statistics and vetted, parameterised reports — every one exportable as CSV.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" id="reports-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
+  </div>
+</div>
+
+<section id="rep-dashboard" aria-label="Library dashboard" style="margin-bottom:1.5rem"></section>
+
+<div class="results-layout">
+  <nav class="card pad" aria-label="Available reports" id="rep-list"></nav>
+  <section class="card flush" id="rep-output" aria-live="polite"></section>
+</div>
+{% endblock %}

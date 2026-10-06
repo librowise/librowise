@@ -1,0 +1,45 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Circulation{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Circulation desk</h1><div class="sub">Scan or type barcodes. <kbd>F2</kbd> check out · <kbd>F3</kbd> check in · <kbd>F4</kbd> receive transfer</div></div>
+  <div class="row tight">
+    <label for="desk-branch" class="sr-only">Branch</label>
+    <select id="desk-branch" style="width:auto" aria-label="Working branch"></select>
+  </div>
+</div>
+<div class="desk">
+  <section class="stack">
+    <div class="card pad stack">
+      <div class="mode-switch" role="group" aria-label="Desk mode">
+        <button data-mode="checkout" aria-pressed="true"><svg class="icon"><use href="#i-arrow-up"></use></svg>Check out</button>
+        <button data-mode="checkin" aria-pressed="false"><svg class="icon"><use href="#i-arrow-down"></use></svg>Check in</button>
+        <button data-mode="transfer" aria-pressed="false"><svg class="icon"><use href="#i-map"></use></svg>Receive transfer</button>
+      </div>
+      <form id="patron-form" class="field">
+        <label for="patron-card">Patron card number</label>
+        <div class="input-group">
+          <input id="patron-card" class="scan" placeholder="Scan library card…" autocomplete="off" inputmode="numeric">
+          <button class="btn" type="button" data-camera="patron-card" title="Scan with camera" hidden><svg class="icon"><use href="#i-barcode"></use></svg></button>
+          <button class="btn" type="submit">Load</button>
+        </div>
+        <span class="hint">Tip: you can also type a name — we'll search.</span>
+      </form>
+      <div id="patron-panel"></div>
+      <form id="item-form" class="field">
+        <label for="barcode" id="barcode-label">Item barcode</label>
+        <div class="input-group">
+          <input id="barcode" class="scan" placeholder="Scan item barcode…" autocomplete="off">
+          <button class="btn" type="button" data-camera="barcode" title="Scan with camera" hidden><svg class="icon"><use href="#i-barcode"></use></svg></button>
+          <button class="btn primary" type="submit" id="item-submit">Check out</button>
+        </div>
+      </form>
+    </div>
+    <div class="card" id="loans-card" hidden><div class="card-head"><h3>Current loans</h3><button class="btn sm" id="renew-all"><svg class="icon"><use href="#i-refresh"></use></svg>Renew all</button></div><div class="card-body" id="patron-loans"></div></div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h3>This session</h3><button class="btn ghost sm" id="print-slip"><svg class="icon"><use href="#i-download"></use></svg>Print receipt</button></div>
+    <div class="card-body" id="feed"><div class="empty"><svg class="icon"><use href="#i-barcode"></use></svg><div>Transactions appear here as you scan.</div></div></div>
+  </section>
+</div>
+{% endblock %}

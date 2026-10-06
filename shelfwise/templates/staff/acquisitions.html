@@ -1,0 +1,47 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Acquisitions{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Acquisitions</h1>
+    <div class="sub">Budgets, vendors and purchase orders — with AI demand signals from the hold queue.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" id="new-vendor"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New vendor</button>
+    <button class="btn" id="new-budget"><svg class="icon" aria-hidden="true"><use href="#i-wallet"></use></svg>New budget</button>
+    <button class="btn primary" id="new-order"><svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>New order</button>
+  </div>
+</div>
+
+<div class="grid cols-4" id="acq-stats" style="margin-bottom:1.25rem"></div>
+
+<section aria-labelledby="budgets-h" style="margin-bottom:1.25rem">
+  <h2 id="budgets-h">Budgets</h2>
+  <div class="grid auto" id="acq-budgets"></div>
+</section>
+
+<section class="card panel-ai" aria-labelledby="suggest-h" style="margin-bottom:1.25rem">
+  <div class="card-head">
+    <h2 id="suggest-h"><svg class="icon" aria-hidden="true" style="color:var(--ai)"><use href="#i-sparkle"></use></svg> AI purchase suggestions</h2>
+    <span class="small muted">Titles whose hold queues outstrip available copies</span>
+  </div>
+  <div class="card-body" id="acq-suggest"></div>
+</section>
+
+<section class="card flush" aria-labelledby="orders-h">
+  <div class="card-head" style="padding-bottom:var(--pad)">
+    <h2 id="orders-h">Purchase orders</h2>
+    <div class="row tight">
+      <label for="orders-status" class="sr-only">Filter orders by status</label>
+      <select id="orders-status" style="width:auto">
+        <option value="">All statuses</option>
+        <option value="ordered">Ordered</option>
+        <option value="draft">Draft</option>
+        <option value="received">Received</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body" id="acq-orders"></div>
+</section>
+{% endblock %}

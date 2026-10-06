@@ -1,0 +1,22 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Good to see you, {{ user.first_name }}</h1><div class="sub" id="today"></div></div>
+  <div class="row tight">
+    <a class="btn" href="/staff/circulation#checkin"><svg class="icon"><use href="#i-arrow-down"></use></svg>Check in</a>
+    <a class="btn primary" href="/staff/circulation#checkout"><svg class="icon"><use href="#i-arrow-up"></use></svg>Check out</a>
+  </div>
+</div>
+<div class="grid cols-4" id="stats">{% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:3.2rem"></div></div>{% endfor %}</div>
+<div class="grid dash" style="margin-top:1rem" id="row2">
+  <div class="card"><div class="card-head"><h3>Checkouts · last 30 days</h3><span class="muted small" id="trend-total"></span></div><div class="card-body" id="trend"></div></div>
+  <div class="card"><div class="card-head"><h3>By branch</h3></div><div class="card-body" id="by-branch"></div></div>
+  <div class="card"><div class="card-head"><h3>Collection</h3></div><div class="card-body" id="by-material"></div></div>
+</div>
+<div class="grid cols-2" style="margin-top:1rem">
+  <div class="card panel-ai"><div class="card-head"><h3><svg class="icon" style="color:var(--ai)"><use href="#i-sparkle"></use></svg> Late-return risk</h3><a class="small" href="/staff/insights">All insights →</a></div><div class="card-body" id="risk"></div></div>
+  <div class="card"><div class="card-head"><h3>Most borrowed this month</h3></div><div class="card-body" id="top"></div></div>
+</div>
+<div class="card" style="margin-top:1rem"><div class="card-head"><h3>Recent circulation</h3><a class="small" href="/staff/circulation">Open desk →</a></div><div class="card-body" id="recent"></div></div>
+{% endblock %}

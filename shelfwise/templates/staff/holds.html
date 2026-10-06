@@ -1,0 +1,25 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Holds{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Holds</h1>
+    <div class="sub">Work the reservation queue, pull copies from the shelves and manage the pickup shelf.</div>
+  </div>
+  <div class="row tight">
+    <label for="holds-branch" class="sr-only">Filter by pickup branch</label>
+    <select id="holds-branch" style="width:auto">
+      <option value="">All branches</option>
+    </select>
+    <button class="btn" id="holds-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+    <button class="btn primary" id="place-hold"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Place hold</button>
+  </div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Hold views" id="holds-tabs">
+  <button role="tab" id="tab-queue" data-tab="queue" aria-selected="true" aria-controls="holds-panel">Active queue <span class="badge hidden" id="count-queue"></span></button>
+  <button role="tab" id="tab-pull" data-tab="pull" aria-selected="false" aria-controls="holds-panel" tabindex="-1">To pull from shelves <span class="badge hidden" id="count-pull"></span></button>
+  <button role="tab" id="tab-ready" data-tab="ready" aria-selected="false" aria-controls="holds-panel" tabindex="-1">Ready for pickup <span class="badge hidden" id="count-ready"></span></button>
+</div>
+<section id="holds-panel" role="tabpanel" aria-labelledby="tab-queue" aria-live="polite"></section>
+{% endblock %}

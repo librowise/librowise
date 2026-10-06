@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{% block page_title %}Staff{% endblock %} · {{ library_name }}{% endblock %}
+{% block body %}
+<div class="shell">
+  <aside class="sidebar" aria-label="Staff navigation">
+    <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon"><use href="#i-book"></use></svg></span>Shelfwise</a>
+    {% for key, href, label, ic in staff_nav %}
+      {% if key != 'admin' or user.role.value == 'admin' %}
+      <a class="nav-link" href="{{ href }}" {% if page == 'staff-' ~ key or (key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
+        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ label }}<span class="kbd-hint">Alt+{{ loop.index }}</span>
+      </a>
+      {% endif %}
+    {% endfor %}
+    <div class="spacer"></div>
+    <a class="nav-link" href="/"><svg class="icon"><use href="#i-globe"></use></svg>Public catalogue</a>
+    <a class="nav-link" href="/api/docs" target="_blank" rel="noopener"><svg class="icon"><use href="#i-code"></use></svg>API docs</a>
+    <div class="sidebar-footer">v{{ version }} · {{ user.home_branch.name }}</div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="btn ghost icon-only menu-toggle" aria-label="Menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
+      <button class="search-trigger" data-open-palette aria-label="Open command palette">
+        <svg class="icon"><use href="#i-search"></use></svg><span>Search or run a command…</span><kbd>Ctrl K</kbd>
+      </button>
+      <div class="row tight" style="margin-left:auto">
+        <button class="btn ai sm" data-open-copilot title="AI copilot (Ctrl+J)"><svg class="icon"><use href="#i-sparkle"></use></svg><span>Copilot</span></button>
+        <button class="btn ghost icon-only" data-appearance aria-label="Appearance settings" title="Appearance"><svg class="icon"><use href="#i-palette"></use></svg></button>
+        <div class="avatar" title="{{ user.full_name }} ({{ user.role.value }})" style="width:2.1rem;height:2.1rem;font-size:.8rem">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
+        <button class="btn ghost icon-only" data-logout aria-label="Sign out" title="Sign out"><svg class="icon"><use href="#i-logout"></use></svg></button>
+      </div>
+    </header>
+    <main id="main" class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<aside class="drawer" id="copilot" aria-hidden="true" aria-label="AI copilot">
+  <div class="drawer-head">
+    <span class="brand-mark" style="width:1.8rem;height:1.8rem"><svg class="icon"><use href="#i-sparkle"></use></svg></span>
+    <div class="grow"><strong>Library copilot</strong><div class="tiny muted">Live data · <span id="copilot-engine">…</span> · read-only</div></div>
+    <button class="btn ghost icon-only" id="copilot-close" aria-label="Close copilot"><svg class="icon"><use href="#i-x"></use></svg></button>
+  </div>
+  <div class="drawer-body" id="copilot-body" aria-live="polite">
+    <div class="copilot-welcome stack tight">
+      <p class="muted small">Ask about loans, patrons, the collection or trends. Try:</p>
+      <button class="chip" data-suggest="Give me today's library overview">Today's overview</button>
+      <button class="chip" data-suggest="Which loans are overdue?">Overdue loans</button>
+      <button class="chip" data-suggest="Which loans are at risk of being returned late?">Late-return risk</button>
+      <button class="chip" data-suggest="What should we buy more copies of?">Purchase suggestions</button>
+      <button class="chip" data-suggest="Most popular titles in the last 30 days">Popular this month</button>
+      <button class="chip" data-suggest="Find books about space exploration for kids">Find books for kids about space</button>
+    </div>
+  </div>
+  <form class="drawer-foot input-group" id="copilot-form">
+    <input id="copilot-input" type="text" placeholder="Ask anything about your library…" autocomplete="off" aria-label="Question">
+    <button class="btn primary" aria-label="Send"><svg class="icon"><use href="#i-send"></use></svg></button>
+  </form>
+</aside>
+{% endblock %}

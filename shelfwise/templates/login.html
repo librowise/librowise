@@ -1,0 +1,33 @@
+{% extends "opac_base.html" %}
+{% block title %}Sign in · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap" style="max-width:440px;padding-top:3rem">
+  <div class="card pad stack">
+    <div>
+      <h1 style="font-size:1.5rem">Welcome back</h1>
+      <p class="muted">Sign in with your library card number or email.</p>
+    </div>
+    <form id="login-form" class="stack" novalidate>
+      <div class="field">
+        <label for="username">Card number or email</label>
+        <input id="username" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <div id="login-error" class="alert bad hidden" role="alert"></div>
+      <button class="btn primary lg" type="submit">Sign in</button>
+    </form>
+    <details class="small muted">
+      <summary>Demo accounts</summary>
+      <div class="stack tight" style="margin-top:.5rem">
+        <button type="button" class="chip" data-demo="admin">Administrator</button>
+        <button type="button" class="chip" data-demo="librarian">Librarian</button>
+        <button type="button" class="chip" data-demo="patron">Patron (Ananya)</button>
+        <span class="tiny">Demo credentials are defined in <code>shelfwise/seed.py</code> and only exist in seeded demo databases.</span>
+      </div>
+    </details>
+  </div>
+</div>
+{% endblock %}

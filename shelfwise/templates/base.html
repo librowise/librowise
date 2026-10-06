@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-density="comfortable">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="{{ library_name }} — search the catalogue, place holds and manage your loans.">
+  <title>{% block title %}{{ library_name }}{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
+  <script src="/static/js/theme-boot.js?v={{ version }}"></script>
+  <script type="application/json" id="boot">{{ {
+    "user": ({"id": user.id, "name": user.full_name, "card": user.card_number, "role": user.role.value,
+              "is_staff": user.is_staff, "preferences": user.preferences or {}, "home_branch_id": user.home_branch_id} if user else None),
+    "currency": "INR", "page": page, "version": version, "path_params": path_params or {}, "biblio_id": biblio_id or None,
+    "q": q or ""
+  } | tojson }}</script>
+  <script type="module" src="/static/js/core.js"></script>
+</head>
+<body data-page="{{ page }}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% include "_icons.html" %}
+  {% block body %}{% endblock %}
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

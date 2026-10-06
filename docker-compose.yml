@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: shelfwise
+      POSTGRES_PASSWORD: shelfwise
+      POSTGRES_DB: shelfwise
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelfwise"]
+      interval: 5s
+      retries: 10
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      SHELFWISE_DATABASE_URL: postgresql+psycopg://shelfwise:shelfwise@db:5432/shelfwise
+      SHELFWISE_SECRET_KEY: ${SHELFWISE_SECRET_KEY:-dev-only-change-me}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports: ["8000:8000"]
+volumes:
+  pgdata:

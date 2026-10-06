@@ -1,0 +1,23 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Catalogue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Catalogue</h1><div class="sub">Search, edit and enrich bibliographic records.</div></div>
+  <div class="row tight">
+    <a class="btn" href="/api/v1/cataloging/export?fmt=xml"><svg class="icon"><use href="#i-download"></use></svg>Export MARCXML</a>
+    <a class="btn primary" href="/staff/catalog/new"><svg class="icon"><use href="#i-plus"></use></svg>New record</a>
+  </div>
+</div>
+<form id="cat-search" class="card pad row" role="search">
+  <div class="field grow" style="min-width:240px"><label for="cq">Search</label>
+    <input id="cq" name="q" type="search" placeholder="Title, author, subject, ISBN…" data-search-focus autocomplete="off"></div>
+  <div class="field"><label for="cmt">Format</label><select id="cmt" name="material_type"><option value="">Any</option></select></div>
+  <div class="field"><label for="cbr">Branch</label><select id="cbr" name="branch_id"><option value="">Any</option></select></div>
+  <div class="field"><label for="csort">Sort</label><select id="csort" name="sort"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="title">Title</option><option value="year_desc">Year ↓</option></select></div>
+  <div class="field"><label>&nbsp;</label><label class="checkbox"><input type="checkbox" name="available_only"> Available only</label></div>
+  <div class="field"><label>&nbsp;</label><button class="btn primary">Search</button></div>
+</form>
+<div class="row between" style="margin:1rem 0 .5rem"><span id="cat-summary" class="muted small"></span></div>
+<div class="card flush"><div class="table-wrap" id="cat-results"></div></div>
+<div class="pager" id="cat-pager"></div>
+{% endblock %}

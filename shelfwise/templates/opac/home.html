@@ -1,0 +1,32 @@
+{% extends "opac_base.html" %}
+{% block content %}
+<section class="hero">
+  <div class="inner">
+    <h1>What will you read next?</h1>
+    <p>Search {{ library_name }}'s collection by keyword, or just describe what you're in the mood for.</p>
+    <form class="searchbox" id="hero-search" action="/search" role="search">
+      <svg class="icon muted" style="margin-left:.6rem"><use href="#i-search"></use></svg>
+      <input name="q" id="hero-q" type="search" placeholder="Try “funny books for kids about space”" aria-label="Search the catalogue" data-search-focus autocomplete="off">
+      <input type="hidden" name="mode" id="hero-mode" value="smart">
+      <div class="mode" role="group" aria-label="Search mode">
+        <button type="button" data-mode="smart" aria-pressed="true" title="Understands natural language"><svg class="icon"><use href="#i-sparkle"></use></svg>AI</button>
+        <button type="button" data-mode="keyword" aria-pressed="false">Keyword</button>
+      </div>
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+    <div class="suggest-chips" aria-label="Example searches">
+      <button class="chip" data-q="classic detective mysteries">Classic detective mysteries</button>
+      <button class="chip" data-q="books about space for kids">Space for kids</button>
+      <button class="chip" data-q="dystopian novels published before 1960">Dystopias before 1960</button>
+      <button class="chip" data-q="indian fiction available now">Indian fiction, on the shelf</button>
+      <button class="chip" data-q="learn artificial intelligence">Learn AI</button>
+    </div>
+  </div>
+</section>
+<div class="wrap">
+  <div id="shelves">
+    {% for _ in range(2) %}<div class="shelf"><div class="skeleton" style="height:1.4rem;width:200px"></div><div class="shelf-row" style="margin-top:1rem">{% for _ in range(6) %}<div class="skeleton" style="aspect-ratio:2/3"></div>{% endfor %}</div></div>{% endfor %}
+  </div>
+  <div id="public-lists"></div>
+</div>
+{% endblock %}

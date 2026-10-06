@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+{% if announcement %}<div class="announcement" role="note">{{ announcement }}</div>{% endif %}
+<header class="opac-header">
+  <div class="inner">
+    <a class="brand" href="/" style="padding:0"><span class="brand-mark"><svg class="icon"><use href="#i-book"></use></svg></span><span>{{ library_name }}</span></a>
+    <nav aria-label="Main">
+      <a href="/search">Browse</a>
+      {% if user %}
+        <a href="/account">My account</a>
+        {% if user.is_staff %}<a href="/staff">Staff</a>{% endif %}
+        <button class="btn ghost icon-only" data-logout aria-label="Sign out" title="Sign out"><svg class="icon"><use href="#i-logout"></use></svg></button>
+      {% else %}
+        <a class="btn primary sm" href="/login">Sign in</a>
+      {% endif %}
+      <button class="btn ghost icon-only" data-appearance aria-label="Appearance settings" title="Appearance"><svg class="icon"><use href="#i-palette"></use></svg></button>
+    </nav>
+  </div>
+</header>
+<main id="main">
+  {% block content %}{% endblock %}
+</main>
+<footer class="site"><div class="inner">
+  <span>{{ library_name }} · Powered by Shelfwise ILS v{{ version }}</span>
+  <span>Press <kbd>/</kbd> to search · <kbd>Ctrl K</kbd> for commands · <a href="/api/docs">Open API</a></span>
+</div></footer>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "opac_base.html" %}
+{% block content %}
+<div class="wrap">
+  <nav class="small muted" style="margin-bottom:1rem"><a href="/search" id="back-link">← Back to results</a></nav>
+  <div id="record"><div class="record-layout"><div class="skeleton" style="aspect-ratio:2/3;max-width:260px"></div><div><div class="skeleton" style="height:2.2rem;width:70%"></div><div class="skeleton" style="height:1rem;width:40%;margin-top:1rem"></div><div class="skeleton" style="height:8rem;margin-top:1.5rem"></div></div></div></div>
+  <section class="shelf" id="related-section" hidden>
+    <div class="shelf-head"><h2>You might also like</h2><span class="badge ai"><svg class="icon"><use href="#i-sparkle"></use></svg>AI recommendations</span></div>
+    <div class="shelf-row" id="related"></div>
+  </section>
+</div>
+{% endblock %}

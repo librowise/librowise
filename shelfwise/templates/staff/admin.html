@@ -1,0 +1,23 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Administration{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Administration</h1>
+    <div class="sub">Branches, item types, patron categories, circulation rules, system settings and maintenance.</div>
+  </div>
+</div>
+
+<div id="admin-denied"></div>
+
+<div class="tabs" role="tablist" aria-label="Administration sections" id="admin-tabs">
+  <button role="tab" id="tab-branches" data-tab="branches" aria-selected="true" aria-controls="admin-panel">Branches</button>
+  <button role="tab" id="tab-item-types" data-tab="item-types" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Item types</button>
+  <button role="tab" id="tab-categories" data-tab="categories" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Patron categories</button>
+  <button role="tab" id="tab-rules" data-tab="rules" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Circulation rules</button>
+  <button role="tab" id="tab-settings" data-tab="settings" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Settings</button>
+  <button role="tab" id="tab-audit" data-tab="audit" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Audit log</button>
+  <button role="tab" id="tab-system" data-tab="system" aria-selected="false" aria-controls="admin-panel" tabindex="-1">System</button>
+</div>
+<section id="admin-panel" role="tabpanel" aria-labelledby="tab-branches"></section>
+{% endblock %}

@@ -21,6 +21,12 @@ DEFAULTS: dict[str, tuple[Any, str]] = {
     "auto_renew_when_no_holds": (False, "Nightly job auto-renews loans without pending holds"),
     "ai_assistant_enabled": (True, "Show the AI copilot to staff"),
     "ai_opac_enabled": (True, "Allow natural-language search and recommendations in the OPAC"),
+    # ---- circulation services ----
+    "fines_skip_closed_days": (True, "Overdue fines count only days the issuing branch is open (library calendar)"),
+    "allow_self_registration": (True, "Visitors may register for a library card on the OPAC (staff approve)"),
+    "self_registration_category": ("ADULT", "Patron category code given to self-registered patrons"),
+    "allow_purchase_suggestions": (True, "Patrons may suggest titles for purchase from the OPAC"),
+    "notice_max_attempts": (5, "Delivery attempts before an outgoing notice is marked failed"),
 }
 
 

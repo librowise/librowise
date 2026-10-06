@@ -30,6 +30,8 @@ from ..models import (
     utcnow,
 )
 from . import audit
+from . import calendar as calendar_svc
+from . import holds as holds_svc
 
 ACTIVE_HOLD_STATUSES = (HoldStatus.queued, HoldStatus.ready)
 
@@ -200,7 +202,7 @@ def checkout(
     queued_others = db.scalar(
         select(func.count()).select_from(Hold).where(
             Hold.biblio_id == item.biblio_id,
-            Hold.status == HoldStatus.queued,
+            *holds_svc.routable(item.id, now.date()),
             Hold.patron_id != patron.id,
         )
     )
@@ -217,7 +219,8 @@ def checkout(
         warnings.extend(f"Overridden: {b}" for b in blocks)
 
     rule = resolve_rule(db, branch_id, patron.category_id, item.item_type_id)
-    due = due_at or end_of_day((now + timedelta(days=rule.loan_days)).date())
+    # Library calendar: a computed due date never lands on a day the issuing branch is closed.
+    due = due_at or calendar_svc.adjust_due(db, branch_id, end_of_day((now + timedelta(days=rule.loan_days)).date()))
     if patron.expires_on and due.date() > patron.expires_on:
         due = end_of_day(patron.expires_on)
         warnings.append("Due date shortened to membership expiry")
@@ -265,8 +268,13 @@ class CheckinResult:
     messages: list[str] = field(default_factory=list)
 
 
-def overdue_fine(loan: Loan, rule: EffectiveRule, when: datetime) -> int:
+def overdue_fine(loan: Loan, rule: EffectiveRule, when: datetime, db: Session | None = None) -> int:
     days_late = (when.date() - loan.due_at.date()).days
+    if db is not None and days_late > 0:
+        from . import settings as settings_svc
+
+        if settings_svc.get(db, "fines_skip_closed_days"):  # count only days the issuing branch was open
+            days_late = calendar_svc.days_late(db, loan.branch_id, loan.due_at, when)
     if days_late <= rule.grace_days:
         return 0
     return min(days_late * rule.fine_per_day, rule.fine_cap)
@@ -287,7 +295,7 @@ def checkin(
         patron = db.get(Patron, loan.patron_id) if loan.patron_id else None
         if patron:
             rule = resolve_rule(db, loan.branch_id, patron.category_id, item.item_type_id)
-            fine = overdue_fine(loan, rule, now) - loan.fine_charged
+            fine = overdue_fine(loan, rule, now, db) - loan.fine_charged
             if fine > 0:
                 db.add(LedgerEntry(patron_id=patron.id, loan_id=loan.id, kind=LedgerKind.overdue,
                                    amount=fine, note=f"Overdue: {item.biblio.title[:120]}",
@@ -332,7 +340,7 @@ def _route_to_next_hold(db: Session, item: Item, *, branch_id: int, now: datetim
         select(Hold)
         .where(
             Hold.biblio_id == item.biblio_id,
-            Hold.status == HoldStatus.queued,
+            *holds_svc.routable(item.id, now.date()),  # skips suspended / no-longer-needed / other-copy holds
             (Hold.item_id.is_(None)) | (Hold.item_id == item.id),
         )
         .order_by(Hold.created_at, Hold.id)
@@ -342,14 +350,15 @@ def _route_to_next_hold(db: Session, item: Item, *, branch_id: int, now: datetim
         return None
     rule = resolve_rule(db, hold.pickup_branch_id, hold.patron.category_id, item.item_type_id)
     hold.item = item  # assign the relationship (not just the FK) so loaded objects stay consistent
+    hold.suspended, hold.suspended_until = False, None  # a suspension that has run out ends here
     if hold.pickup_branch_id == branch_id:
         hold.status = HoldStatus.ready
         hold.ready_at = now
-        hold.expires_at = end_of_day((now + timedelta(days=rule.hold_pickup_days)).date())
+        hold.expires_at = end_of_day(calendar_svc.pickup_deadline(db, branch_id, now.date(), rule.hold_pickup_days))
         item.status = ItemStatus.on_hold_shelf
         notify(db, hold.patron, "Your hold is ready for pickup",
                f"'{item.biblio.title}' is waiting for you at {hold.pickup_branch.name} until "
-               f"{hold.expires_at:%d %b %Y}.")
+               f"{hold.expires_at:%d %b %Y}.", code="HOLD_READY", context=_hold_ready_ctx(hold, item))
     else:
         item.status = ItemStatus.in_transit
     return hold
@@ -367,12 +376,13 @@ def receive_transfer(db: Session, item: Item, *, branch_id: int, actor: Patron |
         rule = resolve_rule(db, branch_id, hold.patron.category_id, item.item_type_id)
         hold.status = HoldStatus.ready
         hold.ready_at = now
-        hold.expires_at = end_of_day((now + timedelta(days=rule.hold_pickup_days)).date())
+        hold.expires_at = end_of_day(calendar_svc.pickup_deadline(db, branch_id, now.date(), rule.hold_pickup_days))
         item.status = ItemStatus.on_hold_shelf
         result.hold = hold
         result.messages.append(f"Place on hold shelf for {hold.patron.full_name}")
         notify(db, hold.patron, "Your hold is ready for pickup",
-               f"'{item.biblio.title}' is waiting for you at {hold.pickup_branch.name}.")
+               f"'{item.biblio.title}' is waiting for you at {hold.pickup_branch.name}.",
+               code="HOLD_READY", context=_hold_ready_ctx(hold, item))
     else:
         item.status = ItemStatus.available
         result.messages.append("Item received and available")
@@ -398,7 +408,7 @@ def renewal_blocks(db: Session, loan: Loan, *, now: datetime | None = None) -> l
     queued = db.scalar(
         select(func.count()).select_from(Hold).where(
             Hold.biblio_id == loan.item.biblio_id,
-            Hold.status == HoldStatus.queued,
+            *holds_svc.routable(loan.item_id, now.date()),  # suspended holds don't block renewal
             Hold.patron_id != patron.id,
         )
     )
@@ -418,13 +428,13 @@ def renew(db: Session, loan: Loan, *, actor: Patron | None = None, override: boo
     assert patron is not None
     rule = resolve_rule(db, loan.branch_id, patron.category_id, loan.item.item_type_id)
     # Charge any fine accrued so far before moving the due date.
-    fine = overdue_fine(loan, rule, now) - loan.fine_charged
+    fine = overdue_fine(loan, rule, now, db) - loan.fine_charged
     if fine > 0:
         db.add(LedgerEntry(patron_id=patron.id, loan_id=loan.id, kind=LedgerKind.overdue,
                            amount=fine, note=f"Overdue at renewal: {loan.item.biblio.title[:100]}"))
         loan.fine_charged += fine
     base = max(now, loan.due_at) if loan.due_at > now else now
-    new_due = end_of_day((base + timedelta(days=rule.loan_days)).date())
+    new_due = calendar_svc.adjust_due(db, loan.branch_id, end_of_day((base + timedelta(days=rule.loan_days)).date()))
     if patron.expires_on and new_due.date() > patron.expires_on:
         new_due = end_of_day(patron.expires_on)
     loan.due_at = new_due
@@ -464,10 +474,14 @@ def hold_queue_position(db: Session, hold: Hold) -> int | None:
 
 
 def place_hold(db: Session, patron: Patron, biblio: Biblio, *, pickup_branch_id: int,
-               actor: Patron | None = None, override: bool = False, notes: str | None = None) -> Hold:
+               actor: Patron | None = None, override: bool = False, notes: str | None = None,
+               item_id: int | None = None, not_needed_after: date | None = None) -> Hold:
+    """Place a title-level hold, or an item-level hold when ``item_id`` names a specific copy."""
     blocks = patron_blocks(db, patron)
     if biblio.deleted_at is not None:
         raise NotFound("Record not found")
+    requested = holds_svc.validate_requested_item(db, biblio, item_id) if item_id else None
+    holds_svc.validate_not_needed_after(not_needed_after)
     holdable = [i for i in biblio.items if i.deleted_at is None and i.item_type.holdable
                 and i.status not in (ItemStatus.withdrawn, ItemStatus.lost)]
     if not holdable:
@@ -489,10 +503,12 @@ def place_hold(db: Session, patron: Patron, biblio: Biblio, *, pickup_branch_id:
     if blocks and not override:
         raise PolicyBlocked("; ".join(blocks), code="hold_blocked", details={"reasons": blocks})
     hold = Hold(biblio_id=biblio.id, patron_id=patron.id, pickup_branch_id=pickup_branch_id,
-                notes=notes, created_at=utcnow())
+                notes=notes, created_at=utcnow(), requested_item_id=requested.id if requested else None,
+                not_needed_after=not_needed_after)
     db.add(hold)
     db.flush()
-    audit.record(db, "place_hold", "hold", hold.id, actor=actor or patron, biblio=biblio.id)
+    audit.record(db, "place_hold", "hold", hold.id, actor=actor or patron, biblio=biblio.id,
+                 item=requested.id if requested else None)
     return hold
 
 
@@ -514,12 +530,15 @@ def cancel_hold(db: Session, hold: Hold, *, actor: Patron | None = None,
 
 def holds_to_pull(db: Session, branch_id: int | None = None) -> list[dict]:
     """Queued holds that could be filled right now from an available copy on the shelf."""
-    holds = db.scalars(select(Hold).where(Hold.status == HoldStatus.queued).order_by(Hold.created_at))
+    # Unrouted, active holds only: suspended / no-longer-needed holds wait; item-level holds want one copy.
+    holds = db.scalars(select(Hold).where(*holds_svc.routable(None, utcnow().date()), Hold.item_id.is_(None))
+                       .order_by(Hold.created_at))
     out, claimed = [], set()
     for h in holds:
         candidates = [i for i in h.biblio.items
                       if i.status == ItemStatus.available and i.deleted_at is None
-                      and i.id not in claimed and (branch_id is None or i.branch_id == branch_id)]
+                      and i.id not in claimed and (branch_id is None or i.branch_id == branch_id)
+                      and h.requested_item_id in (None, i.id)]
         if candidates:
             item = sorted(candidates, key=lambda i: i.branch_id != h.pickup_branch_id)[0]
             claimed.add(item.id)
@@ -530,8 +549,28 @@ def holds_to_pull(db: Session, branch_id: int | None = None) -> list[dict]:
 # ------------------------------------------------------------------ notices & nightly jobs
 
 
-def notify(db: Session, patron: Patron, subject: str, body: str) -> None:
-    db.add(Notification(patron_id=patron.id, subject=subject, body=body))
+def notify(db: Session, patron: Patron, subject: str, body: str, *, code: str | None = None,
+           context: dict | None = None) -> None:
+    """Queue a notice. With ``code`` the patron's messaging preference and the (sandboxed) notice template
+    are used, ``subject``/``body`` being the fallback text; without it the text is queued verbatim."""
+    if code is None:
+        db.add(Notification(patron_id=patron.id, subject=subject, body=body, to_address=patron.email))
+        return
+    from . import notices
+
+    notices.queue(db, patron, code, context, fallback_subject=subject, fallback_body=body)
+
+
+def _hold_ready_ctx(hold: Hold, item: Item) -> dict:
+    from . import notices
+
+    return notices.hold_ready_context(hold, item)
+
+
+def _loan_ctx(loan: Loan, now: datetime) -> dict:
+    from . import notices
+
+    return notices.loan_context(loan, now)
 
 
 def run_nightly(db: Session, *, now: datetime | None = None) -> dict:
@@ -549,15 +588,18 @@ def run_nightly(db: Session, *, now: datetime | None = None) -> dict:
                 renew(db, loan, now=now)
                 stats["auto_renewed"] += 1
                 continue
-            notify(db, loan.patron, "Due tomorrow", f"'{loan.item.biblio.title}' is due tomorrow.")
+            notify(db, loan.patron, "Due tomorrow", f"'{loan.item.biblio.title}' is due tomorrow.",
+                   code="DUE_SOON", context=_loan_ctx(loan, now))
             stats["courtesy"] += 1
         elif loan.due_at < now and (now.date() - loan.due_at.date()).days in (1, 7, 14):
             notify(db, loan.patron, "Overdue item",
-                   f"'{loan.item.biblio.title}' was due on {loan.due_at:%d %b %Y}. Please return it.")
+                   f"'{loan.item.biblio.title}' was due on {loan.due_at:%d %b %Y}. Please return it.",
+                   code="OVERDUE", context=_loan_ctx(loan, now))
             stats["overdue"] += 1
     for hold in db.scalars(select(Hold).where(Hold.status == HoldStatus.ready, Hold.expires_at < now)):
         cancel_hold(db, hold, now=now, status=HoldStatus.expired)
         stats["holds_expired"] += 1
+    stats.update(holds_svc.run_nightly(db, now=now))  # resume suspensions, expire "not needed after"
     days = int(settings_svc.get(db, "anonymize_history_after_days") or 0)
     if days:
         cutoff = now - timedelta(days=days)

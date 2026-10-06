@@ -86,7 +86,7 @@ def renew_own(loan_id: int, user: Patron = Depends(current_user), db: Session = 
 def hold_own(body: HoldIn, user: Patron = Depends(current_user), db: Session = Depends(get_db)):
     biblio = catalog.get_biblio(db, body.biblio_id)
     hold = circulation.place_hold(db, user, biblio, pickup_branch_id=body.pickup_branch_id, actor=user,
-                                  notes=body.notes)
+                                  notes=body.notes, item_id=body.item_id, not_needed_after=body.not_needed_after)
     db.commit()
     return hold_out(hold, circulation.hold_queue_position(db, hold))
 

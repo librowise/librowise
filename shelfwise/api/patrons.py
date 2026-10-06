@@ -15,7 +15,7 @@ from ..errors import NotFound
 from ..models import Hold, LedgerEntry, Loan, Patron, PatronCategory, Role, utcnow
 from ..schemas import MoneyIn, PatronIn, PatronPatch, biblio_out, hold_out, loan_out, money, patron_out
 from ..security import hash_password, password_problems
-from ..services import audit, catalog, circulation
+from ..services import audit, catalog, circulation, notices
 
 router = APIRouter(prefix="/patrons", tags=["patrons"])
 
@@ -92,6 +92,8 @@ def create_patron(body: PatronIn, request: Request, db: Session = Depends(get_db
     db.add(p)
     db.flush()
     audit.record(db, "create", "patron", p.id, actor=actor, ip=client_ip(request), role=body.role)
+    if p.role == Role.patron and (p.email or p.phone):
+        notices.queue(db, p, "WELCOME")
     db.commit()
     return patron_out(p)
 

@@ -138,7 +138,8 @@ def place_hold(body: HoldIn, request: Request, db: Session = Depends(get_db),
     patron = _patron_by_card(db, body.patron_card)
     biblio = catalog.get_biblio(db, body.biblio_id)
     hold = circulation.place_hold(db, patron, biblio, pickup_branch_id=body.pickup_branch_id, actor=user,
-                                  override=_can_override(user, body.override), notes=body.notes)
+                                  override=_can_override(user, body.override), notes=body.notes,
+                                  item_id=body.item_id, not_needed_after=body.not_needed_after)
     db.commit()
     return hold_out(hold, circulation.hold_queue_position(db, hold))
 

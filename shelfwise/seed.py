@@ -226,8 +226,57 @@ def seed(db: Session, *, patrons: int = 60, history_days: int = 365, rng_seed: i
                              quantity=qty, unit_price=price, status=status))
     circulation.run_nightly(db)
     db.flush()
+    seed_circulation_services(db, branches=branches, people=people, rng=rng)
     return {
         "titles": len(biblios), "items": db.query(Item).count(), "patrons": len(people) + len(staff),
         "loans": db.query(Loan).count(), "open_loans": db.query(Loan).filter(Loan.returned_at.is_(None)).count(),
     }
+
+
+# ---- circulation services ----
+
+
+def seed_circulation_services(db: Session, *, branches: dict, people: list, rng: random.Random) -> dict:
+    """Notice templates, a library calendar, pending self-registrations and purchase suggestions."""
+    import secrets
+
+    from .models import CalendarClosure, PatronRegistration, PurchaseSuggestion, SuggestionStatus
+    from .services import calendar as calendar_svc
+    from .services import notices
+
+    templates = notices.ensure_default_templates(db)
+    today = utcnow().date()
+    # Weekly pattern: the East branch closes on Sundays, the campus library at weekends.
+    calendar_svc.set_closed_weekdays(db, branches["EAST"].id, [6], actor=None)
+    calendar_svc.set_closed_weekdays(db, branches["UNIV"].id, [5, 6], actor=None)
+    for month, day, name in [(1, 26, "Republic Day"), (8, 15, "Independence Day"), (10, 2, "Gandhi Jayanti"),
+                             (12, 25, "Christmas Day")]:
+        db.add(CalendarClosure(branch_id=None, day=datetime(today.year, month, day).date(), description=name,
+                               repeats_yearly=True))
+    db.add(CalendarClosure(branch_id=branches["MAIN"].id, day=today + timedelta(days=10),
+                           description="Staff training day"))
+    db.add(CalendarClosure(branch_id=branches["UNIV"].id, day=today + timedelta(days=(5 - today.weekday()) % 7 or 7),
+                           description="Exam-week Saturday opening", open_override=True))
+    # Self-registrations awaiting review (random unusable passwords).
+    for first, last, email, branch in [("Rohan", "Mehta", "rohan.mehta@example.org", "MAIN"),
+                                       ("Sara", "Thomas", "sara.thomas@example.org", "EAST")]:
+        p = Patron(card_number=f"{9000000000 + rng.randint(1, 999999)}", email=email, first_name=first,
+                   last_name=last, category_id=people[0].category_id, home_branch_id=branches[branch].id,
+                   password_hash=hash_password(secrets.token_urlsafe(16)), is_active=False,
+                   registration_status="pending")
+        db.add(p)
+        db.flush()
+        db.add(PatronRegistration(patron_id=p.id, status="pending", ip="127.0.0.1"))
+    # Purchase suggestions from patrons.
+    for (title, author, isbn, reason), status in zip([
+        ("Tomorrow, and Tomorrow, and Tomorrow", "Zevin, Gabrielle", "9780593321201", "Book club pick next month"),
+        ("The Covenant of Water", "Verghese, Abraham", "9780802162175", "Highly recommended by friends"),
+        ("Atomic Habits", "Clear, James", "9780735211292", "Useful for the self-help shelf"),
+    ], [SuggestionStatus.pending, SuggestionStatus.pending, SuggestionStatus.accepted], strict=True):
+        p = rng.choice(people)
+        db.add(PurchaseSuggestion(patron_id=p.id, title=title, author=author, isbn=isbn, reason=reason, status=status,
+                                  decision_note="Added to the next order" if status == SuggestionStatus.accepted
+                                  else None))
+    db.flush()
+    return {"notice_templates": templates}
 

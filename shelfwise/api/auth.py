@@ -21,7 +21,7 @@ from ..security import (
     password_problems,
     verify_password,
 )
-from ..services import audit
+from ..services import audit, registration
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -44,9 +44,13 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
     user = db.scalar(select(Patron).where(
         or_(Patron.card_number == body.username, Patron.email == body.username.lower()),
         Patron.deleted_at.is_(None)))
-    if user is None or not verify_password(user.password_hash, body.password) or not user.is_active:
+    password_ok = user is not None and verify_password(user.password_hash, body.password)
+    if user is None or not password_ok or not user.is_active:
         audit.record(db, "login_failed", "patron", user.id if user else None, ip=ip, username=body.username[:64])
         db.commit()
+        # Self-registered accounts awaiting review: explain, but only once the password proved ownership.
+        if password_ok and (reason := registration.login_block_message(user)):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, reason)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid card number/email or password")
     if needs_rehash(user.password_hash or ""):
         user.password_hash = hash_password(body.password)

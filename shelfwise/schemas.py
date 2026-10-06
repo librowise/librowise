@@ -160,6 +160,8 @@ class HoldIn(StrictModel):
     patron_card: str | None = Field(default=None, max_length=32, description="Staff only")
     override: bool = False
     notes: str | None = Field(default=None, max_length=255)
+    item_id: int | None = Field(default=None, description="Item-level hold: this specific copy only")
+    not_needed_after: date | None = Field(default=None, description="Hold expires if not filled by this date")
 
 
 class ReviewIn(StrictModel):
@@ -278,7 +280,7 @@ def patron_out(p: Patron, *, private: bool = True) -> dict:
         "last_name": p.last_name, "full_name": p.full_name, "role": p.role.value,
         "category": {"id": p.category.id, "code": p.category.code, "name": p.category.name},
         "home_branch": {"id": p.home_branch.id, "code": p.home_branch.code, "name": p.home_branch.name},
-        "is_active": p.is_active, "expires_on": p.expires_on,
+        "is_active": p.is_active, "expires_on": p.expires_on, "registration_status": p.registration_status,
     }
     if private:
         out.update(email=p.email, phone=p.phone, address=p.address, date_of_birth=p.date_of_birth,
@@ -340,4 +342,8 @@ def hold_out(h: Hold, position: int | None = None) -> dict:
         "patron": {"id": h.patron.id, "card_number": h.patron.card_number, "full_name": h.patron.full_name},
         "pickup_branch": {"id": h.pickup_branch.id, "name": h.pickup_branch.name},
         "item": {"id": h.item.id, "barcode": h.item.barcode} if h.item else None,
+        "requested_item": {"id": h.requested_item.id, "barcode": h.requested_item.barcode}
+        if h.requested_item else None,
+        "item_level": h.requested_item_id is not None, "suspended": bool(h.suspended),
+        "suspended_until": h.suspended_until, "not_needed_after": h.not_needed_after,
     }

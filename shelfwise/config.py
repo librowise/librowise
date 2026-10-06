@@ -58,6 +58,23 @@ class Settings(BaseSettings):
     currency: str = "INR"
     timezone: str = "Asia/Kolkata"
 
+    # ---- circulation services: notice delivery (`python -m shelfwise send-notices`) ----
+    email_backend: str = "console"  # console | smtp
+    sms_backend: str = "console"  # console | webhook
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "Shelfwise Library <no-reply@shelfwise.local>"
+    smtp_starttls: bool = True
+    smtp_ssl: bool = False  # implicit TLS (port 465); mutually exclusive with STARTTLS
+    smtp_timeout: float = 20.0
+    sms_webhook_url: str | None = None  # receives POST {"to", "body", "notice_id", "code"}
+    sms_webhook_token: str | None = None  # sent as "Authorization: Bearer <token>"
+    sms_webhook_timeout: float = 10.0
+    # Self-registration: submissions allowed per client IP per hour
+    registrations_per_hour: int = 5
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")

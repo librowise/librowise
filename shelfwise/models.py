@@ -172,6 +172,8 @@ class Patron(TimestampMixin, Base):
     keep_history: Mapped[bool] = mapped_column(Boolean, default=True)  # privacy opt-out
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    # OPAC self-registration: None (staff-created) | pending | approved | rejected
+    registration_status: Mapped[str | None] = mapped_column(String(16), index=True)
 
     category: Mapped[PatronCategory] = relationship(lazy="joined")
     home_branch: Mapped[Branch] = relationship(lazy="joined")
@@ -291,10 +293,16 @@ class Hold(TimestampMixin, Base):
     ready_at: Mapped[datetime | None] = mapped_column(DateTime)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     notes: Mapped[str | None] = mapped_column(String(255))
+    # Holds depth: item-level requests, suspension and "not needed after" (see services/holds.py).
+    requested_item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    suspended: Mapped[bool] = mapped_column(Boolean, default=False)
+    suspended_until: Mapped[date | None] = mapped_column(Date)
+    not_needed_after: Mapped[date | None] = mapped_column(Date)
 
     biblio: Mapped[Biblio] = relationship(lazy="joined")
     patron: Mapped[Patron] = relationship(lazy="joined")
-    item: Mapped[Item | None] = relationship(lazy="joined")
+    item: Mapped[Item | None] = relationship(foreign_keys=[item_id], lazy="joined")
+    requested_item: Mapped[Item | None] = relationship(foreign_keys=[requested_item_id], lazy="joined")
     pickup_branch: Mapped[Branch] = relationship(lazy="joined")
 
 
@@ -402,6 +410,14 @@ class Notification(Base):
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # Outbox delivery (services/notices.py): template code, recipient and retry bookkeeping.
+    code: Mapped[str | None] = mapped_column(String(40), index=True)
+    to_address: Mapped[str | None] = mapped_column(String(160))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+
+    patron: Mapped[Patron] = relationship(lazy="joined")
 
 
 # ---------------------------------------------------------------------------------------
@@ -428,3 +444,106 @@ class AuditLog(Base):
     ip: Mapped[str | None] = mapped_column(String(64))
 
     actor: Mapped[Patron | None] = relationship(lazy="joined")
+
+
+# ---- circulation services ----
+# Library calendar, notice templates & messaging preferences, self-registration, purchase suggestions.
+
+
+class BranchCalendar(Base):
+    """Per-branch weekly pattern: weekdays (0 = Monday … 6 = Sunday) on which the branch is closed."""
+
+    __tablename__ = "branch_calendars"
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id", ondelete="CASCADE"), primary_key=True)
+    closed_weekdays: Mapped[list] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class CalendarClosure(TimestampMixin, Base):
+    """A dated exception to the weekly pattern.
+
+    ``branch_id`` NULL applies to every branch. ``repeats_yearly`` matches the same month/day every year.
+    ``open_override`` marks a special opening on a normally closed weekday (Koha's "exception").
+    Branch-specific entries win over all-branch entries; exact dates win over yearly ones.
+    """
+
+    __tablename__ = "calendar_closures"
+    __table_args__ = (Index("ix_calendar_closures_day", "branch_id", "day"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id", ondelete="CASCADE"))
+    day: Mapped[date] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(String(160), default="")
+    repeats_yearly: Mapped[bool] = mapped_column(Boolean, default=False)
+    open_override: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    branch: Mapped[Branch | None] = relationship(lazy="joined")
+
+
+class NoticeTemplate(TimestampMixin, Base):
+    """Editable notice text, rendered in a Jinja2 *sandbox* from plain-dict context."""
+
+    __tablename__ = "notice_templates"
+    __table_args__ = (UniqueConstraint("code", "channel"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    channel: Mapped[str] = mapped_column(String(16), default="email")  # email | sms
+    subject: Mapped[str] = mapped_column(String(255), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"))
+
+
+class MessagePreference(Base):
+    """Patron messaging preference per notice type: email | sms | none."""
+
+    __tablename__ = "message_preferences"
+    __table_args__ = (UniqueConstraint("patron_id", "code"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(40))
+    channel: Mapped[str] = mapped_column(String(16), default="email")
+
+
+class PatronRegistration(TimestampMixin, Base):
+    """Review trail for an OPAC self-registration (the account itself is a normal, inactive Patron)."""
+
+    __tablename__ = "patron_registrations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), unique=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decision_note: Mapped[str | None] = mapped_column(String(500))
+
+    patron: Mapped[Patron] = relationship(foreign_keys=[patron_id], lazy="joined")
+    reviewed_by: Mapped[Patron | None] = relationship(foreign_keys=[reviewed_by_id], lazy="joined")
+
+
+class SuggestionStatus(enum.StrEnum):
+    pending = "pending"
+    accepted = "accepted"
+    ordered = "ordered"
+    rejected = "rejected"
+    withdrawn = "withdrawn"
+
+
+class PurchaseSuggestion(TimestampMixin, Base):
+    __tablename__ = "purchase_suggestions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patron_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"), index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    author: Mapped[str | None] = mapped_column(String(255))
+    isbn: Mapped[str | None] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(32), default="book")
+    reason: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[SuggestionStatus] = mapped_column(
+        Enum(SuggestionStatus), default=SuggestionStatus.pending, index=True
+    )
+    decision_note: Mapped[str | None] = mapped_column(String(500))
+    reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    order_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_orders.id", ondelete="SET NULL"))
+
+    patron: Mapped[Patron | None] = relationship(foreign_keys=[patron_id], lazy="joined")
+    reviewed_by: Mapped[Patron | None] = relationship(foreign_keys=[reviewed_by_id], lazy="joined")

@@ -24,6 +24,8 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--host", default="127.0.0.1")
     p_run.add_argument("--port", type=int, default=8000)
     p_run.add_argument("--reload", action="store_true")
+    p_notices = sub.add_parser("send-notices", help="Deliver pending notices from the outbox (email/SMS)")
+    p_notices.add_argument("--limit", type=int, default=200, help="Maximum notices to process")
     args = parser.parse_args(argv)
 
     from .db import create_all, drop_all, session_scope
@@ -76,6 +78,15 @@ def main(argv: list[str] | None = None) -> int:
         import uvicorn
 
         uvicorn.run("shelfwise.app:app", host=args.host, port=args.port, reload=args.reload, proxy_headers=True)
+    elif args.cmd == "send-notices":
+        import logging
+
+        from .services.notices import deliver_pending
+
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+        create_all()
+        with session_scope() as db:
+            print(json.dumps(deliver_pending(db, args.limit)))
     return 0
 
 

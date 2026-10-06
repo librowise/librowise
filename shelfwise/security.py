@@ -135,6 +135,11 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "acquisitions:write",
         "reports:read",
         "ai:staff",
+        # circulation services ("notices:manage" — editing notice templates — is admin-only)
+        "calendar:manage",
+        "notices:outbox",
+        "patrons:approve",
+        "suggestions:manage",
     },
     Role.admin: {ALL},
 }

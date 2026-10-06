@@ -1,0 +1,50 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Calendar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Library calendar</h1>
+    <div class="sub">Opening days per branch. Due dates skip closed days, overdue fines count only open days and hold pickup windows are measured in open days.</div>
+  </div>
+  <div class="row tight">
+    <label for="cal-branch" class="sr-only">Branch</label>
+    <select id="cal-branch" style="width:auto"></select>
+  </div>
+</div>
+
+<div class="grid split">
+  <section class="card" aria-labelledby="cal-title">
+    <div class="card-head">
+      <h2 id="cal-title" aria-live="polite">…</h2>
+      <div class="row tight">
+        <button class="btn sm icon-only" id="cal-prev" aria-label="Previous month" title="Previous month"><svg class="icon cal-flip" aria-hidden="true"><use href="#i-chevron"></use></svg></button>
+        <button class="btn sm" id="cal-today">Today</button>
+        <button class="btn sm icon-only" id="cal-next" aria-label="Next month" title="Next month"><svg class="icon" aria-hidden="true"><use href="#i-chevron"></use></svg></button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="cal-grid" class="cal-grid" role="grid" aria-labelledby="cal-title"></div>
+      <div class="row tight small muted cal-legend" style="margin-top:.75rem">
+        <span><span class="cal-swatch open"></span>Open</span>
+        <span><span class="cal-swatch closed"></span>Closed (holiday)</span>
+        <span><span class="cal-swatch weekly"></span>Weekly closed day</span>
+        <span><span class="cal-swatch special"></span>Special opening</span>
+        <span class="tiny">Click a day to change it. Arrow keys move between days.</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="stack">
+    <form class="card pad stack" id="weekdays-form" aria-labelledby="wk-title">
+      <h3 id="wk-title" style="margin:0">Weekly closed days</h3>
+      <p class="small muted" style="margin:0">Days this branch is closed every week.</p>
+      <fieldset class="cal-weekdays" id="wk-days"><legend class="sr-only">Closed weekdays</legend></fieldset>
+      <button class="btn primary" type="submit">Save weekly pattern</button>
+    </form>
+    <section class="card" aria-labelledby="up-title">
+      <div class="card-head"><h3 id="up-title">Upcoming closures</h3><button class="btn sm" id="add-closure"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add closure</button></div>
+      <div class="card-body" id="upcoming" aria-live="polite"></div>
+    </section>
+  </div>
+</div>
+{% endblock %}

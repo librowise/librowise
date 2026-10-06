@@ -1,5 +1,6 @@
 import { $, $$, api, authors, badge, confirmDialog, cover, date, empty, html, icon, money, relative, skeleton, toast, withBusy, parseDate } from "/static/js/core.js";
 import { bookCard } from "/static/js/pages/opac-home.js";
+import { holdsPanel, messagingCard, onPanelChange, onPanelClick, onPanelSubmit, suggestionsPanel } from "/static/js/pages/opac-account-services.js";
 
 let summary;
 
@@ -27,14 +28,9 @@ const TABS = {
       <div class="card flush"><div class="card-body">${summary.loans.map(loanRow)}</div></div>`;
   },
   async holds() {
-    if (!summary.holds.length) return empty("No active holds. Place a hold from any title's page.", "bookmark");
-    return html`<div class="card flush"><div class="card-body">${summary.holds.map((h) => html`<div class="result">
-      <div class="grow stack tight"><h3><a href="/record/${h.biblio.id}">${h.biblio.title}</a></h3>
-        <div class="meta">Pickup at ${h.pickup_branch.name} · placed ${relative(h.created_at)}</div>
-        <div class="row tight">${badge(h.status)}${h.status === "queued" ? html`<span class="small muted">Position ${h.queue_position} in queue</span>` : ""}
-        ${h.status === "ready" ? html`<span class="small">Collect by <strong>${date(h.expires_at)}</strong></span>` : ""}</div></div>
-      <div><button class="btn sm danger" data-cancel-hold="${h.id}">Cancel</button></div></div>`)}</div></div>`;
+    return holdsPanel(summary);
   },
+  suggestions: suggestionsPanel,
   async foryou() {
     const r = await api("/opac/me/recommendations");
     return html`<div class="alert info" style="margin-bottom:1rem">${icon("sparkle")}<div>${r.reason === "personalised"
@@ -76,7 +72,8 @@ const TABS = {
         <label class="checkbox"><input type="checkbox" id="keep-history" ${me.keep_history ? "checked" : ""}> Keep my reading history</label>
         <p class="small muted">When off, items are detached from your account as soon as they're returned. Recommendations then use only trending titles.</p>
         <h3 style="margin-top:1rem">Appearance</h3>
-        <button class="btn" data-appearance>${icon("palette")}Theme, density & text size</button></div></div>`;
+        <button class="btn" data-appearance>${icon("palette")}Theme, density & text size</button></div></div>
+      ${await messagingCard()}`;
   },
 };
 
@@ -138,6 +135,10 @@ export default async function init() {
       }
     } catch (err) { if (!err.toasted) toast(err.message, "error"); }
   });
+  const ctx = { refresh, show };
+  $("#panel").addEventListener("click", (e) => onPanelClick(e, ctx));
+  $("#panel").addEventListener("submit", (e) => onPanelSubmit(e, ctx));
+  $("#panel").addEventListener("change", onPanelChange);
   $("#panel").addEventListener("change", async (e) => {
     if (e.target.id === "keep-history") {
       await api("/auth/preferences", { method: "PATCH", body: { keep_history: e.target.checked } });

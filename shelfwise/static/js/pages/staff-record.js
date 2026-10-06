@@ -57,7 +57,8 @@ async function render() {
           <div class="row tight">${(b.subjects || []).map((s) => html`<span class="chip">${s}</span>`)}</div></div></div>
         <div class="card"><div class="card-head"><h3>Holds queue (${mine.length})</h3><button class="btn sm" id="place-hold">${icon("bookmark")}Place hold for patron</button></div>
           <div class="card-body">${mine.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Patron</th><th>Pickup</th><th>Status</th><th>Placed</th></tr></thead><tbody>
-          ${mine.map((h) => html`<tr><td>${h.queue_position ?? "—"}</td><td><a href="/staff/patrons/${h.patron.id}">${h.patron.full_name}</a></td><td>${h.pickup_branch.name}</td><td>${badge(h.status)}</td><td>${relative(h.created_at)}</td></tr>`)}</tbody></table></div>` : empty("No one is waiting for this title.")}</div></div>
+          ${mine.map((h) => html`<tr><td>${h.queue_position ?? "—"}</td><td><a href="/staff/patrons/${h.patron.id}">${h.patron.full_name}</a>${h.notes ? html`<div class="tiny muted">${h.notes}</div>` : ""}</td><td>${h.pickup_branch.name}</td>
+            <td>${h.suspended ? badge("warn", "Suspended") : badge(h.status)}${h.item_level && h.requested_item ? html`<div class="tiny muted mono">${h.requested_item.barcode} only</div>` : ""}</td><td>${relative(h.created_at)}</td></tr>`)}</tbody></table></div>` : empty("No one is waiting for this title.")}</div></div>
       </div>
       <div class="stack">
         <div class="card pad"><dl class="dl">
@@ -106,9 +107,14 @@ export default async function init() {
       } else if (t.id === "place-hold") {
         const fd = await modal({ title: "Place hold for a patron", submit: "Place hold", body: html`<div class="stack">
           <div class="field"><label for="h-card">Patron card number</label><input id="h-card" name="card" required></div>
-          <div class="field"><label for="h-br">Pickup branch</label><select id="h-br" name="branch">${lk.branches.map((x) => html`<option value="${x.id}">${x.name}</option>`)}</select></div></div>` });
+          <div class="field"><label for="h-br">Pickup branch</label><select id="h-br" name="branch">${lk.branches.map((x) => html`<option value="${x.id}">${x.name}</option>`)}</select></div>
+          <div class="field"><label for="h-item">Copy</label><select id="h-item" name="item_id"><option value="">Next available copy</option>
+            ${b.items.filter((i) => !["withdrawn", "lost"].includes(i.status)).map((i) => html`<option value="${i.id}">${i.barcode} · ${i.branch.name} · ${i.status.replace(/_/g, " ")}</option>`)}</select>
+            <span class="hint">Choose a copy for an item-level hold.</span></div>
+          <div class="field"><label for="h-nna">Not needed after (optional)</label><input id="h-nna" name="not_needed_after" type="date"></div></div>` });
         if (!fd) return;
-        await api("/holds", { method: "POST", body: { biblio_id: b.id, patron_card: fd.get("card"), pickup_branch_id: +fd.get("branch") } });
+        await api("/holds", { method: "POST", body: { biblio_id: b.id, patron_card: fd.get("card"), pickup_branch_id: +fd.get("branch"),
+          item_id: fd.get("item_id") ? Number(fd.get("item_id")) : null, not_needed_after: fd.get("not_needed_after") || null } });
         toast("Hold placed", "success");
         await render();
       } else if (t.id === "enrich") {

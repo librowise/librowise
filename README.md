@@ -160,3 +160,46 @@ See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
 
 ## License
 GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+
+## Circulation services: calendar, holds, notices, registration, suggestions
+
+**Library calendar** (*Staff → Calendar*). Each branch has weekly closed days plus dated closures (one branch or all
+branches, optionally repeating yearly, or a *special opening* on a normally closed day). Computed due dates (checkout
+and renewal) move to the issuing branch's next open day; overdue fines count only open days late (policy
+`fines_skip_closed_days`, default on); the hold-shelf pickup window is measured in open days.
+
+**Holds.** Item-level holds (a specific copy, `item_id`) or next available; suspend/resume, optionally until a date
+(suspended holds keep their queue place, are skipped by routing/the pull list/renewal checks and resume automatically);
+a patron "not needed after" date (expired by the nightly job); notes and pickup-branch edits. Available in the staff
+holds queue, patron and record pages, and in the OPAC (account *Holds* tab and the place-hold dialog).
+
+**Notices** (*Staff → Notices*). Templates per notice code (`HOLD_READY`, `DUE_SOON`, `OVERDUE`, `WELCOME`,
+`REGISTRATION_APPROVED`, `REGISTRATION_REJECTED`, `PURCHASE_SUGGESTION_UPDATE`) and channel (email/SMS), rendered in an
+immutable Jinja2 **sandbox** from plain dicts, with a live preview. Patrons choose email, SMS or none per notice type
+(*My account → Settings*). Every notice goes through the `notifications` outbox (`pending` → `sent`/`failed`, attempts,
+last error, exponential backoff):
+
+```bash
+python -m shelfwise send-notices --limit 200   # or call services.notices.deliver_pending(db, limit) from a worker
+```
+
+| Setting (env) | Default | Purpose |
+| --- | --- | --- |
+| `SHELFWISE_EMAIL_BACKEND` | `console` | `console` (log) or `smtp` |
+| `SHELFWISE_SMTP_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `_FROM` | `localhost` / `587` / – / – / `Shelfwise Library <no-reply@…>` | SMTP relay |
+| `SHELFWISE_SMTP_STARTTLS` / `SHELFWISE_SMTP_SSL` | `true` / `false` | STARTTLS or implicit TLS |
+| `SHELFWISE_SMS_BACKEND` | `console` | `console` or `webhook` |
+| `SHELFWISE_SMS_WEBHOOK_URL` / `_TOKEN` | – | POST `{"to","body","notice_id","code"}` with optional bearer token |
+| `SHELFWISE_REGISTRATIONS_PER_HOUR` | `5` | self-registrations per client IP |
+
+**Self-registration** (`/register`): rate-limited, honeypot-protected, password policy; creates an inactive account with
+`registration_status = pending`. Staff approve/reject in *Staff → Patron requests*; the applicant receives
+REGISTRATION_APPROVED/REJECTED. Sign-in explains "awaiting approval" (only after the password is verified).
+
+**Purchase suggestions**: patrons suggest titles from *My account → Suggest a purchase* and follow their status; staff
+accept (optionally creating a **draft** purchase order against a vendor/budget) or reject with a reason in
+*Staff → Patron requests*; the patron is notified on every change.
+
+Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registration_category`, `allow_purchase_suggestions`,
+`notice_max_attempts`. Permissions: `calendar:manage`, `notices:outbox`, `patrons:approve`, `suggestions:manage`
+(librarians) and `notices:manage` (template editing — administrators).

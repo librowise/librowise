@@ -66,6 +66,58 @@ const patronCell = (p) => html`<a href="/staff/patrons/${p.id}">${p.full_name}</
 const cancelBtn = (h) => html`<button class="btn sm danger" data-cancel="${h.id}" data-title="${h.biblio.title}"
   aria-label="Cancel hold on ${h.biblio.title} for ${h.patron.full_name}">${icon("x")}Cancel</button>`;
 
+// ---- circulation services: suspension, item-level holds, "not needed after"
+const dayStr = (s) => { const [y, m, d] = s.split("-").map(Number); return date(new Date(y, m - 1, d)); };
+
+function holdStatusCell(h) {
+  return html`${h.suspended ? badge("warn", h.suspended_until ? `Suspended until ${dayStr(h.suspended_until)}` : "Suspended") : badge(h.status)}
+    ${h.item ? html`<div class="tiny muted mono">${h.item.barcode}</div>` : ""}
+    ${h.item_level && h.requested_item ? html`<div class="tiny"><span class="badge info">Copy ${h.requested_item.barcode} only</span></div>` : ""}
+    ${h.not_needed_after ? html`<div class="tiny muted">Not needed after ${dayStr(h.not_needed_after)}</div>` : ""}`;
+}
+
+function holdActions(h) {
+  if (h.status !== "queued") return "";
+  const label = `${h.biblio.title} for ${h.patron.full_name}`;
+  return html`${h.item ? "" : h.suspended
+    ? html`<button class="btn sm" data-resume="${h.id}" aria-label="Resume hold on ${label}">${icon("refresh")}Resume</button> `
+    : html`<button class="btn sm" data-suspend="${h.id}" aria-label="Suspend hold on ${label}">${icon("clock")}Suspend</button> `}
+    <button class="btn sm ghost" data-edit="${h.id}" aria-label="Edit hold on ${label}">${icon("edit")}</button> `;
+}
+
+async function suspendHold(id) {
+  const fd = await modal({ title: "Suspend hold", submit: "Suspend", body: html`<div class="stack">
+    <p class="small muted">The hold keeps its queue position but is skipped when copies are returned.</p>
+    <div class="field"><label for="sh-until">Resume automatically on (optional)</label><input id="sh-until" name="until" type="date">
+      <span class="hint">Leave empty to suspend until resumed manually.</span></div></div>` });
+  if (!fd) return;
+  try {
+    await api(`/holds/${id}/suspend`, { method: "POST", body: { until: fd.get("until") || null } });
+    toast("Hold suspended", "success");
+    load();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function editHold(id) {
+  const { results } = await fetchers.queue();
+  const h = results.find((x) => x.id === id);
+  if (!h) return;
+  const fd = await modal({ title: "Edit hold", submit: "Save", body: html`<div class="stack">
+    <p><strong>${h.biblio.title}</strong> · ${h.patron.full_name}</p>
+    ${h.item ? "" : html`<div class="field"><label for="eh-br">Pickup branch</label><select id="eh-br" name="pickup_branch_id">${state.branches.map((b) =>
+      html`<option value="${b.id}" ${b.id === h.pickup_branch.id ? "selected" : ""}>${b.name}</option>`)}</select></div>`}
+    <div class="field"><label for="eh-nna">Not needed after</label><input id="eh-nna" name="not_needed_after" type="date" value="${h.not_needed_after || ""}"></div>
+    <div class="field"><label for="eh-notes">Note</label><input id="eh-notes" name="notes" maxlength="255" value="${h.notes || ""}"></div></div>` });
+  if (!fd) return;
+  const body = { notes: fd.get("notes") || null, not_needed_after: fd.get("not_needed_after") || null };
+  if (fd.get("pickup_branch_id")) body.pickup_branch_id = Number(fd.get("pickup_branch_id"));
+  try {
+    await api(`/holds/${id}`, { method: "PATCH", body });
+    toast("Hold updated", "success");
+    load();
+  } catch (e) { toast(e.message, "error"); }
+}
+
 function expiryCell(h) {
   if (!h.expires_at) return html`<span class="muted">—</span>`;
   const hours = (parseDate(h.expires_at) - Date.now()) / 3600000;
@@ -81,14 +133,14 @@ function renderQueue(rows) {
     <thead><tr><th scope="col">Title</th><th scope="col">Patron</th><th scope="col">Pickup</th><th scope="col">Status</th>
       <th scope="col" class="num">Queue</th><th scope="col">Placed</th><th scope="col">Expires</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
     <tbody>${rows.map((h) => html`<tr>
-      <td>${titleCell(h.biblio)}</td>
+      <td>${titleCell(h.biblio)}${h.notes ? html`<div class="tiny muted">${icon("edit")} ${h.notes}</div>` : ""}</td>
       <td>${patronCell(h.patron)}</td>
       <td>${h.pickup_branch.name}</td>
-      <td>${badge(h.status)}${h.item ? html`<div class="tiny muted mono">${h.item.barcode}</div>` : ""}</td>
+      <td>${holdStatusCell(h)}</td>
       <td class="num">${h.queue_position ?? "—"}</td>
       <td class="nowrap" title="${datetime(h.created_at)}">${relative(h.created_at)}</td>
       <td class="nowrap">${expiryCell(h)}</td>
-      <td class="right">${cancelBtn(h)}</td></tr>`)}</tbody></table></div></div>`;
+      <td class="right nowrap">${holdActions(h)}${cancelBtn(h)}</td></tr>`)}</tbody></table></div></div>`;
 }
 
 function renderReady(rows) {
@@ -222,8 +274,12 @@ async function placeHold() {
         <select id="ph-branch" name="pickup_branch_id" required>${state.branches.map((b) =>
           html`<option value="${b.id}" ${b.id === home ? "selected" : ""}>${b.name}</option>`)}</select></div>
     </div>
-    <div class="field"><label for="ph-notes">Note <span class="muted">(optional)</span></label>
-      <input id="ph-notes" name="notes" maxlength="255" autocomplete="off"></div>
+    <div class="grid cols-2">
+      <div class="field"><label for="ph-notes">Note <span class="muted">(optional)</span></label>
+        <input id="ph-notes" name="notes" maxlength="255" autocomplete="off"></div>
+      <div class="field"><label for="ph-nna">Not needed after <span class="muted">(optional)</span></label>
+        <input id="ph-nna" name="not_needed_after" type="date"></div>
+    </div>
     <label class="checkbox"><input type="checkbox" name="override" value="1"> Override borrowing blocks and hold limits</label>
   </div>`;
   const hold = await formModal({ title: "Place a hold", body, submit: "Place hold" }, (fd) => api("/holds", {
@@ -233,6 +289,7 @@ async function placeHold() {
       biblio_id: Number(fd.get("biblio_id")),
       pickup_branch_id: Number(fd.get("pickup_branch_id")),
       notes: String(fd.get("notes") || "").trim() || null,
+      not_needed_after: fd.get("not_needed_after") || null,
       override: fd.has("override"),
     },
   }), wireTitleSearch);
@@ -254,6 +311,19 @@ export default async function init() {
   $("#holds-refresh").addEventListener("click", (e) => withBusy(e.currentTarget, async () => { await load(); await refreshCounts(); }).catch(() => {}));
   $("#holds-branch").addEventListener("change", (e) => { state.branch = e.target.value; load(); refreshCounts(); });
   panel().addEventListener("click", (e) => { const b = e.target.closest("[data-cancel]"); if (b) cancelHold(b); });
+  panel().addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-suspend],[data-resume],[data-edit]");
+    if (!b) return;
+    if (b.dataset.suspend) suspendHold(Number(b.dataset.suspend));
+    else if (b.dataset.edit) editHold(Number(b.dataset.edit));
+    else {
+      try {
+        await withBusy(b, () => api(`/holds/${b.dataset.resume}/resume`, { method: "POST" }));
+        toast("Hold resumed", "success");
+        load();
+      } catch { /* toasted */ }
+    }
+  });
 
   try {
     state.branches = (await api("/lookups")).branches || [];

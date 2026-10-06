@@ -1,0 +1,36 @@
+{% extends "opac_base.html" %}
+{% block title %}Join the library · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap" style="max-width:720px;padding-top:2rem">
+  <div class="card pad stack" id="register-card">
+    <div>
+      <h1 style="font-size:1.6rem">Join {{ library_name }}</h1>
+      <p class="muted">Register online for a library card. Staff review every application — we'll email you as soon as your account is ready.</p>
+    </div>
+    {% if registration_enabled %}
+    <form id="register-form" class="stack" novalidate>
+      <div class="grid cols-2 reg-grid">
+        <div class="field"><label for="rg-fn">First name *</label><input id="rg-fn" name="first_name" required maxlength="80" autocomplete="given-name"></div>
+        <div class="field"><label for="rg-ln">Last name *</label><input id="rg-ln" name="last_name" required maxlength="80" autocomplete="family-name"></div>
+        <div class="field"><label for="rg-em">Email *</label><input id="rg-em" name="email" type="email" required maxlength="160" autocomplete="email"><span class="hint">You'll sign in with this address.</span></div>
+        <div class="field"><label for="rg-ph">Mobile phone</label><input id="rg-ph" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
+        <div class="field" style="grid-column:1/-1"><label for="rg-ad">Address</label><input id="rg-ad" name="address" maxlength="255" autocomplete="street-address"></div>
+        <div class="field"><label for="rg-dob">Date of birth</label><input id="rg-dob" name="date_of_birth" type="date" autocomplete="bday"></div>
+        <div class="field"><label for="rg-br">Home branch *</label><select id="rg-br" name="home_branch_id" required></select></div>
+        <div class="field"><label for="rg-pw">Password *</label><input id="rg-pw" name="password" type="password" required minlength="10" maxlength="256" autocomplete="new-password" aria-describedby="rg-pw-hint">
+          <span class="hint" id="rg-pw-hint">At least 10 characters, mixing three of: lowercase, uppercase, digits, symbols. Don't use your name or email.</span></div>
+        <div class="field"><label for="rg-pw2">Confirm password *</label><input id="rg-pw2" name="password2" type="password" required minlength="10" maxlength="256" autocomplete="new-password"></div>
+      </div>
+      <div class="reg-hp" aria-hidden="true"><label for="rg-web">Website</label><input id="rg-web" name="website" tabindex="-1" autocomplete="off"></div>
+      <div id="register-error" class="alert bad hidden" role="alert"></div>
+      <div class="row between">
+        <span class="small muted">Already a member? <a href="/login">Sign in</a></span>
+        <button class="btn primary lg" type="submit">Submit registration</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="alert info" role="status"><div>Online registration is not available at the moment. Please visit any branch with proof of address to join.</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

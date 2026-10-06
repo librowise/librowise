@@ -1,0 +1,20 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Patron requests{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Patron requests</h1>
+    <div class="sub">Approve online registrations and review what patrons would like the library to buy.</div>
+  </div>
+  <div class="row tight">
+    <label for="rq-status" class="sr-only">Status</label>
+    <select id="rq-status" style="width:auto"></select>
+    <button class="btn" id="rq-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+  </div>
+</div>
+<div class="tabs" role="tablist" aria-label="Request types" id="rq-tabs">
+  <button role="tab" id="tab-registrations" data-tab="registrations" aria-selected="true" aria-controls="rq-panel">Registrations <span class="badge hidden" id="count-registrations"></span></button>
+  <button role="tab" id="tab-suggestions" data-tab="suggestions" aria-selected="false" aria-controls="rq-panel" tabindex="-1">Purchase suggestions <span class="badge hidden" id="count-suggestions"></span></button>
+</div>
+<section id="rq-panel" role="tabpanel" aria-labelledby="tab-registrations" aria-live="polite"></section>
+{% endblock %}

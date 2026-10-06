@@ -72,14 +72,22 @@ export default async function init() {
   $("#place-hold").addEventListener("click", async (e) => {
     if (!BOOT.user) { location.href = `/login?next=/record/${id}`; return; }
     const { branches } = await api("/lookups");
+    const holdable = (b.items || []).filter((i) => !["withdrawn", "lost"].includes(i.status));
     const fd = await modal({ title: "Place a hold", submit: "Place hold", body: html`<div class="stack">
       <p>We'll notify you when <strong>${b.title}</strong> is ready to collect.</p>
       <div class="field"><label for="pickup">Pickup location</label><select id="pickup" name="pickup" required>
         ${branches.map((br) => html`<option value="${br.id}" ${br.id === BOOT.user.home_branch_id ? "selected" : ""}>${br.name}</option>`)}</select></div>
+      ${holdable.length > 1 ? html`<div class="field"><label for="hold-copy">Copy</label><select id="hold-copy" name="item_id">
+        <option value="">Next available copy (fastest)</option>
+        ${holdable.map((i) => html`<option value="${i.id}">${i.branch.name} · ${i.call_number || i.barcode}${i.item_type?.name ? ` · ${i.item_type.name}` : ""} — ${i.status.replace(/_/g, " ")}</option>`)}</select>
+        <span class="hint">Only choose a specific copy if you need that edition or format.</span></div>` : ""}
+      <div class="field"><label for="hold-nna">Not needed after (optional)</label><input id="hold-nna" name="not_needed_after" type="date" min="${new Date().toISOString().slice(0, 10)}">
+        <span class="hint">We'll cancel the hold automatically if it isn't ready by then.</span></div>
       <div class="field"><label for="notes">Note to staff (optional)</label><input id="notes" name="notes" maxlength="255"></div></div>` });
     if (!fd) return;
     await withBusy(e.target.closest("button"), async () => {
-      const h = await api("/opac/me/holds", { method: "POST", body: { biblio_id: id, pickup_branch_id: +fd.get("pickup"), notes: fd.get("notes") || null } });
+      const h = await api("/opac/me/holds", { method: "POST", body: { biblio_id: id, pickup_branch_id: +fd.get("pickup"), notes: fd.get("notes") || null,
+        item_id: fd.get("item_id") ? Number(fd.get("item_id")) : null, not_needed_after: fd.get("not_needed_after") || null } });
       toast(`Hold placed — you are number ${h.queue_position} in the queue.`, "success");
     });
   });

@@ -93,3 +93,21 @@ router.add_api_route("/staff/catalog/new", _staff("staff-record-edit", "staff/re
 router.add_api_route("/staff/catalog/{biblio_id}", _staff("staff-record", "staff/record.html"), methods=["GET"])
 router.add_api_route("/staff/catalog/{biblio_id}/edit", _staff("staff-record-edit", "staff/record_edit.html"), methods=["GET"])
 router.add_api_route("/staff/patrons/{patron_id}", _staff("staff-patron", "staff/patron.html"), methods=["GET"])
+
+# ---- circulation services ----
+for _key, _path, _label, _icon in [
+    ("calendar", "/staff/calendar", "Calendar", "clock"),
+    ("notices", "/staff/notices", "Notices", "send"),
+    ("requests", "/staff/requests", "Patron requests", "inbox"),
+]:
+    STAFF_NAV.insert(len(STAFF_NAV) - 1, (_key, _path, _label, _icon))  # keep Administration last
+    router.add_api_route(_path, _staff(f"staff-{_key}", f"staff/{_key}.html"), methods=["GET"],
+                         response_class=HTMLResponse)
+
+
+@router.get("/register", response_class=HTMLResponse)
+def opac_register(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    if user is not None:
+        return RedirectResponse("/account", status_code=303)
+    return _render(request, "opac/register.html", "opac-register", user, db,
+                   registration_enabled=bool(settings_svc.get(db, "allow_self_registration")))

@@ -1,0 +1,17 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Notices{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Notices</h1>
+    <div class="sub">Edit the emails and text messages patrons receive, and watch the delivery outbox.</div>
+  </div>
+  <button class="btn hidden" id="deliver-now"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>Process outbox now</button>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Notice views" id="n-tabs">
+  <button role="tab" id="tab-templates" data-tab="templates" aria-selected="true" aria-controls="n-panel">Templates</button>
+  <button role="tab" id="tab-outbox" data-tab="outbox" aria-selected="false" aria-controls="n-panel" tabindex="-1">Outbox <span class="badge hidden" id="count-failed"></span></button>
+</div>
+<section id="n-panel" role="tabpanel" aria-labelledby="tab-templates"></section>
+{% endblock %}

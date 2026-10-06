@@ -12,8 +12,11 @@ const PANELS = {
     : empty("No current loans", "book"),
   holds: () => p.holds.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>Title</th><th>Pickup</th><th>Status</th><th>Placed</th><th></th></tr></thead><tbody>
     ${p.holds.map((h) => html`<tr><td><a href="/staff/catalog/${h.biblio.id}">${h.biblio.title}</a></td><td>${h.pickup_branch.name}</td>
-      <td>${badge(h.status)} ${h.queue_position ? html`<span class="tiny muted">#${h.queue_position}</span>` : ""}${h.expires_at ? html`<div class="tiny muted">until ${date(h.expires_at)}</div>` : ""}</td>
-      <td>${relative(h.created_at)}</td><td class="right"><button class="btn sm danger" data-cancel-hold="${h.id}">Cancel</button></td></tr>`)}</tbody></table></div>`
+      <td>${h.suspended ? badge("warn", h.suspended_until ? `Suspended until ${date(h.suspended_until)}` : "Suspended") : badge(h.status)} ${h.queue_position ? html`<span class="tiny muted">#${h.queue_position}</span>` : ""}${h.expires_at ? html`<div class="tiny muted">until ${date(h.expires_at)}</div>` : ""}
+        ${h.item_level && h.requested_item ? html`<div class="tiny muted">Copy ${h.requested_item.barcode} only</div>` : ""}${h.notes ? html`<div class="tiny muted">${h.notes}</div>` : ""}</td>
+      <td>${relative(h.created_at)}</td><td class="right nowrap">${h.status === "queued" && !h.item ? (h.suspended
+        ? html`<button class="btn sm" data-hold-resume="${h.id}">Resume</button> `
+        : html`<button class="btn sm" data-hold-suspend="${h.id}">Suspend</button> `) : ""}<button class="btn sm danger" data-cancel-hold="${h.id}">Cancel</button></td></tr>`)}</tbody></table></div>`
     : empty("No active holds", "bookmark"),
   async history() {
     const r = await api(`/patrons/${p.id}/history`);
@@ -53,6 +56,7 @@ async function load() {
         <div><h1 style="margin:0">${p.full_name}</h1>
           <div class="muted">${p.card_number} · ${p.category.name} · ${p.home_branch.name}${p.role !== "patron" ? ` · ${p.role}` : ""}</div>
           <div class="row tight" style="margin-top:.4rem">${p.is_active ? badge("ok", "Active") : badge("bad", "Inactive")}
+            ${p.registration_status === "pending" ? html`<a class="badge warn" href="/staff/requests">Online registration awaiting approval</a>` : ""}
             ${p.expires_on ? badge(expired ? "bad" : "", `${expired ? "Expired" : "Expires"} ${date(p.expires_on)}`) : ""}
             ${badge(p.balance > 0 ? "warn" : "ok", `Balance ${money(p.balance)}`)}${p.keep_history ? "" : badge("info", "History off")}</div>
           <div class="small muted" style="margin-top:.4rem">${[p.email, p.phone, p.address].filter(Boolean).join(" · ")}</div></div></div>
@@ -105,6 +109,14 @@ export default async function init() {
       } else if (t.dataset.cancelHold) {
         if (!(await confirmDialog("Cancel hold?", "The patron will lose their place in the queue.", "Cancel hold"))) return;
         await api(`/holds/${t.dataset.cancelHold}`, { method: "DELETE" });
+      } else if (t.dataset.holdSuspend) {
+        const fd = await modal({ title: "Suspend hold", submit: "Suspend", body: html`<div class="field"><label for="hs-until">Resume automatically on (optional)</label><input id="hs-until" name="until" type="date"></div>` });
+        if (!fd) return;
+        await api(`/holds/${t.dataset.holdSuspend}/suspend`, { method: "POST", body: { until: fd.get("until") || null } });
+        toast("Hold suspended", "success");
+      } else if (t.dataset.holdResume) {
+        await api(`/holds/${t.dataset.holdResume}/resume`, { method: "POST" });
+        toast("Hold resumed", "success");
       } else if (t.dataset.money) {
         const kind = t.dataset.money;
         const fd = await modal({ title: { pay: "Take payment", waive: "Waive charges", charge: "Add manual charge" }[kind], submit: "Confirm", body: html`<div class="stack">

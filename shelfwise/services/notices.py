@@ -128,7 +128,7 @@ class _NoticeEnvironment(ImmutableSandboxedEnvironment):
         return super().call_binop(context, operator, left, right)
 
 
-_env = _NoticeEnvironment(autoescape=False, trim_blocks=True, lstrip_blocks=True)
+_env = _NoticeEnvironment(autoescape=False)  # plain text; Jinja's default whitespace handling
 
 
 class TemplateProblem(PolicyBlocked):

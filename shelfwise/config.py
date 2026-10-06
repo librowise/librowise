@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # set True behind HTTPS
     allowed_hosts: list[str] = ["*"]
     cors_origins: list[str] = []
+    # Public base URL (e.g. https://library.example.org) used in e-mailed links such as password resets
+    # and as the OpenID Connect redirect base. Set it in production so links never depend on the Host header.
+    public_url: str = ""
 
     # Rate limiting for authentication endpoints
     login_attempts_per_minute: int = 10

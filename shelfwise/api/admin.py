@@ -91,12 +91,12 @@ def explain_rule(branch_id: int, category_id: int, item_type_id: int, db: Sessio
 
 
 @router.get("/settings")
-def get_settings(db: Session = Depends(get_db), _: Patron = Depends(ADMIN)):
+def get_settings(db: Session = Depends(get_db), _: Patron = Depends(require("settings:manage"))):
     return {"results": settings_svc.all_settings(db)}
 
 
 @router.put("/settings/{key}")
-def put_setting(key: str, body: SettingIn, db: Session = Depends(get_db), user: Patron = Depends(ADMIN)):
+def put_setting(key: str, body: SettingIn, db: Session = Depends(get_db), user: Patron = Depends(require("settings:manage"))):
     try:
         settings_svc.set_value(db, key, body.value)
     except KeyError:
@@ -110,7 +110,7 @@ def put_setting(key: str, body: SettingIn, db: Session = Depends(get_db), user: 
 
 @router.get("/audit")
 def audit_log(action: str | None = None, entity: str | None = None, page: int = Query(default=1, ge=1),
-              db: Session = Depends(get_db), _: Patron = Depends(ADMIN)):
+              db: Session = Depends(get_db), _: Patron = Depends(require("audit:read"))):
     stmt = select(AuditLog)
     if action:
         stmt = stmt.where(AuditLog.action == action)
@@ -124,7 +124,7 @@ def audit_log(action: str | None = None, entity: str | None = None, page: int = 
 
 
 @router.post("/jobs/nightly")
-def nightly(db: Session = Depends(get_db), user: Patron = Depends(ADMIN)):
+def nightly(db: Session = Depends(get_db), user: Patron = Depends(require("jobs:manage"))):
     stats = circulation.run_nightly(db)
     audit.record(db, "nightly_job", "system", None, actor=user, **stats)
     db.commit()
@@ -132,7 +132,7 @@ def nightly(db: Session = Depends(get_db), user: Patron = Depends(ADMIN)):
 
 
 @router.post("/jobs/reindex")
-def reindex(db: Session = Depends(get_db), _: Patron = Depends(ADMIN)):
+def reindex(db: Session = Depends(get_db), _: Patron = Depends(require("jobs:manage"))):
     n = catalog.reindex_all(db)
     db.commit()
     from ..ai import semantic

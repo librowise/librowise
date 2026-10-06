@@ -14,8 +14,8 @@ from ..deps import client_ip, require
 from ..errors import NotFound
 from ..models import Hold, LedgerEntry, Loan, Patron, PatronCategory, Role, utcnow
 from ..schemas import MoneyIn, PatronIn, PatronPatch, biblio_out, hold_out, loan_out, money, patron_out
-from ..security import hash_password, password_problems
-from ..services import audit, catalog, circulation
+from ..security import ROLE_PERMISSIONS, can_manage_account, has_permission, hash_password, holds_all, password_problems
+from ..services import audit, catalog, circulation, identity
 
 router = APIRouter(prefix="/patrons", tags=["patrons"])
 
@@ -28,8 +28,14 @@ def get_patron(db: Session, patron_id: int) -> Patron:
 
 
 def _guard_role_change(actor: Patron, new_role: str | None) -> None:
-    if new_role and new_role != "patron" and actor.role != Role.admin:
+    if new_role and new_role != "patron" and not (
+            has_permission(actor, "patrons:manage_staff") and holds_all(actor, ROLE_PERMISSIONS[Role(new_role)])):
         raise HTTPException(403, "Only administrators can create or promote staff accounts")
+
+
+def _guard_staff_target(actor: Patron, target: Patron, verb: str) -> None:
+    if target.is_staff and not can_manage_account(actor, target):
+        raise HTTPException(403, f"Only administrators can {verb} staff accounts")
 
 
 def new_card_number(db: Session) -> str:
@@ -122,8 +128,7 @@ def update_patron(patron_id: int, body: PatronPatch, request: Request, db: Sessi
                   actor: Patron = Depends(require("patrons:write"))):
     p = get_patron(db, patron_id)
     data = body.model_dump(exclude_unset=True)
-    if p.is_staff and actor.role != Role.admin:
-        raise HTTPException(403, "Only administrators can modify staff accounts")
+    _guard_staff_target(actor, p, "modify")
     _guard_role_change(actor, data.get("role"))
     if pw := data.pop("password", None):
         if problems := password_problems(pw):
@@ -142,14 +147,13 @@ def update_patron(patron_id: int, body: PatronPatch, request: Request, db: Sessi
 
 
 @router.delete("/{patron_id}", status_code=204)
-def delete_patron(patron_id: int, db: Session = Depends(get_db), actor: Patron = Depends(require("patrons:write"))):
+def delete_patron(patron_id: int, db: Session = Depends(get_db), actor: Patron = Depends(require("patrons:delete"))):
     p = get_patron(db, patron_id)
     if circulation.open_loans(db, p.id):
         raise HTTPException(409, "Patron still has items on loan")
     if circulation.balance(db, p.id) > 0:
         raise HTTPException(409, "Patron has outstanding charges")
-    if p.is_staff and actor.role != Role.admin:
-        raise HTTPException(403, "Only administrators can remove staff accounts")
+    _guard_staff_target(actor, p, "remove")
     # GDPR-style erasure: keep the row for referential integrity, scrub personal data.
     p.deleted_at = utcnow()
     p.is_active = False
@@ -158,6 +162,7 @@ def delete_patron(patron_id: int, db: Session = Depends(get_db), actor: Patron =
     p.date_of_birth = None
     p.first_name, p.last_name = "Deleted", f"Patron #{p.id}"
     p.password_hash = None
+    identity.erase_credentials(db, p)  # sessions, API tokens, 2FA, linked SSO identities
     db.query(Loan).filter(Loan.patron_id == p.id, Loan.returned_at.is_not(None)).update({"patron_id": None})
     audit.record(db, "erase", "patron", p.id, actor=actor)
     db.commit()
@@ -191,7 +196,7 @@ def pay(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: Pat
 
 
 @router.post("/{patron_id}/waive")
-def waive(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: Patron = Depends(require("circulation"))):
+def waive(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: Patron = Depends(require("fines:waive"))):
     p = get_patron(db, patron_id)
     bal = circulation.waive(db, p, body.amount, actor, body.note or "Waived")
     db.commit()
@@ -199,7 +204,7 @@ def waive(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: P
 
 
 @router.post("/{patron_id}/charge")
-def charge(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: Patron = Depends(require("circulation"))):
+def charge(patron_id: int, body: MoneyIn, db: Session = Depends(get_db), actor: Patron = Depends(require("fines:charge"))):
     p = get_patron(db, patron_id)
     bal = circulation.charge(db, p, body.amount, actor, body.note or "Manual charge")
     db.commit()

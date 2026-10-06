@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     p_admin = sub.add_parser("create-admin", help="Create an administrator account")
     p_admin.add_argument("--username", required=True, help="Card number / login name")
     p_admin.add_argument("--email", required=True)
+    p_unlock = sub.add_parser("reset-2fa", help="Break-glass: remove 2FA, clear lockout and end all sessions of an account")
+    p_unlock.add_argument("--username", required=True, help="Card number or email")
     sub.add_parser("nightly", help="Run nightly jobs: notices, hold expiry, anonymisation")
     sub.add_parser("reindex", help="Rebuild the full-text search index")
     p_run = sub.add_parser("run", help="Start the web server")
@@ -62,6 +64,19 @@ def main(argv: list[str] | None = None) -> int:
             db.add(Patron(card_number=args.username, email=args.email.lower(), first_name="Admin", last_name=args.username,
                           role=Role.admin, category_id=cat.id, home_branch_id=branch.id, password_hash=hash_password(pw)))
         print(f"Administrator {args.username} created.")
+    elif args.cmd == "reset-2fa":
+        from .services import audit, identity
+
+        with session_scope() as db:
+            user = identity.find_account(db, args.username)
+            if user is None:
+                print("No active account matches.", file=sys.stderr)
+                return 1
+            identity.disable_mfa(db, user)
+            identity.unlock(user)
+            n = identity.revoke_all_sessions(db, user)
+            audit.record(db, "mfa_reset", "patron", user.id, via="cli", sessions_revoked=n)
+        print(f"2FA removed, lockout cleared and {n} session(s) ended for {args.username}.")
     elif args.cmd == "nightly":
         from .services.circulation import run_nightly
 

@@ -402,3 +402,18 @@ dialog.wide { width: min(860px, calc(100vw - 2rem)); }
 @media (max-width: 1000px) { .grid.split { grid-template-columns: 1fr; } }
 .record-layout > *, .results-layout > *, .desk > *, .grid > * { min-width: 0; }
 @media (max-width: 640px) { .opac-header .inner { flex-wrap: wrap; } .opac-header nav { margin-left: 0; } .hero .inner { padding: 2rem 1rem; } .searchbox { flex-wrap: wrap; } .searchbox input { flex: 1 1 100%; } }
+
+/* ---------------------------------------------------------------- interoperability (copy cataloguing, SIP2, endpoints) */
+.cc-title { font-size: 1.05rem; margin: 0; }
+.cc-actions { flex: none; }
+.cc-details { margin-top: .75rem; }
+.cc-details > summary { cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--text-2); }
+.cc-marc, .io-code { font-family: var(--mono); font-size: .8rem; line-height: 1.55; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .75rem .9rem; margin: .5rem 0 0; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.io-code { white-space: pre; margin: 0; }
+.cc-tag { color: var(--primary); font-weight: 700; }
+.cc-ind { color: var(--muted); }
+.io-fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .6rem .9rem .9rem; margin: 0; min-width: 0; }
+.io-fieldset legend { font-weight: 650; font-size: .85rem; padding: 0 .35rem; }
+.io-links { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .2rem; }
+@media (max-width: 900px) { .io-endpoints.grid.cols-2 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .cc-result > .row { flex-direction: column; } .io-fieldset .grid.cols-2, .io-fieldset .grid.cols-3 { grid-template-columns: 1fr; } }

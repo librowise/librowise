@@ -226,8 +226,29 @@ def seed(db: Session, *, patrons: int = 60, history_days: int = 365, rng_seed: i
                              quantity=qty, unit_price=price, status=status))
     circulation.run_nightly(db)
     db.flush()
+    seed_interop(db)
     return {
         "titles": len(biblios), "items": db.query(Item).count(), "patrons": len(people) + len(staff),
         "loans": db.query(Loan).count(), "open_loans": db.query(Loan).filter(Loan.returned_at.is_(None)).count(),
     }
+
+
+# ---- interoperability ----
+
+DEMO_SIP_ACCOUNT = ("selfcheck", "SelfCheck#Demo2026")  # local development only
+
+
+def seed_interop(db: Session) -> None:
+    """A demo SIP2 self-check account and the Library of Congress copy-cataloguing target."""
+    from .interop.copycat import DEFAULT_TARGET
+    from .models import CopyCatTarget, SipAccount
+
+    main = db.scalar(select(Branch).where(Branch.code == "MAIN")) or db.scalar(select(Branch).limit(1))
+    if main is not None and not db.scalar(select(SipAccount.id).where(SipAccount.login == DEMO_SIP_ACCOUNT[0])):
+        db.add(SipAccount(login=DEMO_SIP_ACCOUNT[0], password_hash=hash_password(DEMO_SIP_ACCOUNT[1]),
+                          name="Self-check kiosk (demo)", institution_id="SHELFWISE", branch_id=main.id,
+                          allow_holds=True, allow_fee_paid=True, sort_bins={"hold": "2", "transfer": "3", "default": "1"}))
+    if not db.scalar(select(CopyCatTarget.id).limit(1)):
+        db.add(CopyCatTarget(**DEFAULT_TARGET))
+    db.flush()
 

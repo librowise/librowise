@@ -1,0 +1,29 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Copy cataloguing{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Copy cataloguing</h1>
+    <div class="sub">Search the Library of Congress and other SRU catalogues, check the MARC record and import it in one step.</div>
+  </div>
+  <div class="row tight">
+    <a class="btn" href="/staff/interop#targets"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>Targets</a>
+    <a class="btn" href="/staff/catalog/new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Original record</a>
+  </div>
+</div>
+<form id="cc-form" class="card pad row" role="search" aria-label="Search remote catalogues" novalidate>
+  <div class="field"><label for="cc-target">Catalogue</label><select id="cc-target" name="target_id"></select></div>
+  <div class="field"><label for="cc-kind">Search by</label>
+    <select id="cc-kind" name="kind">
+      <option value="title">Title</option><option value="isbn">ISBN</option><option value="author">Author</option><option value="cql">CQL query</option>
+    </select></div>
+  <div class="field grow" style="min-width:240px"><label for="cc-q">Search terms</label>
+    <input id="cc-q" name="q" type="search" required maxlength="300" autocomplete="off" data-search-focus placeholder="e.g. The Hobbit"></div>
+  <div class="field"><label for="cc-max">Show</label>
+    <select id="cc-max" name="max"><option value="10">10 results</option><option value="20">20 results</option><option value="50">50 results</option></select></div>
+  <div class="field"><span class="hint" aria-hidden="true">&nbsp;</span><button class="btn primary" id="cc-go">Search</button></div>
+</form>
+<div class="row between" style="margin:1rem 0 .5rem"><span id="cc-summary" class="muted small" aria-live="polite"></span></div>
+<div id="cc-results" class="stack" aria-live="polite"></div>
+<nav class="pager" id="cc-pager" aria-label="Result pages"></nav>
+{% endblock %}

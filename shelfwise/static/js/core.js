@@ -293,6 +293,10 @@ const COMMANDS = [
   { group: "Preferences", label: "Toggle dark mode", run: () => applyPrefs({ theme: document.documentElement.dataset.theme === "dark" ? "light" : "dark" }), icon: "moon" },
   { group: "Help", label: "Keyboard shortcuts", run: () => shortcutsHelp(), icon: "keyboard" },
   { group: "Help", label: "API documentation", run: () => window.open("/api/docs"), icon: "code" },
+  ...(STAFF ? [
+    { group: "Interoperability", label: "Copy cataloguing (Library of Congress, SRU)", run: () => (location.href = "/staff/copycat"), icon: "download" },
+    { group: "Interoperability", label: "SIP2 accounts, SRU and OAI-PMH endpoints", run: () => (location.href = "/staff/interop"), icon: "globe" },
+  ] : []),
 ];
 
 function shortcutsHelp() {

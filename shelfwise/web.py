@@ -57,7 +57,16 @@ def opac_search(request: Request, db: Session = Depends(get_db), user: Patron | 
 @router.get("/record/{biblio_id}", response_class=HTMLResponse)
 def opac_record(biblio_id: int, request: Request, db: Session = Depends(get_db),
                 user: Patron | None = Depends(optional_user)):
-    return _render(request, "opac/record.html", "opac-record", user, db, biblio_id=biblio_id)
+    from .interop.jsonld import record_metadata
+
+    # Server-rendered schema.org JSON-LD + Open Graph tags so search engines and link previews
+    # see the record without running JavaScript.
+    seo = record_metadata(db, biblio_id, base_url=str(request.base_url),
+                          library_name=settings_svc.get(db, "library_name"))
+    response = _render(request, "opac/record.html", "opac-record", user, db, biblio_id=biblio_id, seo=seo)
+    if seo is None:
+        response.status_code = 404
+    return response
 
 
 @router.get("/account", response_class=HTMLResponse)
@@ -93,3 +102,16 @@ router.add_api_route("/staff/catalog/new", _staff("staff-record-edit", "staff/re
 router.add_api_route("/staff/catalog/{biblio_id}", _staff("staff-record", "staff/record.html"), methods=["GET"])
 router.add_api_route("/staff/catalog/{biblio_id}/edit", _staff("staff-record-edit", "staff/record_edit.html"), methods=["GET"])
 router.add_api_route("/staff/patrons/{patron_id}", _staff("staff-patron", "staff/patron.html"), methods=["GET"])
+
+# ---- interoperability (SRU, OAI-PMH, copy cataloguing, SIP2 administration) ----
+from .interop import oai as _oai  # noqa: E402
+from .interop import sru as _sru  # noqa: E402
+
+router.include_router(_sru.router)
+router.include_router(_oai.router)
+STAFF_NAV.append(("copycat", "/staff/copycat", "Copy cataloguing", "download"))
+STAFF_NAV.append(("interop", "/staff/interop", "Interoperability", "globe"))
+router.add_api_route("/staff/copycat", _staff("staff-copycat", "staff/copycat.html"), methods=["GET"],
+                     response_class=HTMLResponse)
+router.add_api_route("/staff/interop", _staff("staff-interop", "staff/interop.html"), methods=["GET"],
+                     response_class=HTMLResponse)

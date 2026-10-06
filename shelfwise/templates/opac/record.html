@@ -1,4 +1,15 @@
 {% extends "opac_base.html" %}
+{% block title %}{% if seo %}{{ seo.title }} · {{ library_name }}{% else %}Record not found · {{ library_name }}{% endif %}{% endblock %}
+{% block meta_description %}{% if seo %}{{ seo.description }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block head_extra %}{% if seo %}
+  <link rel="canonical" href="{{ seo.canonical }}">
+  {% for key, value in seo.og.items() %}<meta property="{{ key }}" content="{{ value }}">
+  {% endfor %}{% for name in seo.authors %}<meta property="book:author" content="{{ name }}">
+  {% endfor %}<meta name="twitter:card" content="summary">
+  <script type="application/ld+json">{{ seo.jsonld | tojson }}</script>
+{% else %}
+  <meta name="robots" content="noindex">
+{% endif %}{% endblock %}
 {% block content %}
 <div class="wrap">
   <nav class="small muted" style="margin-bottom:1rem"><a href="/search" id="back-link">← Back to results</a></nav>

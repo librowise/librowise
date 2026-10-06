@@ -39,7 +39,7 @@ export default async function init() {
     $("#record").innerHTML = empty(e.status === 404 ? "This record does not exist or was removed." : e.message, "alert");
     return;
   }
-  document.title = `${b.title} · ${document.title}`;
+  if (!document.title.startsWith(b.title)) document.title = `${b.title} · ${document.title}`; // server already sets it for SEO
   const a = b.availability;
   $("#record").innerHTML = html`<div class="record-layout">
     <div class="stack">${cover(b, "lg")}

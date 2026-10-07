@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ t('kiosk.title') }} · {{ library_name }}{% endblock %}
+{% block body %}
+<div class="kiosk" id="kiosk">
+  <header class="kiosk-bar">
+    <div class="kiosk-brand"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-book"></use></svg></span>
+      <div><strong id="k-library">{{ library_name }}</strong><div class="small muted" id="k-branch">{{ t('kiosk.title') }}</div></div></div>
+    <div class="kiosk-tools">
+      {% include "_lang_switch.html" %}
+      <button type="button" class="btn ghost kiosk-tool" id="k-contrast" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg><span>{{ t('kiosk.high_contrast') }}</span></button>
+      <button type="button" class="btn ghost kiosk-tool" id="k-sound" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-volume"></use></svg><span>{{ t('kiosk.sound') }}</span></button>
+      <button type="button" class="btn ghost kiosk-tool" id="k-fullscreen"><svg class="icon" aria-hidden="true"><use href="#i-maximize"></use></svg><span>{{ t('kiosk.fullscreen') }}</span></button>
+    </div>
+  </header>
+
+  <main id="main" class="kiosk-main" tabindex="-1">
+    <div class="kiosk-status" id="k-status" role="status" aria-live="polite"></div>
+
+    <section class="kiosk-screen" data-screen="loading" aria-busy="true">
+      <div class="spinner kiosk-spinner" aria-hidden="true"></div><p class="sr-only">{{ t('common.loading') }}</p>
+    </section>
+
+    <section class="kiosk-screen" data-screen="setup" hidden aria-labelledby="k-setup-h">
+      <div class="kiosk-card">
+        <span class="kiosk-hero-icon" aria-hidden="true"><svg class="icon"><use href="#i-key"></use></svg></span>
+        <h1 id="k-setup-h">{{ t('kiosk.setup_title') }}</h1>
+        <p class="kiosk-lead">{{ t('kiosk.setup_lead') }}</p>
+        <form id="k-setup-form" class="stack" novalidate>
+          <div class="field"><label for="k-token">{{ t('kiosk.setup_token') }}</label>
+            <input id="k-token" name="token" class="kiosk-input mono" autocomplete="off" spellcheck="false" required aria-describedby="k-setup-error"></div>
+          <p class="kiosk-error" id="k-setup-error" role="alert" hidden></p>
+          <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.setup_save') }}</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="kiosk-screen" data-screen="welcome" hidden aria-labelledby="k-welcome-h">
+      <div class="kiosk-card">
+        <span class="kiosk-hero-icon" aria-hidden="true"><svg class="icon"><use href="#i-barcode"></use></svg></span>
+        <h1 id="k-welcome-h">{{ t('kiosk.welcome_title') }}</h1>
+        <p class="kiosk-lead">{{ t('kiosk.welcome_lead') }}</p>
+        <form id="k-login-form" class="stack" novalidate>
+          <div class="field"><label for="k-card">{{ t('kiosk.card') }}</label>
+            <input id="k-card" name="card" class="kiosk-input" inputmode="numeric" autocomplete="off" required aria-describedby="k-login-error"></div>
+          <div class="field"><label for="k-password">{{ t('kiosk.password') }}</label>
+            <input id="k-password" name="password" type="password" class="kiosk-input" autocomplete="off" required aria-describedby="k-login-error"></div>
+          <p class="kiosk-error" id="k-login-error" role="alert" hidden></p>
+          <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.sign_in') }}</button>
+        </form>
+        <p class="small muted">{{ t('kiosk.help') }}</p>
+      </div>
+    </section>
+
+    <section class="kiosk-screen" data-screen="session" hidden aria-labelledby="k-session-h">
+      <div class="kiosk-session">
+        <div class="kiosk-session-head">
+          <h1 id="k-session-h"></h1>
+          <button type="button" class="btn primary kiosk-btn" id="k-finish"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>{{ t('kiosk.finish') }}</button>
+        </div>
+        <div id="k-blocks"></div>
+        <form id="k-scan-form" class="kiosk-scan" novalidate>
+          <label for="k-barcode">{{ t('kiosk.scan_label') }}</label>
+          <div class="kiosk-scan-row">
+            <input id="k-barcode" name="barcode" class="kiosk-input mono" autocomplete="off" spellcheck="false" required aria-describedby="k-scan-hint k-scan-result">
+            <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.borrow') }}</button>
+            <button class="btn kiosk-btn" type="button" id="k-camera" hidden><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span class="sr-only">{{ t('kiosk.camera') }}</span></button>
+          </div>
+          <p class="small muted" id="k-scan-hint">{{ t('kiosk.scan_hint') }}</p>
+          <div id="k-scan-result" class="kiosk-result" role="alert" aria-live="assertive"></div>
+        </form>
+        <div class="kiosk-columns">
+          <section aria-labelledby="k-now-h"><h2 id="k-now-h">{{ t('kiosk.this_visit') }}</h2><ol class="kiosk-list" id="k-now"></ol></section>
+          <section aria-labelledby="k-loans-h"><h2 id="k-loans-h">{{ t('kiosk.your_loans') }}</h2><ul class="kiosk-list" id="k-loans"></ul></section>
+        </div>
+        <section id="k-holds-wrap" hidden aria-labelledby="k-holds-h"><h2 id="k-holds-h">{{ t('kiosk.holds_ready') }}</h2><ul class="kiosk-list" id="k-holds"></ul></section>
+      </div>
+    </section>
+
+    <section class="kiosk-screen" data-screen="done" hidden aria-labelledby="k-done-h">
+      <div class="kiosk-card">
+        <span class="kiosk-hero-icon ok" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+        <h1 id="k-done-h">{{ t('kiosk.done_title') }}</h1>
+        <p class="kiosk-lead" id="k-done-lead"></p>
+        <div class="row tight" style="justify-content:center">
+          <button type="button" class="btn primary kiosk-btn" id="k-print"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>{{ t('kiosk.print_receipt') }}</button>
+          <button type="button" class="btn kiosk-btn" id="k-no-receipt">{{ t('kiosk.no_receipt') }}</button>
+        </div>
+        <p class="small muted" id="k-done-timer" aria-live="off"></p>
+      </div>
+    </section>
+  </main>
+
+  <div class="kiosk-idle" id="k-idle" role="alertdialog" aria-modal="true" aria-labelledby="k-idle-h" aria-describedby="k-idle-text" hidden>
+    <div class="kiosk-card">
+      <h2 id="k-idle-h">{{ t('kiosk.idle_title') }}</h2>
+      <p id="k-idle-text" class="kiosk-lead"></p>
+      <div class="kiosk-countdown" aria-hidden="true"><span id="k-idle-count"></span></div>
+      <div class="row tight" style="justify-content:center">
+        <button type="button" class="btn primary kiosk-btn" id="k-idle-stay">{{ t('kiosk.idle_stay') }}</button>
+        <button type="button" class="btn kiosk-btn" id="k-idle-end">{{ t('kiosk.finish') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="kiosk-receipt" id="k-receipt" aria-hidden="true"></div>
+{% endblock %}

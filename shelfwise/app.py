@@ -31,7 +31,8 @@ CSRF_EXEMPT = {"/api/v1/auth/login", "/api/v1/auth/logout"}
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; "
-    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; "
+    "worker-src 'self'; manifest-src 'self'"
 )
 
 

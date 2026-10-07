@@ -1,10 +1,32 @@
 {% extends "opac_base.html" %}
-{% block title %}Course reserves · {{ library_name }}{% endblock %}
+{#- Course reserves: the list (header, filters, course cards) or one course (breadcrumb, header, notes,
+    readings with live availability). Header and filters are server-rendered; data fills in. -#}
+{% block title %}{{ t('opac.courses.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
 <div class="wrap">
   <div id="courses-view">
-    <div class="skeleton" style="height:2.2rem;width:40%"></div>
-    <div class="skeleton" style="height:10rem;margin-top:1.5rem"></div>
+  {% if path_params and path_params.course_id %}
+    <nav class="crumbs-opac" aria-label="{{ t('opac.record.breadcrumb') }}"><a href="/courses"><svg class="icon icon-back" aria-hidden="true"><use href="#i-chevron-left"></use></svg>{{ t('opac.courses.all') }}</a></nav>
+    <div aria-hidden="true">
+      <div class="skeleton" style="height:1.3rem;width:9rem;border-radius:999px"></div>
+      <div class="skeleton" style="height:2.4rem;width:min(36rem,90%);margin-top:.6rem"></div>
+      <div class="skeleton" style="height:1rem;width:14rem;margin-top:.6rem"></div>
+      {% for _ in range(4) %}<div class="skeleton" style="height:5.4rem;margin-top:1rem;border-radius:var(--radius-lg)"></div>{% endfor %}
+    </div>
+  {% else %}
+    <header class="opac-head">
+      <div><div class="eyebrow">{{ t('opac.courses.eyebrow') }}</div><h1>{{ t('opac.courses.title') }}</h1>
+        <p class="lead">{{ t('opac.courses.lead') }}</p></div>
+    </header>
+    <form class="filter-card" id="oc-filters" role="search" aria-label="{{ t('opac.courses.filters') }}">
+      <div class="field"><label for="oc-q">{{ t('opac.courses.q') }}</label><input id="oc-q" name="q" type="search" value="{{ request.query_params.get('q', '') }}" placeholder="{{ t('opac.courses.q_placeholder') }}" autocomplete="off" data-search-focus></div>
+      <div class="field"><label for="oc-dept">{{ t('opac.courses.department') }}</label><select id="oc-dept" name="department"><option value="">{{ t('opac.courses.all_departments') }}</option></select></div>
+      <div class="field"><label for="oc-term">{{ t('opac.courses.term') }}</label><select id="oc-term" name="term"><option value="">{{ t('opac.courses.all_terms') }}</option></select></div>
+      <div class="field"><label for="oc-inst">{{ t('opac.courses.instructor') }}</label><input id="oc-inst" name="instructor" type="search" value="{{ request.query_params.get('instructor', '') }}" autocomplete="off"></div>
+    </form>
+    <p class="small muted" id="oc-count" role="status" style="min-height:1.4em"></p>
+    <div id="oc-results" aria-busy="true"><div class="course-grid" aria-hidden="true">{% for _ in range(6) %}<div class="skeleton" style="min-height:10.5rem;border-radius:var(--radius-lg)"></div>{% endfor %}</div></div>
+  {% endif %}
   </div>
 </div>
 {% endblock %}

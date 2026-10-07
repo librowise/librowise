@@ -1,24 +1,34 @@
 {% extends "opac_base.html" %}
-{% block title %}Browse authors &amp; subjects · {{ library_name }}{% endblock %}
+{#- Browse A–Z: index switcher (links, the URL holds the state), jump-to box, letter strip, the headings
+    list with see / see-also references, previous / next. Skeleton rows hold the list's space while it loads. -#}
+{% block title %}{{ t('opac.browse.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
+{%- set index = request.query_params.get('index') if request.query_params.get('index') in ('authors', 'subjects', 'titles') else 'authors' -%}
 <div class="wrap">
-  <div class="page-head" style="margin-top:1.5rem">
-    <div><h1>Browse the catalogue</h1>
-      <div class="sub">An alphabetical index of authors, subjects and series titles. Cross-references guide you to the form we use.</div></div>
-  </div>
-  <div class="tabs" role="tablist" aria-label="Browse index" id="browse-tabs">
-    <button role="tab" id="tab-authors" data-index="authors" aria-selected="true" aria-controls="browse-panel">Authors</button>
-    <button role="tab" id="tab-subjects" data-index="subjects" aria-selected="false" aria-controls="browse-panel" tabindex="-1">Subjects</button>
-    <button role="tab" id="tab-titles" data-index="titles" aria-selected="false" aria-controls="browse-panel" tabindex="-1">Series &amp; titles</button>
-  </div>
-  <form class="card pad row" id="browse-form" role="search" style="margin-bottom:1rem">
-    <div class="field grow"><label for="browse-start">Jump to</label>
-      <input id="browse-start" name="start" type="search" placeholder="Type the first letters, e.g. “Tw” or “Detective”" autocomplete="off" data-search-focus></div>
-    <div class="field"><label>&nbsp;</label><button class="btn primary" type="submit">Browse</button></div>
+  <header class="opac-head">
+    <div><div class="eyebrow">{{ t('opac.browse.eyebrow') }}</div><h1>{{ t('opac.browse.title') }}</h1>
+      <p class="lead">{{ t('opac.browse.lead') }}</p></div>
+  </header>
+  <nav class="browse-index" aria-label="{{ t('opac.browse.indexes') }}" id="browse-tabs">
+    <a id="tab-authors" href="/browse?index=authors"{% if index == 'authors' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>{{ t('opac.browse.authors') }}</a>
+    <a id="tab-subjects" href="/browse?index=subjects"{% if index == 'subjects' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg>{{ t('opac.browse.subjects') }}</a>
+    <a id="tab-titles" href="/browse?index=titles"{% if index == 'titles' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg>{{ t('opac.browse.titles') }}</a>
+  </nav>
+  <form class="browse-bar" id="browse-form" role="search" aria-label="{{ t('opac.browse.jump') }}">
+    <input type="hidden" name="index" value="{{ index }}">
+    <div class="field"><label for="browse-start">{{ t('opac.browse.jump') }}</label>
+      <input id="browse-start" name="start" type="search" value="{{ request.query_params.get('start', '') }}" placeholder="{{ {'authors': t('opac.browse.placeholder_authors'), 'subjects': t('opac.browse.placeholder_subjects'), 'titles': t('opac.browse.placeholder_titles')}[index] }}" autocomplete="off" data-search-focus></div>
+    <button class="btn primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>{{ t('opac.browse.go') }}</button>
   </form>
-  <div class="browse-alpha row tight" id="browse-alpha" aria-label="Jump to letter"></div>
+  <nav aria-label="{{ t('opac.browse.letters') }}"><ul class="browse-alpha" id="browse-alpha">
+    {%- set start = (request.query_params.get('start') or '')|upper -%}
+    {% for l in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}<li><a href="/browse?index={{ index }}&amp;start={{ l }}"{% if start == l %} aria-current="true"{% endif %}>{{ l }}</a></li>{% endfor %}
+  </ul></nav>
   <div id="browse-notice" aria-live="polite"></div>
-  <section id="browse-panel" role="tabpanel" aria-labelledby="tab-authors" class="card flush"><div class="card-body" id="browse-list"></div></section>
-  <div class="pager" id="browse-pager"></div>
+  <section id="browse-panel" class="card flush" aria-labelledby="browse-list-h" aria-busy="true">
+    <h2 class="sr-only" id="browse-list-h">{{ {'authors': t('opac.browse.authors'), 'subjects': t('opac.browse.subjects'), 'titles': t('opac.browse.titles')}[index] }}</h2>
+    <div id="browse-list"><ul class="browse-list" aria-hidden="true">{% for w in [62, 48, 70, 40, 55, 66, 44, 58, 50, 63, 46, 57] %}<li><span class="skeleton" style="display:inline-block;height:1.05rem;width:{{ w }}%"></span><span class="skeleton" style="display:inline-block;height:1.2rem;width:5rem;border-radius:999px"></span></li>{% endfor %}</ul></div>
+  </section>
+  <nav class="browse-pager" id="browse-pager" aria-label="{{ t('opac.browse.pages') }}"></nav>
 </div>
 {% endblock %}

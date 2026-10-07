@@ -93,3 +93,47 @@ router.add_api_route("/staff/catalog/new", _staff("staff-record-edit", "staff/re
 router.add_api_route("/staff/catalog/{biblio_id}", _staff("staff-record", "staff/record.html"), methods=["GET"])
 router.add_api_route("/staff/catalog/{biblio_id}/edit", _staff("staff-record-edit", "staff/record_edit.html"), methods=["GET"])
 router.add_api_route("/staff/patrons/{patron_id}", _staff("staff-patron", "staff/patron.html"), methods=["GET"])
+
+
+# ---- cataloguing: authorities, MARC editor, labels, batch tools ----
+
+_CATALOGUING_NAV = [
+    ("authorities", "/staff/authorities", "Authorities", "list"),
+    ("labels", "/staff/labels", "Labels & cards", "barcode"),
+    ("batch", "/staff/batch", "Batch & inventory", "filter"),
+]
+STAFF_NAV.extend(_CATALOGUING_NAV)
+for _key, _path, _label, _icon in _CATALOGUING_NAV:
+    router.add_api_route(_path, _staff(f"staff-{_key}", f"staff/{_key}.html"), methods=["GET"],
+                         response_class=HTMLResponse)
+router.add_api_route("/staff/catalog/{biblio_id}/marc", _staff("staff-marc-editor", "staff/marc_editor.html"),
+                     methods=["GET"])
+
+
+@router.api_route("/staff/labels/print", methods=["GET", "POST"], response_class=HTMLResponse)
+async def labels_print(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    """Printable label/card sheets. Read-only, so a plain form POST (no CSRF token) is fine."""
+    from .errors import DomainError
+    from .services import labels as labels_svc
+
+    if user is None:
+        return RedirectResponse(f"/login?next={request.url.path}", status_code=303)
+    params = dict(request.query_params)
+    if request.method == "POST":
+        params.update({k: v for k, v in (await request.form()).items() if isinstance(v, str)})
+    needed = "patrons:read" if params.get("kind") == "patron" else "catalog:read"
+    job, error = None, None
+    if not (has_permission(user, "labels") and has_permission(user, needed)):
+        error = "You do not have permission to print these labels."
+    else:
+        try:
+            job = labels_svc.build(db, params)
+            db.commit()
+        except DomainError as exc:
+            error = exc.message
+    return _render(request, "staff/labels_print.html", "staff-labels-print", user, db, job=job, error=error)
+
+
+@router.get("/browse", response_class=HTMLResponse)
+def opac_browse(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    return _render(request, "opac/browse.html", "opac-browse", user, db)

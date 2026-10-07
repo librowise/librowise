@@ -160,3 +160,21 @@ See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
 
 ## License
 GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+
+## Cataloguing tools
+
+**Authority control** (*Staff → Authorities*, API `/api/v1/authorities`)
+- Seven authority types (personal/corporate/meeting names, uniform titles, topical/geographic/genre subjects) with see-from variants (4XX), see-also references (5XX with broader/narrower/related/earlier/later), source thesaurus and notes.
+- Headings are matched on a normalised key (case, diacritics and punctuation folded). Whenever a record's authors, subjects or series change, they are linked to authorities and **variants are rewritten to the authorised form**; `"Whale fishing -- Fiction"` becomes `"Whaling -- Fiction"` via the main heading. Names also match without dates/qualifiers when that is unambiguous (linked, not rewritten). The policy setting `authority_auto_link` (default on) controls this.
+- **Rename** propagates to every linked record and re-indexes it; **merge** shows a preview of every record change before it runs; delete is blocked while a heading is in use.
+- MARC21 authority import/export (1XX/4XX/5XX, MARCXML or ISO 2709), a one-off *Generate from catalogue* bootstrap, and an *Unlinked headings* report with fuzzy "did you mean" suggestions.
+- CLI: `python -m shelfwise authorities relink` (re-derive all links) and `python -m shelfwise authorities generate`.
+- OPAC: **`/browse`** — alphabetical author/subject/series index with record counts, "see" references from variants and "see also" links; each heading opens a filtered search.
+
+**MARC editor** (*record page → MARC editor*): field/subfield grid with indicators, add/remove/reorder, leader and control fields, a built-in MARC21 field dictionary (~100 tags) for hints and repeatability checks, live validation, keyboard shortcuts, a MarcEdit-style text view (`=245  10$aTitle`) and a MARCXML view with round-trip conversion. Saving shows a diff first, stores the MARCXML and re-derives the record's fields; items are never touched and stale edits are rejected.
+
+**Labels & cards** (*Staff → Labels & cards*): pure-Python Code 128 (subsets B/C chosen automatically) rendered as SVG; spine labels, barcode labels and patron cards on A4/Letter sheet layouts (Avery-style presets plus your own), starting at any position on a partly used sheet. Print pages use print CSS and work under the strict CSP.
+
+**Batch & inventory** (*Staff → Batch & inventory*): batch modify (branch, location, item type, status, notes, call-number prefix) and batch withdraw/delete from a barcode list or a catalogue search, always previewed item by item first; items on loan, in transit or on the hold shelf are protected. Inventory compares scanned barcodes with a branch/location/call-number range and reports missing, out-of-place and wrong-status items (with one-click check-in), marks items as seen, and exports CSV.
+
+Permissions added: `authorities:write`, `items:batch`, `inventory`, `labels` (granted to librarians).

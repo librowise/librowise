@@ -1,34 +1,38 @@
 {% extends "opac_base.html" %}
-{% block title %}{% if q %}{{ q }} · {% endif %}Search · {{ library_name }}{% endblock %}
+{% block title %}{% if q %}{{ q }} · {% endif %}{{ t('opac.search.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
 <div class="wrap">
-  <form class="searchbox" id="search-form" role="search" style="margin-bottom:1.25rem">
-    <svg class="icon muted" style="margin-left:.6rem"><use href="#i-search"></use></svg>
-    <input name="q" id="q" type="search" value="{{ q }}" placeholder="Search titles, authors, subjects, ISBN — or describe what you want" aria-label="Search the catalogue" data-search-focus autocomplete="off">
+  <h1 class="sr-only" id="search-title">{{ t('opac.search.heading') }}</h1>
+  <form class="searchbox" id="search-form" role="search" aria-label="{{ t('opac.search.label') }}" style="margin-bottom:1.25rem">
+    <svg class="icon muted" style="margin-inline-start:.6rem" aria-hidden="true"><use href="#i-search"></use></svg>
+    <input name="q" id="q" type="search" value="{{ q }}" placeholder="{{ t('opac.search.placeholder') }}" aria-label="{{ t('opac.search.label') }}"
+           data-search-focus data-suggest-input autocomplete="off" spellcheck="false">
     <input type="hidden" name="mode" value="keyword">
-    <div class="mode" role="group" aria-label="Search mode">
-      <button type="button" data-mode="smart" aria-pressed="false" title="Understands natural language"><svg class="icon"><use href="#i-sparkle"></use></svg>AI</button>
-      <button type="button" data-mode="keyword" aria-pressed="true">Keyword</button>
+    <div class="mode" role="group" aria-label="{{ t('opac.search.mode') }}">
+      <button type="button" data-mode="smart" aria-pressed="false" title="{{ t('opac.search.mode_ai_hint') }}"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.search.mode_ai') }}</button>
+      <button type="button" data-mode="keyword" aria-pressed="true">{{ t('opac.search.mode_keyword') }}</button>
     </div>
-    <button class="btn primary" type="submit">Search</button>
+    <button class="btn primary" type="submit">{{ t('common.search') }}</button>
   </form>
   <div class="results-layout">
-    <aside class="facets" id="facets" aria-label="Refine results"></aside>
-    <section>
+    <aside class="facets" id="facets" aria-label="{{ t('opac.search.refine') }}"></aside>
+    <section aria-labelledby="search-title">
       <div class="row between" style="margin-bottom:.75rem">
-        <div id="summary" class="muted small" aria-live="polite"></div>
+        <div id="summary" class="muted small" role="status" aria-live="polite"></div>
         <div class="row tight">
-          <label class="checkbox small"><input type="checkbox" id="available-only"> Available now</label>
-          <label for="sort" class="sr-only">Sort</label>
+          <label class="checkbox small"><input type="checkbox" id="available-only"> {{ t('opac.search.available_now') }}</label>
+          <label for="sort" class="sr-only">{{ t('opac.search.sort') }}</label>
           <select id="sort" style="width:auto">
-            <option value="relevance">Best match</option><option value="newest">Newest additions</option>
-            <option value="title">Title A–Z</option><option value="year_desc">Year (newest)</option><option value="year_asc">Year (oldest)</option>
+            <option value="relevance">{{ t('opac.search.sort_relevance') }}</option><option value="newest">{{ t('opac.search.sort_newest') }}</option>
+            <option value="title">{{ t('opac.search.sort_title') }}</option><option value="year_desc">{{ t('opac.search.sort_year_desc') }}</option><option value="year_asc">{{ t('opac.search.sort_year_asc') }}</option>
           </select>
         </div>
       </div>
+      <div id="didyoumean" aria-live="polite"></div>
       <div id="interpretation"></div>
+      <h2 class="sr-only">{{ t('opac.search.results_heading') }}</h2>
       <div class="card flush"><div class="card-body" id="results"></div></div>
-      <div id="pager" class="pager"></div>
+      <nav id="pager" class="pager" aria-label="{{ t('opac.search.pagination') }}"></nav>
     </section>
   </div>
 </div>

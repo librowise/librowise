@@ -1,20 +1,70 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Reports{% endblock %}
+{% from "staff/_insights_ui.html" import toolbar, kpi_skeleton, icon with context %}
+{% block page_title %}{{ t('insights.reports.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-insights.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Reports</h1>
-    <div class="sub">Live library statistics and vetted, parameterised reports — every one exportable as CSV.</div>
-  </div>
-  <div class="row tight">
-    <button class="btn" id="reports-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
-  </div>
-</div>
+{%- set catalogue = [
+  ('circulation', [('overdues', false), ('circulation_by_branch', true), ('circulation_by_category', true), ('top_titles', true)]),
+  ('collection', [('collection_by_type', false), ('weeding', false)]),
+  ('patrons', [('expired_patrons', false), ('new_patrons', true)]),
+  ('finance', [('fines', false)]),
+] -%}
+<div class="ins-page ins-reports" id="ins-page" data-can-export="{{ 'true' if can(user, 'reports:export') else 'false' }}"
+     data-can-analytics="{{ 'true' if can(user, 'analytics:read') else 'false' }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1>{{ t('insights.reports.title') }}</h1>
+      <p class="ph-sub">{{ t('insights.reports.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn" id="ins-refresh">{{ icon('refresh') }}{{ t('insights.common.refresh') }}</button>
+    </div>
+  </header>
 
-<section id="rep-dashboard" aria-label="Library dashboard" style="margin-bottom:1.5rem"></section>
+  <div class="ins-views" id="ins-views"></div>
+  {{ toolbar(snapshot=true, snapshot_text=t('insights.reports.snapshot_help')) }}
 
-<div class="results-layout">
-  <nav class="card pad" aria-label="Available reports" id="rep-list"></nav>
-  <section class="card flush" id="rep-output" aria-live="polite"></section>
+  {{ kpi_skeleton(6, t('insights.reports.kpis_label')) }}
+
+  <div class="ins-rep-layout">
+    <nav class="card ins-rep-nav" aria-labelledby="rep-nav-h">
+      <h2 class="ins-nav-title" id="rep-nav-h">{{ t('insights.reports.catalogue') }}</h2>
+      <div class="ins-nav-select">
+        <label class="sr-only" for="rep-select">{{ t('insights.reports.choose') }}</label>
+        <select id="rep-select">
+          {%- for group, items in catalogue %}
+          <optgroup label="{{ t('insights.reports.group.' ~ group) }}">
+            {%- for key, dated in items %}<option value="{{ key }}">{{ t('insights.reports.r.' ~ key ~ '.name') }}</option>{% endfor %}
+          </optgroup>
+          {%- endfor %}
+        </select>
+      </div>
+      <div class="ins-nav-list">
+        {%- for group, items in catalogue %}
+        <h3 class="ins-nav-group" id="rep-g-{{ group }}">{{ t('insights.reports.group.' ~ group) }}</h3>
+        <ul class="ins-nav-items" aria-labelledby="rep-g-{{ group }}">
+          {%- for key, dated in items %}
+          <li><a class="ins-nav-item" href="#{{ key }}" data-report="{{ key }}" data-dated="{{ 'true' if dated else 'false' }}">
+            <span class="ins-nav-name">{{ t('insights.reports.r.' ~ key ~ '.name') }}{% if not dated %}<span class="ins-nav-tag">{{ icon('clock') }}{{ t('insights.reports.snapshot_tag') }}</span>{% endif %}</span>
+            <span class="ins-nav-desc">{{ t('insights.reports.r.' ~ key ~ '.desc') }}</span></a></li>
+          {%- endfor %}
+        </ul>
+        {%- endfor %}
+      </div>
+      <p class="ins-nav-foot">{{ icon('shield') }}<span>{{ t('insights.reports.vetted') }}</span></p>
+    </nav>
+
+    <section class="card ins-card ins-rep-output" id="rep-output" aria-labelledby="rep-title" aria-busy="true">
+      <header class="ins-card-head">
+        <div class="ins-card-titles">
+          <h2 id="rep-title"><span class="skeleton ins-sk-title" aria-hidden="true"></span></h2>
+          <p class="ins-card-sub" id="rep-desc"></p>
+          <p class="ins-rep-meta" id="rep-meta" aria-live="polite"></p>
+        </div>
+        <div class="ins-card-actions" id="rep-actions"></div>
+      </header>
+      <div class="ins-rep-body" id="rep-body"><div class="ins-skel ins-skel-table" aria-hidden="true"></div></div>
+    </section>
+  </div>
 </div>
 {% endblock %}

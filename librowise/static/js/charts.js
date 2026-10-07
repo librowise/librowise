@@ -13,10 +13,16 @@
 //   donutChart(el, { items: [{ label, value }], format, center, summary, maxSlices })
 //   heatmap(el, { rows, cols, values: number[rows][cols], format, summary })
 //   sparkline(values, { width, height, label }) -> SafeHTML <svg>
-//   kpiTile({ label, value, previous, format, spark, href, invert, note }) -> SafeHTML tile
+//   kpiTile({ label, value, previous, format, spark, href, invert, note, className }) -> SafeHTML tile
+//   setView(el, "table" | "chart")  — switch a rendered chart to its data table (or back) from outside,
+//                                      e.g. a card-level "Table" toggle; pass { tools: false } to a chart
+//                                      to omit its own "View data table" button in that case.
+//
+// Styling hooks: every chart root gets .viz plus .viz-chart-<kind> (line, bar, hbar, donut, heatmap);
+// numbers use the page locale (i18n.js) — compact axis ticks, tooltips and tables alike.
 
 import { esc, html, num, raw } from "/static/js/core.js";
-import { t } from "/static/js/i18n.js";
+import { locale, t } from "/static/js/i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 let uid = 0;
@@ -41,31 +47,33 @@ function niceScale(max, ticks = 4, integer = false) {
   return { max: top, ticks: out };
 }
 const compact = (v) => {
-  try { return new Intl.NumberFormat(document.documentElement.lang || undefined, { notation: "compact", maximumFractionDigits: 1 }).format(v); }
+  try { return new Intl.NumberFormat(locale || document.documentElement.lang || undefined, { notation: "compact", maximumFractionDigits: 1 }).format(v); }
   catch { return String(v); }
 };
 
 // ------------------------------------------------------------------ frame: figure, tooltip, data table, resize
 
 function dataTable(headers, rows, caption) {
-  return html`<div class="table-wrap"><table class="table viz-data">
+  return html`<div class="table-wrap" tabindex="0" role="region" aria-label="${caption}"><table class="table viz-data">
     <caption class="sr-only">${caption}</caption>
     <thead><tr>${headers.map((h, i) => html`<th scope="col" class="${i ? "num" : ""}">${h}</th>`)}</tr></thead>
     <tbody>${rows.map((r) => html`<tr>${r.map((c, i) => (i ? html`<td class="num">${c}</td>` : html`<th scope="row">${c}</th>`))}</tr>`)}</tbody>
   </table></div>`;
 }
 
-function frame(el, { summary, table, legend }) {
+function frame(el, { summary, table, legend, kind = "" }) {
   el.classList.add("viz");
+  if (kind) el.classList.add(`viz-chart-${kind}`);
+  const tools = el.dataset.vizTools !== "0";
   const showTable = el.dataset.vizTable === "1";
   if (!el.dataset.vizId) el.dataset.vizId = `viz${++uid}`;
   const id = el.dataset.vizId;
   el.innerHTML = html`${legend || ""}<div class="viz-canvas" ${showTable ? raw("hidden") : ""}><div class="viz-tip" role="presentation" hidden></div></div>
     <span class="sr-only" aria-live="polite" data-viz-live></span>
     <div class="viz-tablebox" id="${id}-table" ${showTable ? "" : raw("hidden")}>${table}</div>
-    <div class="viz-tools"><button type="button" class="btn ghost sm" data-viz-toggle aria-controls="${id}-table" aria-expanded="${showTable}">
-      ${showTable ? tr("view_chart", "View chart") : tr("view_table", "View data table")}</button></div>`;
-  el.querySelector("[data-viz-toggle]").addEventListener("click", () => {
+    ${tools ? html`<div class="viz-tools"><button type="button" class="btn ghost sm" data-viz-toggle aria-controls="${id}-table" aria-expanded="${showTable}">
+      ${showTable ? tr("view_chart", "View chart") : tr("view_table", "View data table")}</button></div>` : ""}`;
+  el.querySelector("[data-viz-toggle]")?.addEventListener("click", () => {
     el.dataset.vizTable = showTable ? "0" : "1";
     el._vizRender?.();
     el.querySelector("[data-viz-toggle]")?.focus();
@@ -74,6 +82,16 @@ function frame(el, { summary, table, legend }) {
   canvas.dataset.summary = summary || "";
   return { canvas, tip: el.querySelector(".viz-tip"), live: el.querySelector("[data-viz-live]"), showTable };
 }
+
+/** Switch a chart between its graphic and its data table (no-op for elements that are not charts). */
+export function setView(el, view) {
+  if (!el?._vizRender) return el;
+  const next = view === "table" ? "1" : "0";
+  if ((el.dataset.vizTable || "0") !== next) { el.dataset.vizTable = next; el._vizRender(); }
+  return el;
+}
+
+const applyOpts = (el, opts) => { if (opts && opts.tools === false) el.dataset.vizTools = "0"; };
 
 /** Re-render when the container width changes (debounced to animation frames). */
 function responsive(el, render) {
@@ -162,10 +180,11 @@ function seriesTable(labels, series, format, caption) {
 }
 
 export function lineChart(el, opts) {
+  applyOpts(el, opts);
   const { labels = [], series = [], format = num, height = 240, area = true, summary = "" } = opts;
   const caption = summary || tr("line_summary", "Line chart");
   responsive(el, () => {
-    const { canvas, tip, live, showTable } = frame(el, { summary: caption, table: seriesTable(labels, series, format, caption), legend: legendHtml(series) });
+    const { canvas, tip, live, showTable } = frame(el, { summary: caption, table: seriesTable(labels, series, format, caption), legend: legendHtml(series), kind: "line" });
     if (showTable) return;
     if (!labels.length) { canvas.innerHTML = html`<div class="empty small">${tr("no_data", "No data for this period")}</div>`; return; }
     const W = Math.max(280, canvas.clientWidth || el.clientWidth || 600);
@@ -219,10 +238,11 @@ function barTop(x, y, w, h, r) {
 }
 
 export function barChart(el, opts) {
+  applyOpts(el, opts);
   const { labels = [], series = [], stacked = false, format = num, height = 240, summary = "" } = opts;
   const caption = summary || tr("bar_summary", "Bar chart");
   responsive(el, () => {
-    const { canvas, tip, live, showTable } = frame(el, { summary: caption, table: seriesTable(labels, series, format, caption), legend: legendHtml(series) });
+    const { canvas, tip, live, showTable } = frame(el, { summary: caption, table: seriesTable(labels, series, format, caption), legend: legendHtml(series), kind: "bar" });
     if (showTable) return;
     if (!labels.length) { canvas.innerHTML = html`<div class="empty small">${tr("no_data", "No data for this period")}</div>`; return; }
     const W = Math.max(280, canvas.clientWidth || el.clientWidth || 600);
@@ -281,10 +301,11 @@ export function barChart(el, opts) {
 // ------------------------------------------------------------------ horizontal bars (HTML: values always visible)
 
 export function hBarChart(el, opts) {
+  applyOpts(el, opts);
   const { items = [], format = num, summary = "", max, valueLabel = tr("value", "Value") } = opts;
   const caption = summary || tr("hbar_summary", "Ranked bars");
   responsive(el, () => {
-    const { canvas, showTable } = frame(el, { summary: caption, table: dataTable([tr("item", "Item"), valueLabel], items.map((i) => [i.label, format(i.value)]), caption) });
+    const { canvas, showTable } = frame(el, { summary: caption, table: dataTable([tr("item", "Item"), valueLabel], items.map((i) => [i.label, format(i.value)]), caption), kind: "hbar" });
     if (showTable) return;
     if (!items.length) { canvas.innerHTML = html`<div class="empty small">${tr("no_data", "No data for this period")}</div>`; return; }
     const top = max ?? Math.max(1, ...items.map((i) => i.value));
@@ -299,6 +320,7 @@ export function hBarChart(el, opts) {
 // ------------------------------------------------------------------ donut
 
 export function donutChart(el, opts) {
+  applyOpts(el, opts);
   const { format = num, summary = "", center, maxSlices = 6 } = opts;
   let items = [...(opts.items || [])].filter((i) => i.value > 0).sort((a, b) => b.value - a.value);
   if (items.length > maxSlices) {
@@ -310,7 +332,7 @@ export function donutChart(el, opts) {
   const caption = summary || tr("donut_summary", "Share of total");
   responsive(el, () => {
     const { canvas, tip, live, showTable } = frame(el, { summary: caption,
-      table: dataTable([tr("item", "Item"), tr("value", "Value"), tr("share", "Share")], items.map((i) => [i.label, format(i.value), pct(i.value)]), caption) });
+      table: dataTable([tr("item", "Item"), tr("value", "Value"), tr("share", "Share")], items.map((i) => [i.label, format(i.value), pct(i.value)]), caption), kind: "donut" });
     if (showTable) return;
     if (!total) { canvas.innerHTML = html`<div class="empty small">${tr("no_data", "No data for this period")}</div>`; return; }
     const S = 180, R = 84, r = 56, cx = S / 2, cy = S / 2;
@@ -363,12 +385,13 @@ export function donutChart(el, opts) {
 // ------------------------------------------------------------------ heatmap
 
 export function heatmap(el, opts) {
+  applyOpts(el, opts);
   const { rows = [], cols = [], values = [], format = num, summary = "", rowHeader = "", colFormat = (c) => c } = opts;
   const max = Math.max(0, ...values.flat());
   const caption = summary || tr("heatmap_summary", "Heatmap");
   responsive(el, () => {
     const { canvas, tip, live, showTable } = frame(el, { summary: caption,
-      table: dataTable([rowHeader, ...cols.map(colFormat)], rows.map((r, ri) => [r, ...cols.map((_, ci) => format(values[ri]?.[ci] || 0))]), caption) });
+      table: dataTable([rowHeader, ...cols.map(colFormat)], rows.map((r, ri) => [r, ...cols.map((_, ci) => format(values[ri]?.[ci] || 0))]), caption), kind: "heatmap" });
     if (showTable) return;
     const W = Math.max(300, canvas.clientWidth || el.clientWidth || 600);
     const left = 10 + Math.max(...rows.map((r) => String(r).length)) * 7, top = 4, right = W - 4;
@@ -437,14 +460,17 @@ export function delta(current, previous) {
   return (current - previous) / Math.abs(previous);
 }
 
-export function kpiTile({ label, value, previous, format = num, spark, href, invert = false, note = "", alert = false, compareLabel }) {
+export function kpiTile({ label, value, previous, format = num, spark, href, invert = false, note = "", alert = false, compareLabel, className = "" }) {
   const d = delta(value, previous);
   let deltaHtml = "";
   if (d !== null) {
     const good = d === 0 ? null : (d > 0) !== invert;
     const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "■";
     const abs = Math.abs(d * 100);
-    const pctTxt = abs > 999 ? ">999%" : `${abs < 10 && d !== 0 ? abs.toFixed(1) : Math.round(abs)}%`;
+    const digits = abs < 10 && d !== 0 ? 1 : 0;
+    let pctTxt;
+    try { pctTxt = abs > 999 ? ">999%" : new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(abs / 100); }
+    catch { pctTxt = `${digits ? abs.toFixed(1) : Math.round(abs)}%`; }
     const word = d > 0 ? tr("up", "up") : d < 0 ? tr("down", "down") : tr("flat", "no change");
     deltaHtml = html`<span class="kpi-delta ${good === null ? "flat" : good ? "good" : "bad"}">
       <span aria-hidden="true">${arrow}</span> ${d === 0 ? tr("flat", "no change") : pctTxt}<span class="sr-only"> ${d === 0 ? "" : word}</span>
@@ -455,5 +481,6 @@ export function kpiTile({ label, value, previous, format = num, spark, href, inv
   const inner = html`<span class="label">${label}</span>
     <span class="kpi-main"><span class="value">${format(value)}</span>${spark ? sparkline(spark) : ""}</span>
     ${deltaHtml}${note ? html`<span class="delta">${note}</span>` : ""}`;
-  return href ? html`<a class="card stat kpi ${alert ? "alert" : ""}" href="${href}">${inner}</a>` : html`<div class="card stat kpi ${alert ? "alert" : ""}">${inner}</div>`;
+  const cls = `card stat kpi${alert ? " alert" : ""}${className ? ` ${className}` : ""}`;
+  return href ? html`<a class="${cls}" href="${href}">${inner}</a>` : html`<div class="${cls}">${inner}</div>`;
 }

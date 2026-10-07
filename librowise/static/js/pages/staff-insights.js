@@ -1,199 +1,329 @@
-// Staff: AI insights — overdue risk, duplicates, weeding, purchase demand and a natural-language query lab.
-import {
-  $, api, badge, date, datetime, empty, html, icon, num, openCopilot, qs, skeleton, toast, withBusy,
-} from "/static/js/core.js";
+// Staff › Insights › AI insights — transparent models over live data: late-return risk (filterable by level),
+// a natural-language query lab, likely duplicate records, purchase demand and weeding candidates. Shares the
+// Insights toolbar (branch; period disabled — these are snapshots), KPI tiles and card patterns.
+import { $, $$, api, date, datetime, html, icon, num, openCopilot, qs, toast, withBusy } from "/static/js/core.js";
+import { kpiTile } from "/static/js/charts.js";
+import { formatList, locale, t } from "/static/js/i18n.js";
+import { dataTable } from "/static/js/ui/data-table.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { progress } from "/static/js/ui/stat.js";
+import { wireSegmented } from "/static/js/ui/tabs.js";
+import { createToolbar, drill, fmt, kpiError, pill, refreshInsightLinks, setKpis } from "/static/js/pages/lib/insights-ui.js";
 
-const RISK_LIMIT = 15;
+const page = $("#ins-page");
+const canAcq = page.dataset.canAcq === "true";
+const canReports = page.dataset.canReports === "true";
 const LEVELS = ["high", "medium", "low"];
-const COPILOT_QUESTION = "Which loans are at risk of being returned late, and what should we do about them?";
-const EXAMPLES = [
-  "space books for kids published after 2010",
-  "mystery novels by Agatha Christie available now",
-  "audiobooks in Hindi",
-  "young adult fantasy",
-];
-const state = { risk: [], level: "", showAll: false };
+const TONE = { high: "danger", medium: "warning", low: "success" };
+const DUP_PREVIEW = 6;
+const state = { risk: [], level: "", dups: [], showAllDups: false, seq: 0 };
+let tb, riskTable, demandTable, weedTable;
 
-const errorBox = (msg) => html`<div class="alert bad" role="alert">${icon("alert")}<div>${msg}</div></div>`;
-const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-const pct = (v) => Math.round(Number(v || 0) * 100);
-
-/** Load one section: skeleton, fetch, render, or an inline error. */
-async function section(sel, path, render) {
-  const box = $(sel);
-  box.innerHTML = skeleton(4);
-  try {
-    const { results } = await api(path);
-    box.innerHTML = render(results);
-    return results;
-  } catch (e) {
-    box.innerHTML = errorBox(e.message);
-    throw e;
-  }
-}
+const levelLabel = (l) => t(`insights.ai.level.${l}`);
+const levelPill = (l) => pill(TONE[l] || "neutral", levelLabel(l));
+const branchQ = () => qs({ branch_id: tb.state.branch || undefined });
 
 // ------------------------------------------------------------------ overdue risk
 
-function factorText(f) {
-  const parts = [
-    `${pct(f.historical_late_rate)}% historical late rate`,
-    `${f.renewals} renewal${f.renewals === 1 ? "" : "s"}`,
-    `${f.currently_overdue} overdue now`,
-    `${f.days_left} day${f.days_left === 1 ? "" : "s"} left`,
+/** Humanised model inputs, most telling first. */
+function factors(f) {
+  return [
+    f.historical_late_rate > 0 ? t("insights.ai.risk.f_late_rate", { pct: fmt.pct(f.historical_late_rate) }) : t("insights.ai.risk.f_on_time"),
+    f.renewals ? t("insights.ai.risk.f_renewals", { count: f.renewals }) : "",
+    f.currently_overdue ? t("insights.ai.risk.f_overdue_now", { count: f.currently_overdue }) : "",
+    t("insights.ai.risk.f_days_left", { count: f.days_left }),
+  ].filter(Boolean);
+}
+
+function riskColumns() {
+  return [
+    { key: "title", label: t("insights.ai.risk.col_title"), primary: true, hideable: false, sortable: true, csv: (r) => r.title,
+      render: (r) => html`<div class="dt-cell-stack">${r.biblio_id ? html`<a href="${drill.record(r.biblio_id)}">${r.title}</a>` : r.title}<span class="sub mono">${r.barcode}</span></div>` },
+    { key: "level", label: t("insights.ai.risk.col_level"), csv: (r) => levelLabel(r.level), render: (r) => levelPill(r.level) },
+    { key: "risk", label: t("insights.ai.risk.col_risk"), sortable: true, sortDir: "desc", csv: (r) => Math.round(r.risk * 100),
+      render: (r) => html`<div class="ins-meter">${progress({ value: Math.round(r.risk * 100), label: t("insights.ai.risk.meter", { title: r.title }), tone: TONE[r.level] })}</div>` },
+    { key: "patron", label: t("insights.ai.risk.col_patron"), sortable: true, csv: (r) => r.patron || "",
+      render: (r) => (r.patron_id ? html`<a href="${drill.patron(r.patron_id)}">${r.patron}</a>` : html`<span class="muted">—</span>`) },
+    { key: "due", label: t("insights.ai.risk.col_due"), sortable: true, sortKey: "due_at", csv: (r) => String(r.due_at).slice(0, 10),
+      render: (r) => html`<div class="dt-cell-stack"><span class="nowrap" title="${datetime(r.due_at)}">${date(r.due_at)}</span>
+        <span class="sub">${t("insights.ai.risk.in_days", { count: r.factors.days_left })}</span></div>` },
+    { key: "factors", label: t("insights.ai.risk.col_factors"), csv: (r) => factors(r.factors).join("; "),
+      render: (r) => html`<ul class="ins-factors">${factors(r.factors).map((f) => html`<li>${f}</li>`)}</ul>` },
   ];
-  return parts.join(" · ");
 }
 
-function renderRiskFilter() {
+function riskRows() {
+  return state.risk.filter((r) => !state.level || r.level === state.level);
+}
+
+function showRisk(pageNo = 1, perPage = riskTable?.state.perPage || 10, sort = riskTable?.state.sort) {
+  let rows = riskRows();
+  if (sort) {
+    const dir = sort.dir === "desc" ? -1 : 1;
+    const v = (r) => (sort.key === "title" ? r.title : sort.key === "patron" ? r.patron || "" : sort.key === "due_at" ? String(r.due_at) : r.risk);
+    rows = [...rows].sort((a, b) => { const x = v(a), y = v(b); return dir * (typeof x === "number" ? x - y : String(x).localeCompare(String(y), locale)); });
+  }
+  const start = (pageNo - 1) * perPage;
+  riskTable.setRows(rows.slice(start, start + perPage), { total: rows.length, page: pageNo, perPage });
+  riskTable._all = rows;
+}
+
+function renderLevelCounts() {
   const counts = Object.fromEntries(LEVELS.map((l) => [l, state.risk.filter((r) => r.level === l).length]));
-  $("#risk-filter").innerHTML = html`
-    <button type="button" class="chip" data-level="" aria-pressed="${!state.level}">All ${num(state.risk.length)}</button>
-    ${LEVELS.map((l) => html`<button type="button" class="chip" data-level="${l}" aria-pressed="${state.level === l}">${cap(l)} ${num(counts[l])}</button>`)}`;
+  $$("[data-count]", $("#risk-levels")).forEach((el) => { el.textContent = num(el.dataset.count === "all" ? state.risk.length : counts[el.dataset.count]); });
+  return counts;
 }
 
-function renderRisk() {
-  renderRiskFilter();
-  const rows = state.risk.filter((r) => !state.level || r.level === state.level);
-  if (!state.risk.length) return empty("No open loans to score — nothing is currently on loan and not yet due.", "check");
-  if (!rows.length) return empty(`No ${state.level}-risk loans.`, "check");
-  const shown = state.showAll ? rows : rows.slice(0, RISK_LIMIT);
-  return html`<div class="table-wrap"><table class="table">
-    <caption class="sr-only">Open loans ranked by late-return risk</caption>
-    <thead><tr><th scope="col">Level</th><th scope="col" class="num">Risk</th><th scope="col" style="min-width:8rem"><span class="sr-only">Risk meter</span></th>
-      <th scope="col">Title</th><th scope="col">Patron</th><th scope="col">Due</th></tr></thead>
-    <tbody>${shown.map((r) => html`<tr>
-      <td>${badge(r.level, cap(r.level))}</td>
-      <td class="num"><strong>${pct(r.risk)}%</strong></td>
-      <td><div class="meter ${r.level === "high" ? "bad" : r.level === "medium" ? "warn" : ""}" role="progressbar"
-        aria-label="Late-return risk" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct(r.risk)}"><div style="width:${pct(r.risk)}%"></div></div>
-        <div class="tiny muted" style="margin-top:.3rem">${factorText(r.factors)}</div></td>
-      <td>${r.title}<div class="tiny muted mono">${r.barcode}</div></td>
-      <td>${r.patron_id ? html`<a href="/staff/patrons/${r.patron_id}">${r.patron}</a>` : html`<span class="muted">—</span>`}</td>
-      <td class="nowrap" title="${datetime(r.due_at)}">${date(r.due_at)}</td></tr>`)}</tbody></table></div>
-    <div class="row between" style="margin-top:.75rem">
-      <span class="tiny muted">Logistic model; the patron's late rate uses a Bayesian prior so new borrowers aren't penalised.</span>
-      ${rows.length > RISK_LIMIT ? html`<button type="button" class="btn sm" data-risk-all>${state.showAll ? "Show fewer" : `Show all ${num(rows.length)}`}</button>` : ""}
-    </div>`;
+function mountRisk() {
+  riskTable = dataTable($("#ins-risk"), {
+    id: "ai-risk", caption: t("insights.ai.risk.caption"), columns: riskColumns(),
+    rowKey: (r) => r.loan_id, rowLabel: (r) => r.title, rowHref: (r) => drill.record(r.biblio_id) || undefined,
+    perPage: 10, perPageOptions: [10, 25, 50, 100], sort: { key: "risk", dir: "desc" },
+    onSort: (s) => showRisk(1, riskTable.state.perPage, s),
+    onPage: ({ page: p, perPage }) => showRisk(p || 1, perPage),
+    exportName: "late-return-risk", exportAll: async () => riskTable._all || riskRows(),
+    empty: { art: "done", title: t("insights.ai.risk.empty_title"), body: t("insights.ai.risk.empty_body") },
+  });
+  riskTable.setLoading();
 }
 
-async function loadRisk() {
-  const box = $("#ins-risk");
-  box.innerHTML = skeleton(6);
+async function loadRisk(seq) {
+  riskTable.setLoading();
   try {
-    state.risk = (await api("/reports/insights/risk")).results;
-    box.innerHTML = renderRisk();
+    const { results } = await api(`/reports/insights/risk?${branchQ()}`);
+    if (seq !== state.seq) return null;
+    state.risk = results;
+    renderLevelCounts();
+    showRisk(1);
+    return results;
   } catch (e) {
-    box.innerHTML = errorBox(e.message);
+    if (seq === state.seq) riskTable.setError(e, () => loadRisk(state.seq));
     throw e;
   }
 }
 
-// ------------------------------------------------------------------ other sections
+// ------------------------------------------------------------------ duplicates
 
-const renderDuplicates = (rows) => (!rows.length ? empty("No likely duplicates", "check") : html`<div class="stack tight">${rows.map((d) => html`
-  <div class="kv" style="align-items:flex-start;gap:1rem">
-    <div class="grow stack tight">
-      ${d.ids.map((id, i) => html`<a href="/staff/catalog/${id}">${d.titles[i] || `Record #${id}`} <span class="tiny muted">#${id}</span></a>`)}
-      <span class="tiny muted">${d.reason}</span>
-    </div>
-    ${badge(d.score >= 98 ? "bad" : "warn", `${d.score}% match`)}
-  </div>`)}</div>`);
+function renderDups() {
+  const box = $("#ins-dups");
+  const rows = state.dups;
+  if (!rows.length) { box.innerHTML = html`${emptyState({ art: "done", title: t("insights.ai.dup.empty_title"), body: t("insights.ai.dup.empty_body"), compact: true })}`; return; }
+  const shown = state.showAllDups ? rows : rows.slice(0, DUP_PREVIEW);
+  box.innerHTML = html`<ul class="ins-dup-list">${shown.map((d, i) => html`<li class="ins-dup">
+      <div class="ins-dup-main">
+        ${d.ids.map((id, j) => html`<a class="ins-dup-rec" href="${drill.record(id)}"><span class="ins-dup-title">${d.titles[j] || t("insights.ai.dup.record", { id })}</span><span class="ins-dup-id mono">#${id}</span></a>`)}
+        <span class="ins-dup-reason">${d.reason_code === "isbn" ? t("insights.ai.dup.same_isbn", { isbn: d.isbn || "" }) : t("insights.ai.dup.similar")}</span>
+      </div>
+      <div class="ins-dup-side">
+        ${pill(d.score >= 98 ? "danger" : "warning", t("insights.ai.dup.match", { pct: fmt.pct(d.score / 100) }))}
+        <button type="button" class="btn sm" data-open-both="${i}" aria-label="${t("insights.ai.dup.open_both_named", { a: d.titles[0] || d.ids[0], b: d.titles[1] || d.ids[1] })}">${icon("external")}${t("insights.ai.dup.open_both")}</button>
+      </div></li>`)}</ul>
+    ${rows.length > DUP_PREVIEW ? html`<div class="ins-more"><button type="button" class="btn ghost sm" data-dups-all aria-expanded="${state.showAllDups}">
+      ${state.showAllDups ? t("insights.ai.show_fewer") : t("insights.ai.show_all", { count: rows.length })}</button></div>` : ""}`;
+}
 
-const renderWeeding = (rows) => (!rows.length ? empty("No weeding candidates — every shelved item has circulated in the last two years.", "check") : html`
-  <div class="table-wrap"><table class="table">
-    <caption class="sr-only">Items idle for two or more years</caption>
-    <thead><tr><th scope="col">Barcode</th><th scope="col">Title</th><th scope="col">Last borrowed</th><th scope="col" class="num">Times borrowed</th></tr></thead>
-    <tbody>${rows.map((w) => html`<tr><td class="mono">${w.barcode}</td><td>${w.title}</td>
-      <td>${w.last_borrowed ? date(w.last_borrowed) : badge("", "Never")}</td><td class="num">${num(w.times_borrowed)}</td></tr>`)}</tbody></table></div>
-  <p class="tiny muted" style="margin:.75rem 0 0">CREW-style rule: available items held 2+ years that haven't been borrowed in 2 years. Review before withdrawing.</p>`);
+async function loadDups(seq) {
+  const box = $("#ins-dups");
+  try {
+    const { results } = await api("/reports/insights/duplicates");
+    if (seq !== state.seq) return null;
+    state.dups = results;
+    renderDups();
+    return results;
+  } catch (e) {
+    if (seq === state.seq) { box.innerHTML = html`${errorState(e)}`; $("[data-retry]", box)?.addEventListener("click", () => loadDups(state.seq), { once: true }); }
+    throw e;
+  }
+}
 
-const renderDemand = (rows) => (!rows.length ? empty("Hold queues are in balance with copies.", "check") : html`
-  <div class="table-wrap"><table class="table">
-    <caption class="sr-only">Titles whose holds outstrip copies</caption>
-    <thead><tr><th scope="col">Title</th><th scope="col" class="num">Holds</th><th scope="col" class="num">Copies</th><th scope="col" class="num">Ratio</th><th scope="col" class="num">Buy</th></tr></thead>
-    <tbody>${rows.map((s) => html`<tr><td><a href="/staff/catalog/${s.biblio_id}">${s.title}</a></td>
-      <td class="num">${num(s.holds)}</td><td class="num">${num(s.copies)}</td>
-      <td class="num">${badge(s.ratio >= 4 ? "bad" : "warn", `${s.ratio}×`)}</td><td class="num"><strong>+${num(s.suggested_copies)}</strong></td></tr>`)}</tbody></table></div>`);
+// ------------------------------------------------------------------ purchase demand & weeding
+
+function mountDemand() {
+  demandTable = dataTable($("#ins-demand"), {
+    id: "ai-demand", caption: t("insights.ai.demand.caption"), rowKey: (r) => r.biblio_id, rowLabel: (r) => r.title,
+    rowHref: (r) => drill.record(r.biblio_id), exportName: "purchase-demand",
+    columns: [
+      { key: "title", label: t("insights.ai.demand.col_title"), primary: true, hideable: false, csv: (r) => r.title, render: (r) => html`<a href="${drill.record(r.biblio_id)}">${r.title}</a>` },
+      { key: "holds", label: t("insights.ai.demand.col_holds"), align: "num", csv: (r) => r.holds, render: (r) => num(r.holds) },
+      { key: "copies", label: t("insights.ai.demand.col_copies"), align: "num", csv: (r) => r.copies, render: (r) => num(r.copies) },
+      { key: "ratio", label: t("insights.ai.demand.col_ratio"), align: "num", csv: (r) => r.ratio,
+        render: (r) => pill(r.ratio >= 4 ? "danger" : "warning", t("insights.ai.demand.ratio", { ratio: fmt.dec(r.ratio, 1) })) },
+      { key: "buy", label: t("insights.ai.demand.col_buy"), align: "num", csv: (r) => r.suggested_copies,
+        render: (r) => html`<strong class="ins-buy">${t("insights.ai.demand.buy", { count: r.suggested_copies })}</strong>` },
+    ],
+    empty: { art: "done", title: t("insights.ai.demand.empty_title"), body: t("insights.ai.demand.empty_body") },
+  });
+  demandTable.setLoading();
+}
+
+function mountWeeding() {
+  weedTable = dataTable($("#ins-weeding"), {
+    id: "ai-weeding", caption: t("insights.ai.weed.caption"), rowKey: (r) => r.item_id, rowLabel: (r) => r.title,
+    rowHref: (r) => drill.record(r.biblio_id) || undefined, exportName: "weeding-candidates", perPage: 10, perPageOptions: [10, 25, 50],
+    onPage: ({ page: p, perPage }) => showWeeding(p || 1, perPage),
+    columns: [
+      { key: "title", label: t("insights.ai.weed.col_title"), primary: true, hideable: false, csv: (r) => r.title,
+        render: (r) => (r.biblio_id ? html`<a href="${drill.record(r.biblio_id)}">${r.title}</a>` : r.title) },
+      { key: "barcode", label: t("insights.ai.weed.col_barcode"), csv: (r) => r.barcode, render: (r) => html`<span class="mono">${r.barcode}</span>` },
+      { key: "last", label: t("insights.ai.weed.col_last"), csv: (r) => (r.last_borrowed ? String(r.last_borrowed).slice(0, 10) : t("insights.reports.never")),
+        render: (r) => (r.last_borrowed ? html`<span class="nowrap">${date(r.last_borrowed)}</span>` : pill("neutral", t("insights.reports.never"))) },
+      { key: "times", label: t("insights.ai.weed.col_times"), align: "num", csv: (r) => r.times_borrowed, render: (r) => num(r.times_borrowed) },
+    ],
+    exportAll: async () => weedTable._all || [],
+    empty: { art: "done", title: t("insights.ai.weed.empty_title"), body: t("insights.ai.weed.empty_body") },
+  });
+  weedTable.setLoading();
+}
+
+function showWeeding(pageNo = 1, perPage = weedTable.state.perPage || 10) {
+  const rows = weedTable._all || [];
+  const start = (pageNo - 1) * perPage;
+  weedTable.setRows(rows.slice(start, start + perPage), { total: rows.length, page: pageNo, perPage });
+}
+
+async function loadTable(table, path, seq, after) {
+  table.setLoading();
+  try {
+    const { results } = await api(path);
+    if (seq !== state.seq) return null;
+    after ? after(results) : table.setRows(results);
+    return results;
+  } catch (e) {
+    if (seq === state.seq) table.setError(e, () => loadTable(table, path, state.seq, after));
+    throw e;
+  }
+}
+
+// ------------------------------------------------------------------ KPI tiles
+
+function renderKpis(results) {
+  const [risk, dups, demand, weed] = results.map((r) => (r.status === "fulfilled" ? r.value : null));
+  const counts = risk ? Object.fromEntries(LEVELS.map((l) => [l, risk.filter((r) => r.level === l).length])) : null;
+  const val = (v) => (v === null || v === undefined ? "—" : v);
+  const capped = (list, cap) => (list ? (list.length >= cap ? t("insights.ai.kpi.at_least", { count: cap }) : num(list.length)) : "—");
+  setKpis($("#ins-kpis"), [
+    kpiTile({ label: t("insights.ai.kpi.high_risk"), value: val(counts?.high), format: (v) => (v === "—" ? v : num(v)), href: "#risk", className: "ins-kpi",
+      alert: !!counts?.high, note: counts ? t("insights.ai.kpi.medium_note", { count: counts.medium }) : "" }),
+    kpiTile({ label: t("insights.ai.kpi.duplicates"), value: capped(dups, 50), format: String, href: "#duplicates", className: "ins-kpi",
+      note: t("insights.ai.kpi.duplicates_note") }),
+    kpiTile({ label: t("insights.ai.kpi.demand"), value: capped(demand, 20), format: String, href: canAcq ? drill.acquisitions() : "", className: "ins-kpi",
+      note: demand ? t("insights.ai.kpi.demand_note", { count: demand.reduce((a, r) => a + r.suggested_copies, 0) }) : "" }),
+    kpiTile({ label: t("insights.ai.kpi.weeding"), value: capped(weed, 50), format: String, className: "ins-kpi",
+      href: canReports ? drill.insights("reports", { branch: tb.state.branch }, "weeding") : "", note: t("insights.ai.kpi.weeding_note") }),
+  ]);
+}
 
 // ------------------------------------------------------------------ natural-language query lab
 
-const FIELD_LABELS = {
-  keywords: "Keywords", author: "Author", language: "Language", material_type: "Material", audience: "Audience",
-  year_from: "From year", year_to: "To year", available_only: "Available only",
-};
+const FIELDS = ["keywords", "author", "language", "material_type", "audience", "year_from", "year_to", "available_only"];
+
+function fieldValue(k, v) {
+  if (k === "available_only") return t("insights.ai.nl.yes");
+  if (k === "material_type") return t(`insights.ai.nl.material.${v}`, {}, String(v).replace(/_/g, " "));
+  if (k === "audience") return t(`insights.ai.nl.audience.${v}`, {}, String(v).replace(/_/g, " "));
+  if (k === "language" && /^[a-z]{2,3}$/i.test(v)) { try { return new Intl.DisplayNames([locale], { type: "language" }).of(v) || v; } catch { return v; } }
+  if (k === "year_from" || k === "year_to") return String(v);
+  return String(v);
+}
 
 function renderParsed(q, p) {
-  const chips = Object.entries(FIELD_LABELS)
-    .filter(([k]) => p[k] !== null && p[k] !== undefined && p[k] !== "" && p[k] !== false)
-    .map(([k, label]) => html`<span class="chip"><span class="muted">${label}:</span> <strong>${p[k] === true ? "yes" : String(p[k]).replace(/_/g, " ")}</strong></span>`);
-  return html`<div class="stack tight">
-    <div class="interpretation" style="margin:0">${icon("sparkle")}
-      ${chips.length ? chips : html`<span>No structured fields detected — the whole query is used for ranking.</span>`}</div>
-    ${p.interpretation?.length ? html`<ul class="small" style="margin:0;padding-left:1.2rem">${p.interpretation.map((t) => html`<li>${t}</li>`)}</ul>` : ""}
-    <div class="row between">
-      <span class="tiny muted">Parsed by ${p.engine === "claude" ? "Claude" : "the local parser"}</span>
-      <a class="btn sm primary" href="/search?${qs({ q, mode: "smart" })}" target="_blank" rel="noopener">${icon("search")}Run in catalogue</a>
+  const chips = FIELDS.filter((k) => p[k] !== null && p[k] !== undefined && p[k] !== "" && p[k] !== false)
+    .map((k) => html`<span class="ins-parse-chip"><span class="k">${t(`insights.ai.nl.field.${k}`)}</span><strong>${fieldValue(k, p[k])}</strong></span>`);
+  return html`<div class="ins-parse">
+    <div class="ins-parse-chips">${icon("sparkle")}${chips.length ? chips : html`<span>${t("insights.ai.nl.no_fields")}</span>`}</div>
+    ${p.interpretation?.length ? html`<p class="ins-parse-notes"><span class="muted">${t("insights.ai.nl.notes")}</span> ${formatList(p.interpretation)}</p>` : ""}
+    <div class="ins-parse-foot">
+      <span class="muted small">${p.engine === "claude" ? t("insights.ai.nl.parsed_claude") : t("insights.ai.nl.parsed_local")}</span>
+      <span class="ins-parse-actions">
+        <a class="btn sm" href="${drill.catalog(q)}">${icon("search")}${t("insights.ai.nl.staff_catalogue")}</a>
+        <a class="btn sm primary" href="/search?${qs({ q, mode: "smart" })}" target="_blank" rel="noopener">${icon("external")}${t("insights.ai.nl.run_opac")}<span class="sr-only"> ${t("insights.ai.new_tab")}</span></a>
+      </span>
     </div></div>`;
 }
 
 async function interpret(q, btn) {
   const out = $("#nl-result");
-  out.innerHTML = skeleton(2);
+  out.innerHTML = '<div class="ins-skel ins-skel-parse" aria-hidden="true"></div>';
   try {
     const p = await withBusy(btn, () => api(`/ai/parse-query?${qs({ q })}`));
     out.innerHTML = renderParsed(q, p);
   } catch (e) {
-    out.innerHTML = errorBox(e.message);
+    out.innerHTML = html`<div class="alert bad" role="alert">${icon("alert")}<div>${e.message}</div></div>`;
   }
 }
 
-// ------------------------------------------------------------------ init
+// ------------------------------------------------------------------ loading & init
 
 async function loadAll() {
+  const seq = ++state.seq;
+  refreshInsightLinks(page, tb.state);
+  const where = tb.branchName();
+  $$("#risk [data-sub], #weeding [data-sub]").forEach((el) => { el.dataset.base ||= el.textContent; el.textContent = `${el.dataset.base} · ${where}`; });
   const jobs = [
-    loadRisk(),
-    section("#ins-dups", "/reports/insights/duplicates", renderDuplicates),
-    section("#ins-weeding", "/reports/insights/weeding", renderWeeding),
-    section("#ins-demand", "/acquisitions/suggestions", renderDemand),
+    loadRisk(seq),
+    loadDups(seq),
+    canAcq ? loadTable(demandTable, "/acquisitions/suggestions", seq) : Promise.resolve(null),
+    loadTable(weedTable, `/reports/insights/weeding?${branchQ()}`, seq, (rows) => { weedTable._all = rows; showWeeding(1); }),
   ];
-  const failed = (await Promise.allSettled(jobs)).find((r) => r.status === "rejected");
+  const results = await Promise.allSettled(jobs);
+  if (seq !== state.seq) return;
+  renderKpis(results);
+  const failed = results.find((r) => r.status === "rejected");
   if (failed) toast(failed.reason.message, "error");
 }
 
 export default async function init() {
-  api("/ai/status")
-    .then((s) => { $("#ai-engine").innerHTML = badge("ai", s.claude ? "Claude" : "Local AI"); $("#ai-engine").title = s.claude ? "Insights narrated by Claude" : "Running on the built-in local models"; })
-    .catch(() => {});
+  tb = createToolbar({ onChange: loadAll });
+  tb.setSnapshot(true);
+  mountRisk();
+  mountDemand();
+  mountWeeding();
+  if (!canAcq) demandTable.setError(new Error(t("insights.ai.demand.no_access")));
 
-  $("#ask-copilot").addEventListener("click", () => openCopilot(COPILOT_QUESTION));
-  $("#insights-refresh").addEventListener("click", (e) => withBusy(e.currentTarget, loadAll).catch(() => {}));
+  api("/ai/status").then((s) => {
+    const el = $("#ai-engine");
+    $("[data-engine]", el).textContent = s.claude ? t("insights.ai.engine_claude") : t("insights.ai.engine_local");
+    el.title = s.claude ? t("insights.ai.engine_hint_claude") : t("insights.ai.engine_hint_local");
+  }).catch(() => {});
 
-  $("#risk-filter").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-level]");
-    if (!b) return;
-    state.level = b.dataset.level;
-    state.showAll = false;
-    $("#ins-risk").innerHTML = renderRisk();
-  });
-  $("#ins-risk").addEventListener("click", (e) => {
-    if (!e.target.closest("[data-risk-all]")) return;
-    state.showAll = !state.showAll;
-    $("#ins-risk").innerHTML = renderRisk();
+  $("#ask-copilot").addEventListener("click", () => openCopilot(t("insights.ai.copilot_question")));
+  $("#ins-refresh").addEventListener("click", (e) => withBusy(e.currentTarget, loadAll));
+
+  wireSegmented($("#risk-levels"), (level) => { state.level = level; showRisk(1); });
+  page.addEventListener("click", (e) => {
+    const both = e.target.closest("[data-open-both]");
+    if (both) {
+      const d = state.dups[Number(both.dataset.openBoth)];
+      const first = window.open(drill.record(d.ids[0]), "_blank", "noopener");
+      const second = window.open(drill.record(d.ids[1]), "_blank", "noopener");
+      if (!first || !second) toast(t("insights.ai.dup.popup_blocked"), "warn");
+      return;
+    }
+    if (e.target.closest("[data-dups-all]")) { state.showAllDups = !state.showAllDups; renderDups(); $("[data-dups-all]")?.focus(); return; }
+    const k = e.target.closest('a[href="#risk"], a[href="#duplicates"]');
+    if (k) {
+      e.preventDefault();
+      const target = $(k.getAttribute("href"));
+      if (k.getAttribute("href") === "#risk" && state.level !== "high") $('#risk-levels [data-value="high"]').click();
+      target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      target.focus({ preventScroll: true });
+    }
   });
 
-  const form = $("#nl-form"), input = $("#nl-q");
-  $("#nl-examples").innerHTML = html`<span class="tiny muted">Try:</span>${EXAMPLES.map((x) => html`<button type="button" class="chip" data-example="${x}">${x}</button>`)}`;
-  $("#nl-examples").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-example]");
-    if (!b) return;
-    input.value = b.dataset.example;
-    form.requestSubmit();
-  });
+  const form = $("#nl-form"), input = $("#nl-q"), err = $("#nl-err");
+  $$("[data-example]", form).forEach((b) => b.addEventListener("click", () => { input.value = b.dataset.example; form.requestSubmit(); }));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const q = input.value.trim();
-    if (q) interpret(q, $('button[type="submit"]', form));
+    err.hidden = !!q;
+    if (q) input.removeAttribute("aria-invalid"); else input.setAttribute("aria-invalid", "true");
+    if (!q) { input.focus(); return; }
+    interpret(q, $('button[type="submit"]', form));
   });
 
-  await loadAll();
+  loadAll();
+  tb.loadBranches().then(() => {
+    const where = tb.branchName();
+    $$("#risk [data-sub], #weeding [data-sub]").forEach((el) => { el.textContent = `${el.dataset.base} · ${where}`; });
+  });
 }

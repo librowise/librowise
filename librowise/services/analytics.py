@@ -401,12 +401,14 @@ def patrons(db: Session, w: Window) -> dict:
     registered = sum(registered_by_cat.values())
     active = count_active_patrons(db, w)
     cats = sorted(set(registered_by_cat) | set(active_by_cat))
+    cat_ids = dict(db.execute(select(PatronCategory.name, PatronCategory.id)).all())  # for drill-down links
     labels = w.bucket_keys()
     return {"registered": registered, "active": active, "active_share": round(active / registered, 4) if registered else 0,
             "previous_active": count_active_patrons(db, w.previous()),
             "new_total": sum(new), "previous_new": count_new_patrons(db, w.previous()),
             "labels": labels, "new": new,
-            "by_category": [{"label": c, "registered": registered_by_cat.get(c, 0), "active": active_by_cat.get(c, 0)} for c in cats],
+            "by_category": [{"label": c, "id": cat_ids.get(c), "registered": registered_by_cat.get(c, 0), "active": active_by_cat.get(c, 0)}
+                            for c in cats],
             "table": _table(["Category", "Registered", "Active in period"],
                             [[c, registered_by_cat.get(c, 0), active_by_cat.get(c, 0)] for c in cats])}
 

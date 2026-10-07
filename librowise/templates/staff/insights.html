@@ -1,70 +1,87 @@
 {% extends "staff_base.html" %}
-{% block page_title %}AI Insights{% endblock %}
+{% from "staff/_insights_ui.html" import toolbar, kpi_skeleton, card_head, icon with context %}
+{% block page_title %}{{ t('insights.ai.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-insights.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>AI Insights <span id="ai-engine"></span></h1>
-    <div class="sub">Transparent models over your live data: late-return risk, duplicate records, weeding and purchase demand.</div>
-  </div>
-  <div class="row tight">
-    <button class="btn" id="insights-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
-    <button class="btn ai" id="ask-copilot"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>Ask copilot</button>
-  </div>
-</div>
-
-<section class="card" aria-labelledby="risk-h" style="margin-bottom:1.25rem">
-  <div class="card-head">
-    <div>
-      <h2 id="risk-h">Overdue risk</h2>
-      <div class="small muted">Open loans scored by the probability of a late return (patron history, renewals, days left, current overdues).</div>
+<div class="ins-page ins-ai" id="ins-page" data-can-acq="{{ 'true' if can(user, 'acquisitions:read') else 'false' }}"
+     data-can-reports="{{ 'true' if can(user, 'reports:read') else 'false' }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1>{{ t('insights.ai.title') }}
+        <span class="badge pill ai ins-engine" id="ai-engine" title="{{ t('insights.ai.engine_hint_models') }}">{{ icon('sparkle') }}<span data-engine>{{ t('insights.ai.engine_models') }}</span></span></h1>
+      <p class="ph-sub">{{ t('insights.ai.subtitle') }}</p>
     </div>
-    <div class="row tight" id="risk-filter" role="group" aria-label="Filter by risk level"></div>
-  </div>
-  <div class="card-body" id="ins-risk"></div>
-</section>
-
-<section class="card panel-ai" aria-labelledby="nl-h" style="margin-bottom:1.25rem">
-  <div class="card-head">
-    <div>
-      <h2 id="nl-h">Natural-language query lab</h2>
-      <div class="small muted">See exactly how the smart search understands a patron's query before it runs.</div>
+    <div class="ph-actions">
+      <button type="button" class="btn" id="ins-refresh">{{ icon('refresh') }}{{ t('insights.common.refresh') }}</button>
+      <button type="button" class="btn ai" id="ask-copilot">{{ icon('sparkle') }}{{ t('insights.ai.ask_copilot') }}</button>
     </div>
-  </div>
-  <div class="card-body stack">
-    <form id="nl-form" class="stack tight" role="search">
-      <label for="nl-q">Query</label>
-      <div class="input-group">
-        <input id="nl-q" name="q" type="search" maxlength="500" autocomplete="off" placeholder="e.g. mystery novels by Agatha Christie available now" required>
-        <button class="btn primary" type="submit">Interpret</button>
+  </header>
+
+  {{ toolbar(snapshot=true, snapshot_text=t('insights.ai.snapshot_help'), period=false) }}
+
+  {{ kpi_skeleton(4, t('insights.common.key_figures')) }}
+
+  <section class="card ins-card ins-risk" id="risk" aria-labelledby="risk-h" tabindex="-1">
+    <header class="ins-card-head">
+      <div class="ins-card-titles"><h2 id="risk-h">{{ icon('sparkle') }}{{ t('insights.ai.risk.title') }}</h2>
+        <p class="ins-card-sub" data-sub>{{ t('insights.ai.risk.sub') }}</p></div>
+      <div class="ins-card-actions">
+        <div class="segmented ins-seg ins-levels" role="radiogroup" aria-label="{{ t('insights.ai.risk.filter') }}" data-segmented="level" id="risk-levels">
+          {%- for v, k in [('', 'insights.ai.level.all'), ('high', 'insights.ai.level.high'), ('medium', 'insights.ai.level.medium'), ('low', 'insights.ai.level.low')] %}
+          <button type="button" role="radio" data-value="{{ v }}" aria-checked="{{ 'true' if not v else 'false' }}" tabindex="{{ '0' if not v else '-1' }}"><span>{{ t(k) }}</span><span class="count" data-count="{{ v or 'all' }}"></span></button>
+          {%- endfor %}
+        </div>
       </div>
-      <div class="row tight" id="nl-examples"></div>
-    </form>
-    <div id="nl-result" aria-live="polite"></div>
-  </div>
-</section>
-
-<div class="grid cols-2" style="margin-bottom:1.25rem">
-  <section class="card" aria-labelledby="dup-h">
-    <div class="card-head">
-      <h2 id="dup-h">Duplicate records</h2>
-      <span class="small muted">Same ISBN or near-identical title &amp; author</span>
-    </div>
-    <div class="card-body" id="ins-dups"></div>
+    </header>
+    <div class="ins-card-body ins-table-body" id="ins-risk"><div class="ins-skel ins-skel-table" aria-hidden="true"></div></div>
+    <p class="ins-card-foot">{{ icon('info') }}<span>{{ t('insights.ai.risk.model_note') }}</span></p>
   </section>
-  <section class="card" aria-labelledby="demand-h">
-    <div class="card-head">
-      <h2 id="demand-h">Purchase demand</h2>
-      <a class="btn sm" href="/staff/acquisitions">Open acquisitions</a>
-    </div>
-    <div class="card-body" id="ins-demand"></div>
+
+  <div class="ins-grid">
+    <section class="card ins-card panel-ai ins-nl" aria-labelledby="nl-h">
+      <header class="ins-card-head">
+        <div class="ins-card-titles"><h2 id="nl-h">{{ t('insights.ai.nl.title') }}</h2>
+          <p class="ins-card-sub">{{ t('insights.ai.nl.sub') }}</p></div>
+      </header>
+      <div class="ins-card-body">
+        <form id="nl-form" class="ins-nl-form" role="search" novalidate>
+          <label for="nl-q">{{ t('insights.ai.nl.label') }}</label>
+          <div class="input-group">
+            <input id="nl-q" name="q" type="search" maxlength="500" autocomplete="off" placeholder="{{ t('insights.ai.nl.placeholder') }}" aria-describedby="nl-err">
+            <button class="btn primary" type="submit">{{ icon('sparkle') }}{{ t('insights.ai.nl.interpret') }}</button>
+          </div>
+          <p class="field-error" id="nl-err" role="alert" hidden>{{ t('insights.ai.nl.required') }}</p>
+          <div class="ins-examples" role="group" aria-label="{{ t('insights.ai.nl.examples') }}">
+            <span class="ins-examples-label">{{ t('insights.ai.nl.try') }}</span>
+            {%- for k in ['ex1', 'ex2', 'ex3', 'ex4'] %}<button type="button" class="chip" data-example="{{ t('insights.ai.nl.' ~ k) }}">{{ t('insights.ai.nl.' ~ k) }}</button>{% endfor %}
+          </div>
+        </form>
+        <div id="nl-result" class="ins-nl-result" aria-live="polite"></div>
+      </div>
+    </section>
+    <section class="card ins-card" id="duplicates" aria-labelledby="dup-h" tabindex="-1">
+      <header class="ins-card-head">
+        <div class="ins-card-titles"><h2 id="dup-h">{{ t('insights.ai.dup.title') }}</h2><p class="ins-card-sub">{{ t('insights.ai.dup.sub') }}</p></div>
+      </header>
+      <div class="ins-card-body" id="ins-dups"><div class="ins-skel ins-skel-list" aria-hidden="true"></div></div>
+    </section>
+  </div>
+
+  <section class="card ins-card" id="demand" aria-labelledby="demand-h">
+    <header class="ins-card-head">
+      <div class="ins-card-titles"><h2 id="demand-h">{{ t('insights.ai.demand.title') }}</h2><p class="ins-card-sub">{{ t('insights.ai.demand.sub') }}</p></div>
+      <div class="ins-card-actions">{% if can(user, 'acquisitions:read') %}<a class="btn ghost sm" href="/staff/acquisitions">{{ icon('cart') }}<span>{{ t('insights.ai.demand.open') }}</span></a>{% endif %}</div>
+    </header>
+    <div class="ins-card-body ins-table-body" id="ins-demand"><div class="ins-skel ins-skel-list" aria-hidden="true"></div></div>
+  </section>
+
+  <section class="card ins-card" id="weeding" aria-labelledby="weed-h">
+    <header class="ins-card-head">
+      <div class="ins-card-titles"><h2 id="weed-h">{{ t('insights.ai.weed.title') }}</h2><p class="ins-card-sub" data-sub>{{ t('insights.ai.weed.sub') }}</p></div>
+      <div class="ins-card-actions">{% if can(user, 'reports:read') %}<a class="btn ghost sm" href="/staff/reports#weeding" data-insights-link="reports" data-hash="weeding">{{ icon('arrow-right') }}<span>{{ t('insights.common.open_report') }}</span></a>{% endif %}</div>
+    </header>
+    <div class="ins-card-body ins-table-body" id="ins-weeding"><div class="ins-skel ins-skel-table" aria-hidden="true"></div></div>
+    <p class="ins-card-foot">{{ icon('info') }}<span>{{ t('insights.ai.weed.note') }}</span></p>
   </section>
 </div>
-
-<section class="card" aria-labelledby="weed-h">
-  <div class="card-head">
-    <h2 id="weed-h">Weeding candidates</h2>
-    <a class="btn sm" href="/staff/reports#weeding">Full report</a>
-  </div>
-  <div class="card-body" id="ins-weeding"></div>
-</section>
 {% endblock %}

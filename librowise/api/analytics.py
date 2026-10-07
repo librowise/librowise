@@ -7,10 +7,11 @@ import csv
 import io
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from .. import i18n as i18n_mod
 from ..db import get_db
 from ..deps import require
 from ..models import Branch, Patron
@@ -28,10 +29,16 @@ def _window(db: Session, start: date | None, end: date | None, granularity: str,
         raise HTTPException(422, str(exc))
 
 
-def _csv(name: str, table: dict) -> Response:
+def _csv(name: str, table: dict, lang: str = "en") -> Response:
+    """CSV with headers in the reader's language (``insights.csv.*``; English otherwise). Non-English exports start
+    with a UTF-8 byte-order mark so spreadsheet programs pick the right encoding."""
+    from .reports import humanise_header
+
     buf = io.StringIO()
+    if lang != "en":
+        buf.write("﻿")
     w = csv.writer(buf)
-    w.writerow(table["headers"])
+    w.writerow([humanise_header(lang, h) for h in table["headers"]])
     for row in table["rows"]:
         # neutralise spreadsheet formula injection
         w.writerow([f"'{c}" if isinstance(c, str) and c[:1] in "=+-@" else c for c in row])
@@ -54,11 +61,11 @@ def panels(_: Patron = Depends(require("analytics:read"))):
 
 
 @router.get("/{panel}")
-def panel(panel: str, start: date | None = None, end: date | None = None,
+def panel(panel: str, request: Request, start: date | None = None, end: date | None = None,
           granularity: str = Query(default="day", pattern="^(day|week|month)$"),
           branch_id: int | None = Query(default=None, ge=1),
           fmt: str = Query(default="json", pattern="^(json|csv)$"),
-          db: Session = Depends(get_db), _: Patron = Depends(require("analytics:read"))):
+          db: Session = Depends(get_db), user: Patron = Depends(require("analytics:read"))):
     """One analytics panel for an inclusive, library-local date range (default: the last 30 days)."""
     fn = svc.PANELS.get(panel)
     if fn is None:
@@ -66,7 +73,7 @@ def panel(panel: str, start: date | None = None, end: date | None = None,
     w = _window(db, start, end, granularity, branch_id)
     data = fn(db, w)
     if fmt == "csv":
-        return _csv(f"{panel}-{w.start.isoformat()}-{w.end.isoformat()}", data["table"])
+        return _csv(f"{panel}-{w.start.isoformat()}-{w.end.isoformat()}", data["table"], i18n_mod.request_language(request, user))
     return {"panel": panel, "range": {"start": w.start, "end": w.end, "days": w.days, "granularity": w.granularity,
                                        "branch_id": w.branch_id, "previous_start": w.previous().start,
                                        "previous_end": w.previous().end, "utc_offset_minutes": w.offset_minutes},

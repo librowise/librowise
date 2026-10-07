@@ -1,0 +1,90 @@
+{% extends "staff_base.html" %}
+{% block page_title %}{{ t('nav.analytics', 'Analytics') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Analytics</h1>
+    <div class="sub" id="an-range-label">Circulation, collection, holds, patrons and fines — compared with the previous period.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" type="button" id="an-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
+  </div>
+</div>
+
+<form class="an-filters card" id="an-filters" aria-label="Analytics filters">
+  <div class="an-filter">
+    <span class="an-filter-label" id="an-range-l">Date range</span>
+    <div class="seg" role="group" aria-labelledby="an-range-l">
+      <button type="button" data-range="7d">7 days</button>
+      <button type="button" data-range="30d">30 days</button>
+      <button type="button" data-range="90d">90 days</button>
+      <button type="button" data-range="365d">12 months</button>
+      <button type="button" data-range="ytd">Year to date</button>
+      <button type="button" data-range="custom">Custom</button>
+    </div>
+  </div>
+  <div class="an-filter an-custom" id="an-custom" hidden>
+    <label for="an-start">From</label><input type="date" id="an-start" name="start" required>
+    <label for="an-end">To</label><input type="date" id="an-end" name="end" required>
+    <button class="btn sm primary" type="submit">Apply</button>
+  </div>
+  <div class="an-filter">
+    <label class="an-filter-label" for="an-branch">Branch</label>
+    <select id="an-branch" name="branch"><option value="">All branches</option></select>
+  </div>
+  <div class="an-filter">
+    <span class="an-filter-label" id="an-gran-l">Group by</span>
+    <div class="seg" role="group" aria-labelledby="an-gran-l">
+      <button type="button" data-gran="day">Day</button>
+      <button type="button" data-gran="week">Week</button>
+      <button type="button" data-gran="month">Month</button>
+    </div>
+  </div>
+  <p class="an-error small" id="an-filter-error" role="alert" hidden></p>
+</form>
+
+<section class="grid kpi-grid" id="an-kpis" aria-label="Key figures"></section>
+
+<div class="an-grid">
+  <section class="card an-panel span-2" data-panel="circulation" aria-labelledby="p-circ">
+    <div class="card-head"><div><h2 id="p-circ">Checkouts over time</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="circulation" data-view="activity" aria-labelledby="p-act">
+    <div class="card-head"><div><h2 id="p-act">Returns &amp; renewals</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="heatmap" aria-labelledby="p-heat">
+    <div class="card-head"><div><h2 id="p-heat">When people borrow</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="turnover" aria-labelledby="p-turn">
+    <div class="card-head"><div><h2 id="p-turn">Collection turnover</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="collection" aria-labelledby="p-coll">
+    <div class="card-head"><div><h2 id="p-coll">Collection age &amp; use</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="holds" aria-labelledby="p-holds">
+    <div class="card-head"><div><h2 id="p-holds">Holds placed vs filled</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="patrons" aria-labelledby="p-pat">
+    <div class="card-head"><div><h2 id="p-pat">Patrons</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="fines" aria-labelledby="p-fines">
+    <div class="card-head"><div><h2 id="p-fines">Fines charged, paid &amp; waived</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel" data-panel="top" aria-labelledby="p-top">
+    <div class="card-head"><div><h2 id="p-top">Most borrowed</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+  <section class="card an-panel span-2" data-panel="branches" aria-labelledby="p-br">
+    <div class="card-head"><div><h2 id="p-br">Branch comparison</h2><div class="small muted" data-sub></div></div><div data-tools></div></div>
+    <div class="card-body" data-body></div>
+  </section>
+</div>
+{% endblock %}

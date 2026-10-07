@@ -5,3 +5,9 @@ from . import acquisitions, admin, ai, auth, catalog, circulation, opac, patrons
 api_router = APIRouter(prefix="/api/v1")
 for module in (auth, catalog, patrons, circulation, opac, acquisitions, reports, admin, ai):
     api_router.include_router(module.router)
+
+# ---- experience: analytics, self-checkout kiosk, discovery
+from . import analytics, discovery, kiosk  # noqa: E402
+
+for module in (analytics, kiosk, discovery):
+    api_router.include_router(module.router)

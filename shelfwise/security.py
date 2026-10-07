@@ -135,6 +135,9 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "acquisitions:write",
         "reports:read",
         "ai:staff",
+        # experience
+        "analytics:read",
+        "kiosks:manage",
     },
     Role.admin: {ALL},
 }

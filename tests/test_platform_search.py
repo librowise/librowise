@@ -127,6 +127,42 @@ def test_filter_ids_and_smart_search_filters_only(shelf, client):
     assert r["total"] == 1 and r["results"][0]["title"] == "Cosmos"
 
 
+def test_ensure_search_index_backfills_empty_tables(db, make_book):
+    from sqlalchemy import delete, text
+
+    from shelfwise.models import BiblioFacet
+
+    make_book("Backfill Me", subjects=["Gardening"], authors=["Root, Ada"])
+    assert catalog.ensure_search_index(db) == 0  # nothing to do
+    db.execute(delete(BiblioFacet))
+    db.commit()
+    assert catalog.search(db, None, catalog.SearchFilters(subject="gardening")).total == 0
+    assert catalog.ensure_search_index(db) == 2  # facet rows rebuilt
+    db.commit()
+    assert catalog.search(db, None, catalog.SearchFilters(subject="gardening")).total == 1
+    table = {"fts5": "biblio_fts", "tsvector": "biblio_search"}.get(search_backend(db))
+    if table:
+        db.execute(text(f"DELETE FROM {table}"))
+        db.commit()
+        assert catalog.search(db, "backfill").total == 0
+        assert catalog.ensure_search_index(db) == 1  # full reindex
+        db.commit()
+        assert catalog.search(db, "backfill").total == 1
+
+
+def test_search_cache_is_invalidated_by_changes(db, make_book):
+    catalog.clear_search_cache()
+    make_book("Cache One", subjects=["Cats"])
+    assert catalog.search(db, None, catalog.SearchFilters(subject="cats")).total == 1
+    make_book("Cache Two", subjects=["Cats"])
+    assert catalog.search(db, None, catalog.SearchFilters(subject="cats")).total == 2
+    b = db.scalar(select(Biblio).where(Biblio.title == "Cache One"))
+    catalog.update_biblio(db, b, {"subjects": ["Dogs"]})
+    db.commit()
+    r = catalog.search(db, None)
+    assert dict(r.facets["subject"]) == {"Cats": 1, "Dogs": 1}
+
+
 # ------------------------------------------------------------------ semantic index
 
 

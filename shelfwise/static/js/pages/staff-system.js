@@ -26,7 +26,7 @@ function healthTiles(o) {
     <div class="card stat ${o.ready ? "" : "alert"}"><span class="label">Readiness</span><span class="value">${o.ready ? "Ready" : "Unavailable"}</span>
       <span class="delta">Database ${db.ok ? `OK · ${db.latency_ms} ms` : "unreachable"}</span></div>
     <div class="card stat ${w.required && !w.ok ? "alert" : ""}"><span class="label">Workers</span><span class="value">${num(alive)}</span>
-      <span class="delta">${w.heartbeat_age_seconds === null ? "No heartbeat yet" : `Last heartbeat ${secs(w.heartbeat_age_seconds)} ago`}${w.required ? " · required" : ""}</span></div>
+      <span class="delta">${w.heartbeat_age_seconds === null ? "No running worker" : `Last heartbeat ${secs(w.heartbeat_age_seconds)} ago`}${w.required ? " · required" : ""}</span></div>
     <div class="card stat ${q.dead ? "alert" : ""}"><span class="label">Queue</span><span class="value">${num(q.queued + q.failed)}</span>
       <span class="delta">${num(q.running)} running · ${num(q.dead)} dead · lag ${secs(o.queue.lag_seconds)}</span></div>
     <div class="card stat"><span class="label">Database</span><span class="value">${bytes(o.database.size_bytes)}</span>
@@ -89,9 +89,9 @@ function dbInfo(d, o) {
 
 function latencyTable(l) {
   if (!l.routes.length) return empty("No requests measured yet.", "chart");
-  return html`<div class="table-wrap"><table class="table"><thead><tr><th>Route</th><th class="num">Requests</th><th class="num">p50</th><th class="num">p95</th></tr></thead><tbody>
+  return html`<div class="table-wrap"><table class="table"><thead><tr><th>Route</th><th class="num">Requests</th><th class="num" title="Histogram bucket upper bound">p50</th><th class="num" title="Histogram bucket upper bound">p95</th></tr></thead><tbody>
     ${l.routes.map((r) => html`<tr><td class="mono tiny">${r.method} ${r.route}</td><td class="num">${num(r.count)}</td>
-      <td class="num">${r.p50_ms === null ? ">10 s" : `${r.p50_ms} ms`}</td><td class="num">${r.p95_ms === null ? ">10 s" : `${r.p95_ms} ms`}</td></tr>`)}
+      <td class="num">${r.p50_ms === null ? ">10 s" : `≤ ${r.p50_ms} ms`}</td><td class="num">${r.p95_ms === null ? ">10 s" : `≤ ${r.p95_ms} ms`}</td></tr>`)}
   </tbody></table></div>`;
 }
 

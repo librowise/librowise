@@ -522,7 +522,7 @@ class BiblioFacet(Base):
 Index("ix_biblios_created_at", Biblio.created_at)
 Index("ix_biblios_updated_at", Biblio.updated_at)
 Index("ix_biblios_title_lower", _sa_func.lower(Biblio.title))
-Index("ix_items_status_deleted", Item.status, Item.deleted_at)
+Index("ix_items_biblio_status", Item.biblio_id, Item.status, Item.deleted_at, Item.branch_id)
 Index("ix_loans_item_activity", Loan.item_id, Loan.issued_at, Loan.patron_id)
 Index("ix_loans_issued_cover", Loan.issued_at, Loan.item_id, Loan.branch_id)
 Index("ix_loans_patron_activity", Loan.patron_id, Loan.issued_at, Loan.item_id)

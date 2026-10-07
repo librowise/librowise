@@ -5,7 +5,8 @@ Search is dispatched on the database dialect (see :func:`shelfwise.db.search_bac
 * SQLite — FTS5 with BM25 field weighting (title and ISBN weigh most), Porter stemming and
   diacritic folding.
 * PostgreSQL — a weighted ``tsvector`` (title/ISBN A, authors B, subjects C, series/publisher/
-  description D) behind a GIN index, ``websearch_to_tsquery`` and ``ts_rank_cd`` ordering.
+  description D) behind a GIN index, ``websearch_to_tsquery``; matches are ranked with
+  ``ts_rank`` and the best ``PG_RERANK_WINDOW`` re-ranked with ``ts_rank_cd`` (cover density).
 
 Both match the last query term as a prefix. Filtering, counting, sorting and pagination all run
 in SQL, so a search touches only one page of rows in Python no matter how large the catalogue
@@ -194,6 +195,7 @@ def reindex_all(db: Session) -> int:
 
 
 def _reindex_facets(db: Session) -> int:
+    clear_search_cache()  # cached totals/facets may predate the rebuild (other processes: ≤ TTL)
     db.execute(delete(BiblioFacet))
     backend = search_backend(db)
     if backend in ("fts5", "tsvector"):
@@ -319,6 +321,7 @@ _OPERATORS = {"and", "or", "not", "near"}
 FTS_WEIGHTS = "10.0, 6.0, 4.0, 1.0, 1.5, 10.0, 2.0"  # title authors subjects desc publisher isbn series
 FACET_SAMPLE = 2000  # subject/author facets are computed over the best N matches
 CANDIDATE_LIMIT = 5000
+PG_RERANK_WINDOW = 1000  # PostgreSQL: best matches re-ranked with ts_rank_cd
 
 
 def fts_query(q: str) -> str | None:
@@ -398,9 +401,15 @@ def _match(db: Session, q: str | None):
         expr, binds = tsq
         ids = (text(f"SELECT s.biblio_id AS id FROM biblio_search s, (SELECT {expr} AS query) AS tq "
                     "WHERE s.document @@ tq.query").bindparams(**binds).columns(id=Integer).subquery("tsv_ids"))
-        sub = (text(f"SELECT s.biblio_id AS id, ts_rank_cd(s.document, tq.query) AS score, s.title_len "
-                    f"FROM biblio_search s, (SELECT {expr} AS query) AS tq WHERE s.document @@ tq.query")
-               .bindparams(**binds).columns(id=Integer, score=Float, title_len=Integer).subquery("tsv"))
+        # Two-stage ranking: cheap ts_rank over every match, then ts_rank_cd (cover density, ~10x
+        # dearer with prefix terms) for the best PG_RERANK_WINDOW, which always sort first.
+        sub = (text(
+            "SELECT id, CASE WHEN rn <= :rerank THEN 1000.0 + ts_rank_cd(document, query) ELSE r END AS score, "
+            "title_len FROM (SELECT m.*, row_number() OVER (ORDER BY r DESC, id) AS rn FROM "
+            "(SELECT s.biblio_id AS id, s.document, s.title_len, tq.query, ts_rank(s.document, tq.query) AS r "
+            f"FROM biblio_search s, (SELECT {expr} AS query) AS tq WHERE s.document @@ tq.query) AS m) AS ranked")
+               .bindparams(rerank=PG_RERANK_WINDOW, **binds)
+               .columns(id=Integer, score=Float, title_len=Integer).subquery("tsv"))
         return ids, sub, [sub.c.score.desc(), sub.c.title_len.asc(), sub.c.id.asc()]
     # Portable fallback for other databases
     like = f"%{q.strip()}%"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from collections import defaultdict
 from datetime import timedelta
 
@@ -11,17 +12,29 @@ from rapidfuzz import fuzz
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..models import Biblio, Hold, HoldStatus, Item, ItemStatus, Loan, utcnow
 
 # ------------------------------------------------------------------ overdue risk
 
 
+_LATE_STATS_TTL = 300.0  # seconds; history changes slowly, the dashboard asks often
+_late_stats_cache: dict[str, tuple[float, dict[int, tuple[int, int]]]] = {}
+
+
 def _patron_late_stats(db: Session, patron_ids: set[int]) -> dict[int, tuple[int, int]]:
     if not patron_ids:
         return {}
-    # Large sets use a semi-join on "patrons with open loans" instead of a huge IN (...) list.
-    who = (Loan.patron_id.in_(patron_ids) if len(patron_ids) <= 500 else
-           Loan.patron_id.in_(select(Loan.patron_id).where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))))
+    large = len(patron_ids) > 500
+    key = db.get_bind().url.render_as_string(hide_password=True)
+    if large and get_settings().environment != "test":
+        hit = _late_stats_cache.get(key)
+        if hit and time.monotonic() - hit[0] < _LATE_STATS_TTL:
+            return {p: s for p, s in hit[1].items() if p in patron_ids}
+    # Large sets use a semi-join on "patrons with open loans" instead of a huge IN (...) list;
+    # the aggregate is an index-only scan of loans(patron_id, returned_at, due_at).
+    who = (Loan.patron_id.in_(select(Loan.patron_id).where(Loan.returned_at.is_(None))) if large else
+           Loan.patron_id.in_(patron_ids))
     rows = db.execute(
         select(
             Loan.patron_id,
@@ -31,7 +44,10 @@ def _patron_late_stats(db: Session, patron_ids: set[int]) -> dict[int, tuple[int
         .where(who, Loan.returned_at.is_not(None))
         .group_by(Loan.patron_id)
     ).all()
-    return {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows if pid in patron_ids}
+    stats = {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows}
+    if large:
+        _late_stats_cache[key] = (time.monotonic(), stats)
+    return {p: s for p, s in stats.items() if p in patron_ids}
 
 
 def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
@@ -42,8 +58,8 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
     Scoring runs over light tuples; full loan objects are loaded only for the top ``limit``.
     """
     now = utcnow()
-    loans = db.execute(select(Loan.id, Loan.patron_id, Loan.due_at, Loan.renewals)
-                       .where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))).all()
+    loans = [r for r in db.execute(select(Loan.id, Loan.patron_id, Loan.due_at, Loan.renewals)
+                                   .where(Loan.returned_at.is_(None))).all() if r.patron_id is not None]
     stats = _patron_late_stats(db, {l.patron_id for l in loans if l.patron_id})
     overdue_now: dict[int, int] = defaultdict(int)
     for l in loans:

@@ -34,9 +34,10 @@ def also_borrowed(db: Session, biblio_id: int, limit: int = 10, since_days: int 
     since = utcnow() - timedelta(days=since_days)
     readers = list(db.scalars(
         select(Loan.patron_id).join(Item, Item.id == Loan.item_id)
-        .where(Item.biblio_id == biblio_id, Loan.patron_id.is_not(None), Loan.issued_at >= since)
-        .group_by(Loan.patron_id).order_by(func.max(Loan.issued_at).desc()).limit(MAX_READERS)
+        .where(Item.biblio_id == biblio_id, Loan.issued_at >= since)
+        .group_by(Loan.patron_id).order_by(func.max(Loan.issued_at).desc()).limit(MAX_READERS + 1)
     ))
+    readers = [r for r in readers if r is not None][:MAX_READERS]
     if not readers:
         return []
     n = func.count().label("n")
@@ -49,8 +50,8 @@ def also_borrowed(db: Session, biblio_id: int, limit: int = 10, since_days: int 
     if not co:
         return []
     popularity = dict(db.execute(
-        select(Item.biblio_id, func.count()).join(Loan, Loan.item_id == Item.id)
-        .where(Item.biblio_id.in_(list(co)), Loan.patron_id.is_not(None), Loan.issued_at >= since)
+        select(Item.biblio_id, func.count(Loan.patron_id)).join(Loan, Loan.item_id == Item.id)
+        .where(Item.biblio_id.in_(list(co)), Loan.issued_at >= since)
         .group_by(Item.biblio_id)
     ).all())
     scored = {b: c / (popularity.get(b, c) ** 0.5) for b, c in co.items()}
@@ -66,15 +67,16 @@ def for_biblio(db: Session, biblio_id: int, limit: int = 8) -> dict:
 
 def trending(db: Session, days: int = 90, limit: int = 10) -> list[tuple[int, int]]:
     since = utcnow() - timedelta(days=days)
+    # Aggregate recent loans per item first (index-only range scan on loans(issued_at, item_id)),
+    # then fold items into titles — instead of probing the loans index once per item.
+    per_item = (select(Loan.item_id, func.count().label("n")).where(Loan.issued_at >= since)
+                .group_by(Loan.item_id).subquery())
+    total = func.sum(per_item.c.n)
     rows = db.execute(
-        select(Item.biblio_id, func.count(Loan.id))
-        .join(Loan, Loan.item_id == Item.id)
-        .where(Loan.issued_at >= since)
-        .group_by(Item.biblio_id)
-        .order_by(func.count(Loan.id).desc())
-        .limit(limit)
+        select(Item.biblio_id, total).join(per_item, per_item.c.item_id == Item.id)
+        .group_by(Item.biblio_id).order_by(total.desc(), Item.biblio_id).limit(limit)
     ).all()
-    return [(b, n) for b, n in rows]
+    return [(b, int(n)) for b, n in rows]
 
 
 def for_patron(db: Session, patron_id: int, limit: int = 12) -> dict:

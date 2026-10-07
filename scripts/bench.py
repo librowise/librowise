@@ -33,7 +33,8 @@ QUERIES = {
     "facet: author filter": "/api/v1/search?author=sharma",
     "browse: newest (no query)": "/api/v1/search?sort=newest",
     "browse: available only": "/api/v1/search?available_only=true&sort=title",
-    "deep page (page 50)": "/api/v1/search?q=the&page=50",
+    "deep page: stop word (page 50)": "/api/v1/search?q=the&page=50",
+    "deep page: common term (page 50)": "/api/v1/search?q=fiction&page=50",
     "smart: natural language": "/api/v1/search/smart?q=funny%20books%20for%20kids%20about%20space",
     "smart: filters only": "/api/v1/search/smart?q=dvds%20in%20hindi%20after%202010",
 }
@@ -60,6 +61,8 @@ def main() -> int:
     ap.add_argument("--circ", type=int, default=200, help="Checkout+checkin pairs for the throughput test")
     ap.add_argument("--json", help="Write results to this file")
     ap.add_argument("--label", default="")
+    ap.add_argument("--cold", action="store_true",
+                    help="Clear in-process search caches before every request (measures uncached latency)")
     ap.add_argument("--code", default=str(ROOT), help="Path of the Shelfwise source tree to benchmark")
     args = ap.parse_args()
     if not args.database_url:
@@ -86,7 +89,7 @@ def main() -> int:
     from shelfwise.security import ai_limiter, hash_password, login_limiter
 
     dbmod.init_engine(args.database_url)
-    results: dict = {"label": args.label, "database": args.database_url.split("@")[-1], "runs": args.runs, "timings": {}}
+    results: dict = {"cold": args.cold, "label": args.label, "database": args.database_url.split("@")[-1], "runs": args.runs, "timings": {}}
     with dbmod.session_scope() as db:
         results["sizes"] = {
             "biblios": db.scalar(select(func.count()).select_from(Biblio)),
@@ -104,9 +107,17 @@ def main() -> int:
             db.add(admin)
     print(f"Database: {results['database']}  sizes: {results['sizes']}", flush=True)
 
+    try:
+        from shelfwise.services.catalog import clear_search_cache
+    except ImportError:  # older versions have no cache
+        def clear_search_cache():
+            return None
+
     def limiter_reset():
         login_limiter.reset()
         ai_limiter.reset()
+        if args.cold:
+            clear_search_cache()
 
     with TestClient(create_app()) as client:
         limiter_reset()

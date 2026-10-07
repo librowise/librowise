@@ -825,3 +825,6 @@ html[data-kiosk] body { background: var(--bg); overscroll-behavior: none; }
 .change-toggle { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .5rem .75rem; align-items: start; }
 .change-toggle .field[aria-disabled="true"] { opacity: .5; }
 
+
+/* ---- closed drawers are not visible to keyboard/AT and do not cast a shadow onto the page edge ---- */
+.drawer:not(.open) { visibility: hidden; box-shadow: none; transition: transform .25s var(--ease), visibility 0s linear .25s; }

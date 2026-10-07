@@ -81,6 +81,15 @@ def _tool(name: str) -> str:
     return path
 
 
+SIDE_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _remove_side_files(path: Path) -> None:
+    """Delete SQLite's -wal/-shm/-journal companions of ``path``, if any."""
+    for suffix in SIDE_SUFFIXES:
+        path.with_name(path.name + suffix).unlink(missing_ok=True)
+
+
 def verify(path: Path, kind: str | None = None) -> None:
     """Raise BackupError unless ``path`` is a readable, consistent backup."""
     path = Path(path)
@@ -128,6 +137,9 @@ def create_backup(dest: str | os.PathLike | None = None, keep: int | None = None
             dst = sqlite3.connect(tmp.as_posix())
             try:
                 src.backup(dst, pages=4096)  # copies in steps; writers are only briefly paused
+                # The copy inherits the live database's WAL header; make it a self-contained
+                # rollback-journal file so opening it later never creates -wal/-shm side files.
+                dst.execute("PRAGMA journal_mode=DELETE")
             finally:
                 dst.close()
                 src.close()
@@ -138,9 +150,11 @@ def create_backup(dest: str | os.PathLike | None = None, keep: int | None = None
             if proc.returncode != 0:
                 raise BackupError(f"pg_dump failed: {proc.stderr.strip()[:1000]}")
         verify(tmp, kind)
+        _remove_side_files(tmp)
         tmp.replace(final)
     except Exception:
         tmp.unlink(missing_ok=True)
+        _remove_side_files(tmp)
         raise
     info = {"file": str(final), "name": final.name, "kind": kind, "size": final.stat().st_size,
             "sha256": _sha256(final), "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -174,15 +188,35 @@ def list_backups(dest: str | os.PathLike | None = None) -> list[dict]:
     return out
 
 
+def _sweep_side_files(folder: Path) -> None:
+    """Remove SQLite side files left next to backups (or interrupted ``.partial`` copies) by older
+    versions. Side files of an in-progress ``.partial`` are left alone."""
+    for path in folder.iterdir():
+        if not path.name.startswith(PREFIX) or not path.name.endswith(SIDE_SUFFIXES):
+            continue
+        owner = path.with_name(path.name.rsplit("-", 1)[0])
+        if owner.suffix == ".partial" and owner.exists():
+            continue
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:  # still open elsewhere (Windows); the next prune will retry
+            pass
+
+
 def prune(folder: Path, keep: int) -> list[str]:
+    folder = Path(folder)
+    if folder.is_dir():
+        _sweep_side_files(folder)
     if keep <= 0:
         return []
     removed = []
     for b in list_backups(folder)[keep:]:
         if "-pre-restore-" in b["name"]:
             continue
-        for p in (folder / b["name"], folder / (b["name"] + ".json")):
+        path = folder / b["name"]
+        for p in (path, folder / (b["name"] + ".json")):
             p.unlink(missing_ok=True)
+        _remove_side_files(path)
         removed.append(b["name"])
     return removed
 

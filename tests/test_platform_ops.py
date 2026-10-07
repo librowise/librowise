@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+from pathlib import Path
 
 import pytest
 from conftest import login
@@ -240,6 +241,33 @@ def test_sqlite_backup_verify_prune_restore(db, lib, make_book, tmp_path, monkey
     out = capsys.readouterr().out
     assert "Restored" in out
     get_settings.cache_clear()
+
+
+def test_sqlite_backup_leaves_no_wal_side_files(db, lib, make_book, tmp_path):
+    """The live DB runs in WAL mode; the backup must be one self-contained file with no -wal/-shm."""
+    if not _is_sqlite():
+        pytest.skip("SQLite backup test")
+    import sqlite3
+
+    from shelfwise import backup
+
+    make_book("Side Files")
+    dest = tmp_path / "backups"
+    info = backup.create_backup(dest, keep=0)
+    assert sorted(p.name for p in dest.iterdir()) == sorted([info["name"], info["name"] + ".json"])
+    backup.verify(info["file"])
+    con = sqlite3.connect(f"file:{Path(info['file']).as_posix()}?mode=ro", uri=True)
+    try:
+        assert con.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    finally:
+        con.close()
+    assert not [p.name for p in dest.iterdir() if p.name.endswith(("-wal", "-shm"))]
+    # Side files left by an older, interrupted run are swept by prune; backups themselves are kept.
+    for name in ("shelfwise-20200101-000000.sqlite3.partial-wal", "shelfwise-20200101-000000.sqlite3.partial-shm",
+                 info["name"] + "-shm"):
+        (dest / name).write_bytes(b"x")
+    backup.prune(dest, keep=5)
+    assert sorted(p.name for p in dest.iterdir()) == sorted([info["name"], info["name"] + ".json"])
 
 
 def test_backup_detects_corruption(tmp_path, db, lib):

@@ -107,7 +107,7 @@ function renderOutput(data) {
           ${DAY_OPTIONS.map((d) => html`<option value="${d}" ${d === state.days ? "selected" : ""}>Last ${d} days</option>`)}</select>
         <a class="btn" href="${csv}" download>${icon("download")}Download CSV</a>
       </div></div>
-    ${data.rows.length ? html`<div class="table-wrap" style="max-height:70vh"><table class="table">
+    ${data.rows.length ? html`<div class="table-wrap" style="max-height:70vh" tabindex="0" role="region" aria-label="${data.name}"><table class="table">
       <caption class="sr-only">${data.name}</caption>
       <thead><tr>${data.headers.map((h, i) => html`<th scope="col" class="${numericCols[i] ? "num" : ""}">${h}</th>`)}</tr></thead>
       <tbody>${data.rows.map((r) => html`<tr>${r.map(cell)}</tr>`)}</tbody></table></div>`

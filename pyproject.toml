@@ -40,7 +40,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2"]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "playwright>=1.45"]  # playwright: scripts/ui_audit.py
 
 [project.scripts]
 shelfwise = "shelfwise.__main__:main"

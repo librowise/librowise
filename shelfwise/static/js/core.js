@@ -409,6 +409,7 @@ const chat = [];
 export function openCopilot(question) {
   const drawer = $("#copilot");
   if (!drawer) return;
+  drawer.inert = false;  // closed drawer is inert: not focusable, not announced
   drawer.classList.add("open");
   drawer.setAttribute("aria-hidden", "false");
   const input = $("#copilot-input");
@@ -419,7 +420,7 @@ function initCopilot() {
   const drawer = $("#copilot");
   if (!drawer) return;
   const body = $("#copilot-body"), form = $("#copilot-form"), input = $("#copilot-input");
-  const close = () => { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); };
+  const close = () => { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); drawer.inert = true; };
   $("#copilot-close").addEventListener("click", close);
   $$("[data-open-copilot]").forEach((b) => b.addEventListener("click", () => openCopilot()));
   drawer.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });

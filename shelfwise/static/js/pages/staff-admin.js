@@ -378,7 +378,7 @@ async function auditTab() {
         ${a.action || a.entity ? html`<button class="btn ghost" type="button" data-audit-clear>Clear</button>` : ""}
       </form>
     </div>
-    ${r.results.length ? html`<div class="table-wrap"><table class="table">
+    ${r.results.length ? html`<div class="table-wrap" tabindex="0" role="region" aria-label="Audit events"><table class="table">
       <caption class="sr-only">Audit events, newest first</caption>
       <thead><tr><th scope="col">Time</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">IP</th><th scope="col">Details</th></tr></thead>
       <tbody>${r.results.map((e) => html`<tr>

@@ -56,7 +56,7 @@
     <header class="topbar">
       <button type="button" class="btn ghost icon-only menu-toggle" data-sidebar-open aria-controls="sidebar" aria-expanded="false" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
       <a class="brand brand-compact" href="/staff" aria-label="{{ product_name }}"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"></a>
-      <button type="button" class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}" aria-keyshortcuts="Control+K">
+      <button type="button" class="search-trigger" data-open-palette aria-haspopup="dialog" aria-keyshortcuts="Control+K" title="{{ t('staff.open_palette') }}">
         <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('ui.shell.search_placeholder') }}</span><kbd>Ctrl K</kbd>
       </button>
       <div class="topbar-actions">
@@ -120,7 +120,7 @@
   </div>
 </div>
 
-<aside class="drawer" id="copilot" aria-hidden="true" aria-label="{{ t('ui.copilot.title') }}">
+<aside class="drawer" id="copilot" aria-hidden="true" inert aria-label="{{ t('ui.copilot.title') }}">
   <div class="drawer-head">
     <span class="brand-mark ai-mark" style="width:1.8rem;height:1.8rem"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></span>
     <div class="grow"><strong>{{ t('ui.copilot.title') }}</strong><div class="tiny muted">{{ t('ui.copilot.live_data') }} · <span id="copilot-engine">…</span> · {{ t('ui.copilot.read_only') }}</div></div>

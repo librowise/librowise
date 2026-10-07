@@ -49,7 +49,14 @@ def main(argv: list[str] | None = None) -> int:
     p_auth = sub.add_parser("authorities", help="Authority control maintenance")
     p_auth.add_argument("action", choices=["relink", "generate"],
                         help="relink: re-derive record/authority links; generate: create authorities from catalogue headings")
+    from .instances import add_parser as add_instance_parser
+
+    add_instance_parser(sub)  # instance create/list/info/start/stop/upgrade/backup/remove/doctor/shell
     args = parser.parse_args(argv)
+    if args.cmd == "instance":
+        from .instances import dispatch as instance_dispatch
+
+        return instance_dispatch(args)
     if (rc := ops_dispatch(args)) is not None:
         return rc
     if args.cmd == "authorities":

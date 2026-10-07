@@ -44,6 +44,7 @@ dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 shelfwise = "shelfwise.__main__:main"
+librowise = "shelfwise.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["shelfwise*"]

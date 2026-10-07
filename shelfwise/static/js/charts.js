@@ -32,9 +32,9 @@ function niceStep(range, ticks) {
   const norm = raw0 / mag;
   return (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
 }
-function niceScale(max, ticks = 4) {
+function niceScale(max, ticks = 4, integer = false) {
   if (!(max > 0)) return { max: 1, ticks: [0, 1] };
-  const step = niceStep(max, ticks);
+  const step = integer ? Math.max(1, Math.ceil(niceStep(max, ticks))) : niceStep(max, ticks);
   const top = Math.ceil(max / step) * step;
   const out = [];
   for (let v = 0; v <= top + step / 2; v += step) out.push(+v.toFixed(10));
@@ -170,7 +170,7 @@ export function lineChart(el, opts) {
     if (!labels.length) { canvas.innerHTML = html`<div class="empty small">${tr("no_data", "No data for this period")}</div>`; return; }
     const W = Math.max(280, canvas.clientWidth || el.clientWidth || 600);
     const allMax = Math.max(0, ...series.flatMap((s) => s.values.filter((v) => v !== null && v !== undefined)));
-    const scale = niceScale(allMax);
+    const scale = niceScale(allMax, 4, format === num);
     const left = 10 + Math.max(...scale.ticks.map((v) => (format === num ? compact(v) : String(format(v))).length)) * 7, right = W - 12, top = 12, bottom = height - 26;
     const n = labels.length;
     const xAt = (i) => (n === 1 ? (left + right) / 2 : left + (i * (right - left)) / (n - 1));
@@ -228,7 +228,7 @@ export function barChart(el, opts) {
     const W = Math.max(280, canvas.clientWidth || el.clientWidth || 600);
     const n = labels.length;
     const totals = labels.map((_, i) => (stacked ? series.reduce((a, s) => a + (s.values[i] || 0), 0) : Math.max(0, ...series.map((s) => s.values[i] || 0))));
-    const scale = niceScale(Math.max(0, ...totals));
+    const scale = niceScale(Math.max(0, ...totals), 4, format === num);
     const left = 10 + Math.max(...scale.ticks.map((v) => (format === num ? compact(v) : String(format(v))).length)) * 7, right = W - 8, top = 12, bottom = height - 26;
     const band = (right - left) / n;
     const xAt = (i) => left + band * (i + 0.5);
@@ -443,7 +443,8 @@ export function kpiTile({ label, value, previous, format = num, spark, href, inv
   if (d !== null) {
     const good = d === 0 ? null : (d > 0) !== invert;
     const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "■";
-    const pctTxt = `${Math.abs(d * 100) < 10 && d !== 0 ? Math.abs(d * 100).toFixed(1) : Math.round(Math.abs(d * 100))}%`;
+    const abs = Math.abs(d * 100);
+    const pctTxt = abs > 999 ? ">999%" : `${abs < 10 && d !== 0 ? abs.toFixed(1) : Math.round(abs)}%`;
     const word = d > 0 ? tr("up", "up") : d < 0 ? tr("down", "down") : tr("flat", "no change");
     deltaHtml = html`<span class="kpi-delta ${good === null ? "flat" : good ? "good" : "bad"}">
       <span aria-hidden="true">${arrow}</span> ${d === 0 ? tr("flat", "no change") : pctTxt}<span class="sr-only"> ${d === 0 ? "" : word}</span>

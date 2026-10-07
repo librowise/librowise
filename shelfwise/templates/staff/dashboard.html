@@ -24,7 +24,7 @@
   <a class="qa" href="/staff/analytics"><svg class="icon" aria-hidden="true"><use href="#i-trend"></use></svg>{{ t('dash.qa_analytics') }}</a>
 </nav>
 
-<section class="grid kpi-grid" id="kpis" aria-label="{{ t('dash.key_figures') }}" aria-busy="true">
+<section class="grid kpi-grid compact" id="kpis" aria-label="{{ t('dash.key_figures') }}" aria-busy="true">
   {% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:4.4rem"></div></div>{% endfor %}
 </section>
 
@@ -51,13 +51,13 @@
 </div>
 
 <div class="dash-grid">
-  <section class="card panel-ai" aria-labelledby="risk-h">
-    <div class="card-head"><h2 id="risk-h"><svg class="icon" style="color:var(--ai)" aria-hidden="true"><use href="#i-sparkle"></use></svg> {{ t('dash.risk_title') }}</h2><a class="small" href="/staff/insights">{{ t('dash.all_insights') }}</a></div>
-    <div class="card-body" id="risk"></div>
-  </section>
   <section class="card" aria-labelledby="recent-h">
     <div class="card-head"><h2 id="recent-h">{{ t('dash.recent_title') }}</h2><a class="small" href="/staff/circulation">{{ t('dash.open_desk') }}</a></div>
     <div class="card-body" id="recent"></div>
+  </section>
+  <section class="card panel-ai" aria-labelledby="risk-h">
+    <div class="card-head"><h2 id="risk-h"><svg class="icon" style="color:var(--ai)" aria-hidden="true"><use href="#i-sparkle"></use></svg> {{ t('dash.risk_title') }}</h2><a class="small" href="/staff/insights">{{ t('dash.all_insights') }}</a></div>
+    <div class="card-body" id="risk"></div>
   </section>
 </div>
 {% endblock %}

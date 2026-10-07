@@ -239,6 +239,7 @@ async function finish() {
   state.data = null;
   state.receipt = receipt;
   state.visitLines = [];
+  status("");
   $("#k-scan-result").textContent = "";
   const n = receipt?.lines?.length || 0;
   $("#k-done-lead").textContent = n ? t("kiosk.done_lead", { count: n }) : t("kiosk.done_lead_none");

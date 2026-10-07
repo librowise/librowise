@@ -72,7 +72,8 @@ function fetchPanel(name) {
 const deltaText = (cur, prev) => {
   const d = delta(cur, prev);
   if (d === null) return "";
-  return d === 0 ? "no change vs previous period" : `${d > 0 ? "▲" : "▼"} ${Math.abs(Math.round(d * 100))}% vs previous period`;
+  const abs = Math.abs(Math.round(d * 100));
+  return d === 0 ? "no change vs previous period" : `${d > 0 ? "▲" : "▼"} ${abs > 999 ? ">999" : abs}% vs previous period`;
 };
 const miniStat = (label, value, note = "") => html`<div class="mini-stat"><span class="label">${label}</span><span class="value">${value}</span>${note ? html`<span class="tiny muted">${note}</span>` : ""}</div>`;
 

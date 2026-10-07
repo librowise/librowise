@@ -25,14 +25,14 @@
   <div class="main">
     <header class="topbar">
       <button class="btn ghost icon-only menu-toggle" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
-      <button class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}">
+      <button class="search-trigger" data-open-palette aria-haspopup="dialog" aria-keyshortcuts="Control+K" title="{{ t('staff.open_palette') }}">
         <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('staff.search_or_command') }}</span><kbd>Ctrl K</kbd>
       </button>
       <div class="row tight" style="margin-left:auto">
         <button class="btn ai sm" data-open-copilot title="{{ t('staff.copilot_title') }}"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><span>{{ t('staff.copilot') }}</span></button>
         {% include "_lang_switch.html" %}
         <button class="btn ghost icon-only" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
-        <a class="avatar" href="/staff/security" title="{{ user.full_name }} ({{ user.role.value }}) · My account &amp; security" aria-label="My account and security" style="width:2.1rem;height:2.1rem;font-size:.8rem;text-decoration:none">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</a>
+        <a class="avatar" href="/staff/security" title="{{ user.full_name }} ({{ user.role.value }}) · My account &amp; security" style="width:2.1rem;height:2.1rem;font-size:.8rem;text-decoration:none"><span aria-hidden="true">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</span><span class="sr-only">{{ user.full_name }}: my account and security</span></a>
         <button class="btn ghost icon-only" data-logout aria-label="{{ t('common.sign_out') }}" title="{{ t('common.sign_out') }}"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg></button>
       </div>
     </header>
@@ -42,7 +42,7 @@
   </div>
 </div>
 
-<aside class="drawer" id="copilot" aria-hidden="true" aria-label="AI copilot">
+<aside class="drawer" id="copilot" aria-hidden="true" inert aria-label="AI copilot">
   <div class="drawer-head">
     <span class="brand-mark" style="width:1.8rem;height:1.8rem"><svg class="icon"><use href="#i-sparkle"></use></svg></span>
     <div class="grow"><strong>Library copilot</strong><div class="tiny muted">Live data · <span id="copilot-engine">…</span> · read-only</div></div>

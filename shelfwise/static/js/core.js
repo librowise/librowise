@@ -279,28 +279,28 @@ async function appearanceDialog() {
 const STAFF = !!BOOT.user?.is_staff;
 const COMMANDS = [
   ...(STAFF ? [
-    { group: "Go to", label: "Dashboard", hint: "Alt+1", run: () => (location.href = "/staff"), icon: "home" },
-    { group: "Go to", label: "Circulation desk", hint: "Alt+2", run: () => (location.href = "/staff/circulation"), icon: "repeat" },
-    { group: "Go to", label: "Catalogue", hint: "Alt+3", run: () => (location.href = "/staff/catalog"), icon: "book" },
-    { group: "Go to", label: "Patrons", hint: "Alt+4", run: () => (location.href = "/staff/patrons"), icon: "users" },
-    { group: "Go to", label: "Holds", hint: "Alt+5", run: () => (location.href = "/staff/holds"), icon: "bookmark" },
-    { group: "Go to", label: "Acquisitions", hint: "Alt+6", run: () => (location.href = "/staff/acquisitions"), icon: "cart" },
-    { group: "Go to", label: "Reports", hint: "Alt+7", run: () => (location.href = "/staff/reports"), icon: "chart" },
-    { group: "Go to", label: "Analytics", hint: "Alt+8", run: () => (location.href = "/staff/analytics"), icon: "trend" },
-    { group: "Go to", label: "AI insights", hint: "Alt+9", run: () => (location.href = "/staff/insights"), icon: "sparkle" },
-    { group: "Go to", label: "Self-checkout kiosks", run: () => (location.href = "/staff/kiosks"), icon: "monitor" },
-    { group: "Go to", label: "Administration", run: () => (location.href = "/staff/admin"), icon: "settings" },
+    { group: "Go to", href: "/staff", label: "Dashboard", icon: "home" },
+    { group: "Go to", href: "/staff/circulation", label: "Circulation desk", icon: "repeat" },
+    { group: "Go to", href: "/staff/catalog", label: "Catalogue", icon: "book" },
+    { group: "Go to", href: "/staff/patrons", label: "Patrons", icon: "users" },
+    { group: "Go to", href: "/staff/holds", label: "Holds", icon: "bookmark" },
+    { group: "Go to", href: "/staff/acquisitions", label: "Acquisitions", icon: "cart" },
+    { group: "Go to", href: "/staff/reports", label: "Reports", icon: "chart" },
+    { group: "Go to", href: "/staff/analytics", label: "Analytics", icon: "trend" },
+    { group: "Go to", href: "/staff/insights", label: "AI insights", icon: "sparkle" },
+    { group: "Go to", href: "/staff/kiosks", label: "Self-checkout kiosks", icon: "monitor" },
+    { group: "Go to", href: "/staff/admin", label: "Administration", icon: "settings" },
     { group: "Actions", label: "New catalogue record", run: () => (location.href = "/staff/catalog/new"), icon: "plus" },
     { group: "Actions", label: "Check out items", run: () => (location.href = "/staff/circulation#checkout"), icon: "arrow-up" },
     { group: "Actions", label: "Check in items", run: () => (location.href = "/staff/circulation#checkin"), icon: "arrow-down" },
     { group: "Actions", label: "Register a patron", run: () => (location.href = "/staff/patrons#new"), icon: "user-plus" },
     { group: "Actions", label: "Ask the AI copilot", hint: "Ctrl+J", run: () => openCopilot(), icon: "sparkle" },
-    { group: "Go to", label: "Public catalogue (OPAC)", run: () => (location.href = "/"), icon: "globe" },
-    { group: "Go to", label: "My account & security (2FA, sessions, API tokens)", run: () => (location.href = "/staff/security"), icon: "shield" },
-    { group: "Go to", label: "Roles & permissions", run: () => (location.href = "/staff/roles"), icon: "shield" },
+    { group: "Go to", href: "/", label: "Public catalogue (OPAC)", icon: "globe" },
+    { group: "Go to", href: "/staff/security", label: "My account & security (2FA, sessions, API tokens)", icon: "shield" },
+    { group: "Go to", href: "/staff/roles", label: "Roles & permissions", icon: "shield" },
   ] : [
-    { group: "Go to", label: "Home", run: () => (location.href = "/"), icon: "home" },
-    { group: "Go to", label: "My account", run: () => (location.href = "/account"), icon: "user" },
+    { group: "Go to", href: "/", label: "Home", icon: "home" },
+    { group: "Go to", href: "/account", label: "My account", icon: "user" },
   ]),
   { group: "Preferences", label: "Appearance: theme, density & text size", run: () => appearanceDialog(), icon: "palette" },
   { group: "Preferences", label: "Toggle dark mode", run: () => applyPrefs({ theme: document.documentElement.dataset.theme === "dark" ? "light" : "dark" }), icon: "moon" },
@@ -318,11 +318,19 @@ function shortcutsHelp() {
       ["F2 / F3", "Circulation: check out / check in"], ["Esc", "Close dialogs"]].map(([k, v]) => `<div class="kv"><span>${v}</span><kbd>${k}</kbd></div>`).join("")}</div>` });
 }
 
+/** Alt+N hint for a "Go to" command, read from the sidebar so it always matches the Alt+N handler below
+ * (the sidebar is grouped and permission-filtered, so a fixed list of hints goes stale). */
+function shortcutHint(c) {
+  if (!c.href) return c.hint || "";
+  const n = $$(".sidebar .nav-link").findIndex((a) => a.getAttribute("href") === c.href) + 1;
+  return n >= 1 && n <= 9 ? `Alt+${n}` : "";
+}
+
 function openPalette() {
   const d = document.createElement("dialog");
   d.className = "palette";
   d.innerHTML = `<input type="search" placeholder="Type a command, title, card number or barcode…" aria-label="Command">
-    <ul role="listbox"></ul><div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>Enter</kbd> run</span><span><kbd>Esc</kbd> close</span></div>`;
+    <ul role="listbox" aria-label="Commands"></ul><div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>Enter</kbd> run</span><span><kbd>Esc</kbd> close</span></div>`;
   document.body.append(d);
   const input = $("input", d), list = $("ul", d);
   let items = [], sel = 0;
@@ -345,11 +353,17 @@ function openPalette() {
     list.innerHTML = items.map((c, i) => {
       const head = c.group !== last ? `<li class="group" role="presentation">${esc(c.group)}</li>` : "";
       last = c.group;
-      return `${head}<li role="option" data-i="${i}" aria-selected="${i === sel}">${icon(c.icon || "chevron").__raw}<span>${esc(c.label)}</span>${c.hint ? `<span class="hint">${esc(c.hint)}</span>` : ""}</li>`;
+      const hint = shortcutHint(c);
+      return `${head}<li role="option" data-i="${i}" aria-selected="${i === sel}">${icon(c.icon || "chevron").__raw}<span>${esc(c.label)}</span>${hint ? `<span class="hint">${esc(hint)}</span>` : ""}</li>`;
     }).join("") || `<li class="group">No matches</li>`;
     $(`[aria-selected="true"]`, list)?.scrollIntoView({ block: "nearest" });
   };
-  const run = (i) => { const c = items[i]; d.close(); c?.run(); };
+  const run = (i) => {
+    const c = items[i];
+    d.close();
+    if (c?.run) c.run();
+    else if (c?.href) location.href = c.href;
+  };
   input.addEventListener("input", () => { sel = 0; render(); });
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { sel = (sel + 1) % items.length; render(); e.preventDefault(); }
@@ -372,6 +386,7 @@ export function openCopilot(question) {
   if (!drawer) return;
   drawer.classList.add("open");
   drawer.setAttribute("aria-hidden", "false");
+  drawer.inert = false;
   const input = $("#copilot-input");
   input.focus();
   if (question) { input.value = question; $("#copilot-form").requestSubmit(); }
@@ -380,7 +395,8 @@ function initCopilot() {
   const drawer = $("#copilot");
   if (!drawer) return;
   const body = $("#copilot-body"), form = $("#copilot-form"), input = $("#copilot-input");
-  const close = () => { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); };
+  // Closed drawer: aria-hidden *and* inert, so its controls leave the tab order (WCAG 4.1.2 / axe aria-hidden-focus).
+  const close = () => { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); drawer.inert = true; };
   $("#copilot-close").addEventListener("click", close);
   $$("[data-open-copilot]").forEach((b) => b.addEventListener("click", () => openCopilot()));
   drawer.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });

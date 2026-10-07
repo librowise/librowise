@@ -12,6 +12,8 @@ Shelfwise covers the core of an ILS:
 It runs as one fast Python process with a secure-by-default design and a polished, accessible UI. AI features are built in: they use **Claude** when an API key is configured and fall back to **local models** that need no network.
 
 > The design comes from a source-level audit of Koha: [`docs/KOHA_AUDIT.md`](docs/KOHA_AUDIT.md).
+> The UI is built on the Librowise design system: [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md)
+> (live component reference at `/staff/styleguide`).
 
 ---
 

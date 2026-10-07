@@ -143,6 +143,7 @@ printf '/etc/logrotate.d/%s\n' "$PKG" >"$STAGE/DEBIAN/conffiles"
 # Normalise permissions: directories 0755, files 0644 unless executable.
 find "$STAGE" -path "$STAGE/DEBIAN" -prune -o -type d -exec chmod 0755 {} +
 find "$STAGE" -path "$STAGE/DEBIAN" -prune -o -type f -perm /111 -exec chmod 0755 {} + -o -type f -exec chmod 0644 {} +
+find "$STAGE$VENV" -type f -name '*.so*' -exec chmod 0644 {} +  # shared libraries are not programs
 
 INSTALLED_SIZE="$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)"
 sed -e "s|@VERSION@|$VERSION|" -e "s|@ARCH@|$ARCH|" -e "s|@MAINTAINER@|$MAINTAINER|" \

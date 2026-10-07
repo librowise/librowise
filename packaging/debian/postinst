@@ -36,7 +36,7 @@ case "$1" in
         if [ -n "$2" ] && has_instances; then
             # Upgrade: like koha-common, bring every instance's schema up to date and restart it.
             echo "Upgrading Librowise instances (backup, migrate, restart)..."
-            if ! /usr/bin/librowise instance upgrade --all; then
+            if ! librowise instance upgrade --all; then
                 echo "WARNING: an instance upgrade failed. Fix the problem, then run:" >&2
                 echo "  sudo librowise instance upgrade --all" >&2
             fi

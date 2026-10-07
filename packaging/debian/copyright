@@ -4,7 +4,7 @@ Upstream-Contact: https://github.com/librowise/librowise/issues
 Source: https://github.com/librowise/librowise
 
 Files: *
-Copyright: Librowise contributors
+Copyright: 2024-2026 Librowise contributors
 License: GPL-3+
 
 Files: opt/librowise/venv/lib/*

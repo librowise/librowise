@@ -1,29 +1,8 @@
-# The application ships a self-contained Python environment under /opt/librowise
-# (the same approach as dh-virtualenv); it is a third-party package, not part of Debian.
-librowise: dir-or-file-in-opt [*]
-librowise: embedded-library [*]
-librowise: unstripped-binary-or-object [*]
-librowise: hardening-no-fortify-functions [*]
-librowise: shared-library-lacks-prerequisites [*]
-librowise: library-not-linked-against-libc [*]
-librowise: binary-or-shlib-defines-rpath [*]
-librowise: shared-library-lacks-version [*]
-librowise: python-script-but-no-python-dep [*]
-librowise: script-not-executable [*]
-librowise: executable-not-elf-or-script [*]
-librowise: package-installs-python-bytecode [*]
-librowise: package-contains-documentation-outside-usr-share-doc [*]
-librowise: extra-license-file [*]
-librowise: privacy-breach-generic [*]
-librowise: repeated-path-segment [*]
-librowise: embedded-javascript-library [*]
-librowise: font-in-non-font-package [*]
-librowise: interpreter-in-usr-local [*]
-librowise: unusual-interpreter [*]
-librowise: maintainer-script-calls-systemctl [*]
-librowise: systemd-service-file-refers-to-unusual-wantedby-target [*]
-librowise: binary-without-manpage [*]
-librowise: arch-dependent-file-not-in-arch-specific-directory [*]
-librowise: shell-script-fails-syntax-check [*]
-librowise: package-contains-vcs-control-file [*]
-librowise: zero-byte-file-in-doc-directory [*]
+# Librowise ships a self-contained Python environment under /opt/librowise (the dh-virtualenv
+# approach): byte-code is compiled at build time and wheels bring their own native libraries.
+librowise: package-installs-python-pycache-dir
+librowise: unusual-interpreter
+librowise: embedded-library
+librowise: systemd-service-file-refers-to-unusual-wantedby-target
+librowise: package-contains-upstream-installation-documentation
+librowise: initial-upload-closes-no-bugs

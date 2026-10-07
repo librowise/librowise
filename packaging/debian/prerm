@@ -5,8 +5,8 @@ set -e
 
 case "$1" in
     remove | deconfigure)
-        if [ -x /usr/bin/librowise ] && [ -s /etc/librowise/instances.json ]; then
-            /usr/bin/librowise instance stop --all >/dev/null 2>&1 || true
+        if command -v librowise >/dev/null 2>&1 && [ -s /etc/librowise/instances.json ]; then
+            librowise instance stop --all >/dev/null 2>&1 || true
         fi
         if [ -d /run/systemd/system ]; then
             systemctl stop 'librowise-web@*.service' 'librowise-worker@*.service' \

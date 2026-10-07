@@ -5,7 +5,7 @@ Priority: optional
 Architecture: @ARCH@
 Maintainer: @MAINTAINER@
 Installed-Size: @INSTALLED_SIZE@
-Depends: @PYTHON@, passwd, util-linux, ca-certificates
+Depends: @PYTHON@, libc6, passwd, ca-certificates
 Recommends: postgresql (>= 14), postgresql-client, caddy | nginx, logrotate, curl
 Suggests: certbot, python3-certbot-nginx
 Homepage: https://github.com/librowise/librowise

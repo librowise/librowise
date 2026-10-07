@@ -12,9 +12,17 @@ step() { printf '\n==> %s\n' "$*"; }
 trap 'echo "SMOKE TEST FAILED at line $LINENO" >&2; tail -n 50 /var/log/librowise/$NAME/*.log 2>/dev/null || true' ERR
 
 step "Installing $DEB"
-apt-get update -q >/dev/null
 # Recommends (postgresql, caddy) are skipped: this exercises the minimal SQLite path.
-DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends curl "$(realpath "$DEB")"
+# Retried: a flaky mirror otherwise shows up as "held broken packages".
+for attempt in 1 2 3; do
+    if apt-get update -q >/dev/null &&
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends curl "$(realpath "$DEB")"; then
+        break
+    fi
+    [[ $attempt -lt 3 ]] || exit 1
+    echo "apt failed (attempt $attempt), retrying in 10 s" >&2
+    sleep 10
+done
 librowise --help >/dev/null
 # Container images exclude /usr/share/man via dpkg path-exclude, so check the package itself.
 CONTENTS="$(dpkg-deb -c "$DEB")"

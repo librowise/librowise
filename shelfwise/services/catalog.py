@@ -250,7 +250,7 @@ def update_biblio(db: Session, biblio: Biblio, data: dict) -> Biblio:
     biblio.updated_at = utcnow()
     db.flush()
     index_biblio(db, biblio)
-    clear_search_cache()  # Windows clocks are coarse: don't rely on updated_at alone to invalidate
+    _catalogue_changed()
     return biblio
 
 
@@ -271,7 +271,7 @@ def delete_biblio(db: Session, biblio: Biblio) -> None:
     for item in biblio.items:
         item.deleted_at = item.deleted_at or now
     index_biblio(db, biblio)
-    clear_search_cache()
+    _catalogue_changed()
 
 
 def create_item(db: Session, biblio: Biblio, data: dict) -> Item:
@@ -472,6 +472,15 @@ def _order(sort: str, match_order: list | None) -> list:
     if sort == "year_asc":
         return [func.coalesce(Biblio.pub_year, 9999).asc(), Biblio.id.asc()]
     return [Biblio.created_at.desc(), Biblio.id.desc()]  # newest additions
+
+
+def _catalogue_changed() -> None:
+    """Invalidate per-process caches after a write. Coarse clocks (notably on Windows) can give an
+    edit the same ``updated_at`` as an earlier one, so the timestamp signature alone is not enough."""
+    clear_search_cache()
+    from ..ai import semantic  # lazy: avoids an import cycle
+
+    semantic.index.invalidate()
 
 
 # ------------------------------------------------------------------ facet/total cache

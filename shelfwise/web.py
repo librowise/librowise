@@ -38,6 +38,44 @@ STAFF_NAV = [
     ("admin", "/staff/admin", "Administration", "settings"),
 ]
 
+# Sidebar grouping and the permission each entry needs. Modules append to STAFF_NAV; any key not
+# listed here falls into "More" and needs catalog:read.
+NAV_SECTIONS: list[tuple[str, str, list[str]]] = [
+    ("front_desk", "Front desk", ["dashboard", "circulation", "holds", "kiosks", "calendar"]),
+    ("collection", "Collection", ["catalog", "authorities", "marc", "labels", "batch", "inventory", "copycat",
+                                  "acquisitions", "serials", "courses"]),
+    ("people", "People", ["patrons", "requests", "notices"]),
+    ("insights", "Insights", ["reports", "analytics", "insights"]),
+    ("administration", "Administration", ["roles", "interop", "system", "admin"]),
+]
+NAV_PERMISSIONS: dict[str, str] = {
+    "dashboard": "catalog:read", "circulation": "circulation", "holds": "holds:manage", "kiosks": "kiosks:manage",
+    "calendar": "calendar:manage", "catalog": "catalog:read", "copycat": "catalog:write",
+    "acquisitions": "acquisitions:read", "serials": "serials:read", "courses": "courses:read",
+    "patrons": "patrons:read", "requests": "patrons:approve", "notices": "notices:outbox",
+    "reports": "reports:read", "analytics": "analytics:read", "insights": "reports:read",
+    "roles": "patrons:manage_staff", "interop": "catalog:read", "system": "jobs:manage", "admin": "admin",
+}
+
+
+def staff_nav_groups(user: Patron | None) -> list[dict]:
+    """Visible sidebar entries for ``user``, grouped into sections (stable order, global Alt+N index)."""
+    entries = {key: (key, href, label, icon) for key, href, label, icon in STAFF_NAV}
+    visible = lambda key: user is not None and has_permission(user, NAV_PERMISSIONS.get(key, "catalog:read"))  # noqa: E731
+    groups, seen, n = [], set(), 0
+    for sid, title, keys in [*NAV_SECTIONS, ("more", "More", [k for k in entries if not any(
+            k in ks for _, _, ks in NAV_SECTIONS)])]:
+        items = []
+        for key in keys:
+            if key in entries and key not in seen and visible(key):
+                seen.add(key)
+                n += 1
+                items.append({"key": key, "href": entries[key][1], "label": entries[key][2], "icon": entries[key][3],
+                              "index": n})
+        if items:
+            groups.append({"id": sid, "title": title, "items": items})
+    return groups
+
 
 def _render(request: Request, template: str, page: str, user: Patron | None, db: Session, **ctx) -> HTMLResponse:
     lang = i18n_mod.request_language(request, user)
@@ -46,6 +84,7 @@ def _render(request: Request, template: str, page: str, user: Patron | None, db:
         "library_name": settings_svc.get(db, "library_name"),
         "announcement": settings_svc.get(db, "opac_announcement"),
         "staff_nav": STAFF_NAV,
+        "staff_nav_groups": staff_nav_groups(user) if page.startswith("staff") else [],
         "lang": lang, "dir": i18n_mod.text_direction(lang), "languages": i18n_mod.languages(),
         "i18n_boot": {"lang": lang, "dir": i18n_mod.text_direction(lang), "languages": i18n_mod.languages(),
                       "messages": i18n_mod.merged(lang)},

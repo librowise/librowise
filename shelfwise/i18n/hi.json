@@ -78,7 +78,28 @@
     "admin": "प्रशासन",
     "public_catalogue": "सार्वजनिक सूची",
     "self_checkout": "स्व-निर्गम स्क्रीन",
-    "api_docs": "API दस्तावेज़"
+    "api_docs": "API दस्तावेज़",
+    "section": {
+      "front_desk": "फ्रंट डेस्क",
+      "collection": "संग्रह",
+      "people": "लोग",
+      "insights": "अंतर्दृष्टि",
+      "administration": "प्रशासन",
+      "more": "और"
+    },
+    "calendar": "कैलेंडर",
+    "notices": "सूचनाएँ",
+    "requests": "सदस्य अनुरोध",
+    "serials": "पत्रिकाएँ",
+    "courses": "पाठ्यक्रम आरक्षण",
+    "roles": "भूमिकाएँ और अनुमतियाँ",
+    "copycat": "कॉपी कैटलॉगिंग",
+    "interop": "अंतरसंचालनीयता",
+    "system": "सिस्टम",
+    "authorities": "प्राधिकार",
+    "labels": "लेबल और कार्ड",
+    "batch": "बैच आइटम टूल",
+    "inventory": "इन्वेंटरी"
   },
   "staff": {
     "open_palette": "कमांड पैलेट खोलें",

@@ -78,7 +78,28 @@
     "admin": "Administration",
     "public_catalogue": "Public catalogue",
     "self_checkout": "Self-checkout screen",
-    "api_docs": "API docs"
+    "api_docs": "API docs",
+    "section": {
+      "front_desk": "Front desk",
+      "collection": "Collection",
+      "people": "People",
+      "insights": "Insights",
+      "administration": "Administration",
+      "more": "More"
+    },
+    "calendar": "Calendar",
+    "notices": "Notices",
+    "requests": "Patron requests",
+    "serials": "Serials",
+    "courses": "Course reserves",
+    "roles": "Roles & permissions",
+    "copycat": "Copy cataloguing",
+    "interop": "Interoperability",
+    "system": "System",
+    "authorities": "Authorities",
+    "labels": "Labels & cards",
+    "batch": "Batch item tools",
+    "inventory": "Inventory"
   },
   "staff": {
     "open_palette": "Open command palette",

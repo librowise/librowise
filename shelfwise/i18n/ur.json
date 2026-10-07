@@ -78,7 +78,28 @@
     "admin": "انتظامیہ",
     "public_catalogue": "عوامی کیٹلاگ",
     "self_checkout": "خود اجرا اسکرین",
-    "api_docs": "API دستاویزات"
+    "api_docs": "API دستاویزات",
+    "section": {
+      "front_desk": "فرنٹ ڈیسک",
+      "collection": "ذخیرہ",
+      "people": "لوگ",
+      "insights": "بصیرت",
+      "administration": "انتظامیہ",
+      "more": "مزید"
+    },
+    "calendar": "کیلنڈر",
+    "notices": "اطلاعات",
+    "requests": "اراکین کی درخواستیں",
+    "serials": "رسائل",
+    "courses": "کورس ریزرو",
+    "roles": "کردار اور اجازتیں",
+    "copycat": "کاپی کیٹلاگنگ",
+    "interop": "باہمی تعامل",
+    "system": "سسٹم",
+    "authorities": "اتھارٹیز",
+    "labels": "لیبل اور کارڈ",
+    "batch": "بیچ آئٹم ٹولز",
+    "inventory": "انوینٹری"
   },
   "staff": {
     "open_palette": "کمانڈ پیلیٹ کھولیں",

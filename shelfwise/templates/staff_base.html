@@ -4,13 +4,18 @@
 <div class="shell">
   <aside class="sidebar" aria-label="{{ t('nav.staff_navigation') }}">
     <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>Shelfwise</a>
-    {% for key, href, label, ic in staff_nav %}
-      {% if (key not in ['admin', 'system'] or user.role.value == 'admin') and (key != 'roles' or can(user, 'patrons:manage_staff')) %}
-      <a class="nav-link" href="{{ href }}" {% if page == 'staff-' ~ key or (key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
-        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ t('nav.' ~ key, label) }}{% if loop.index <= 9 %}<span class="kbd-hint">Alt+{{ loop.index }}</span>{% endif %}
-      </a>
-      {% endif %}
+    <nav class="nav-groups" aria-label="{{ t('nav.staff_navigation') }}">
+    {% for group in staff_nav_groups %}
+      <div class="nav-section" role="group" aria-labelledby="nav-sec-{{ group.id }}">
+        <div class="nav-section-title" id="nav-sec-{{ group.id }}">{{ t('nav.section.' ~ group.id, group.title) }}</div>
+        {% for item in group['items'] %}
+        <a class="nav-link" href="{{ item.href }}" {% if page == 'staff-' ~ item.key or (item.key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (item.key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
+          <svg class="icon" aria-hidden="true"><use href="#i-{{ item.icon }}"></use></svg>{{ t('nav.' ~ item.key, item.label) }}{% if item.index <= 9 %}<span class="kbd-hint">Alt+{{ item.index }}</span>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
     {% endfor %}
+    </nav>
     <div class="spacer"></div>
     <a class="nav-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>{{ t('nav.public_catalogue') }}</a>
     <a class="nav-link" href="/kiosk"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>{{ t('nav.self_checkout') }}</a>

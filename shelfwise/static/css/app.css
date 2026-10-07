@@ -818,3 +818,10 @@ html[data-kiosk] body { background: var(--bg); overscroll-behavior: none; }
 .sys-filters .field { margin: 0; min-width: 10rem; }
 .sys-pre { white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; background: var(--surface-2); padding: .5rem; border-radius: var(--radius-sm); margin: .4rem 0 0; }
 @media (max-width: 640px) { .sys-filters .field { min-width: 100%; } }
+
+/* ---- staff navigation sections ---- */
+.nav-groups { display: flex; flex-direction: column; gap: .35rem; }
+.nav-section { display: flex; flex-direction: column; gap: .1rem; }
+.nav-section + .nav-section { margin-top: .4rem; padding-top: .45rem; border-top: 1px solid var(--border); }
+.nav-section-title { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: .2rem .7rem .15rem; }
+.sidebar .nav-link { padding-block: .42rem; }

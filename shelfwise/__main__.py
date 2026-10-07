@@ -11,7 +11,10 @@ import sys
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="shelfwise", description="Shelfwise ILS management")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("init-db", help="Create database tables and search index")
+    sub.add_parser("init-db", help="Create/upgrade the database schema and search index (alias of migrate)")
+    sub.add_parser("migrate", help="Apply database migrations (alembic upgrade head)")
+    p_mk = sub.add_parser("makemigration", help="Autogenerate a migration from model changes (developers)")
+    p_mk.add_argument("-m", "--message", required=True)
     p_seed = sub.add_parser("seed", help="Load demo data (branches, rules, catalogue, patrons, history)")
     p_seed.add_argument("--patrons", type=int, default=60)
     sub.add_parser("reset", help="DROP all data and recreate empty tables")
@@ -49,12 +52,24 @@ def main(argv: list[str] | None = None) -> int:
 
     from .db import create_all, drop_all, session_scope
 
-    if args.cmd == "init-db":
-        create_all()
-        print("Database initialised.")
+    if args.cmd in ("init-db", "migrate"):
+        from .migrations import upgrade
+
+        print(json.dumps(upgrade()))
+    elif args.cmd == "makemigration":
+        from .migrations import make_migration
+
+        print(make_migration(args.message) or "No changes detected.")
     elif args.cmd == "reset":
+        from sqlalchemy import text
+
+        from .db import get_engine
+        from .migrations import upgrade
+
         drop_all()
-        create_all()
+        with get_engine().begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        upgrade()
         print("Database reset.")
     elif args.cmd == "seed":
         from .seed import seed

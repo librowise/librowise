@@ -41,7 +41,13 @@ CSP = (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_all()
+    environment = get_settings().environment
+    if environment == "test":
+        create_all()
+    else:
+        from .migrations import prepare_schema
+
+        prepare_schema(environment)
     _prepare_search()
     log.info("Shelfwise %s ready", __version__)
     yield

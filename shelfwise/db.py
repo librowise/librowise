@@ -163,6 +163,14 @@ def create_all() -> None:
 
     engine = get_engine()
     Base.metadata.create_all(engine)
+    ensure_search_structures()
+
+
+def ensure_search_structures() -> None:
+    """Raw-DDL search tables plus any model indexes an existing database lacks (idempotent)."""
+    from . import models  # noqa: F401
+
+    engine = get_engine()
     backend = search_backend(engine)
     ddl = FTS_DDL if backend == "fts5" else PG_SEARCH_DDL if backend == "tsvector" else []
     with engine.begin() as conn:

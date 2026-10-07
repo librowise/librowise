@@ -266,7 +266,8 @@ class Manager:
         o = self._resolve_defaults(o)
         name, L = o.name, self.layout
         env_path = L.env_file(name)
-        existing_env = with_legacy_keys(parse_env(self.sys.read_text(env_path) or ""))             if self.sys.exists(env_path) else None
+        existing_env = (with_legacy_keys(parse_env(self.sys.read_text(env_path) or ""))
+                        if self.sys.exists(env_path) else None)
         if existing_env is not None and existing_env.get(f"{VAR_PREFIX}INSTANCE", name) != name:
             raise InstanceError(f"{env_path} belongs to another instance")
         if entry:
@@ -749,7 +750,7 @@ class Manager:
                 self._reload_proxy("nginx")
         # 3. data
         if purge_data:
-            env = parse_env(self.sys.read_text(L.env_file(name)) or "")
+            env = with_legacy_keys(parse_env(self.sys.read_text(L.env_file(name)) or ""))
             url = env.get(f"{ENV_PREFIX}DATABASE_URL", "")
             if entry.get("db") == "postgres" and url.startswith("postgresql"):
                 self._drop_postgres(name)
@@ -855,6 +856,9 @@ class Manager:
         return checks
 
     def _tls_check(self, domain: str, optional: bool = False) -> Check:
+        if render.is_internal_domain(domain):
+            return Check("INFO", f"{domain} is an intranet name: Caddy serves it with its own CA "
+                                 "(run `caddy trust` on clients, or use a public domain)")
         try:
             expiry = self.sys.cert_expiry(domain)
         except Exception as exc:  # unreachable, self-signed, no HTTPS yet

@@ -354,6 +354,8 @@ def test_pre_rename_env_file_keeps_its_secrets(system_layout):
     assert "LIBROWISE_SECRET_KEY" not in after and after["SHELFWISE_SECRET_KEY"] == before["SHELFWISE_SECRET_KEY"]
     assert "LIBROWISE_DATABASE_URL" not in after
     assert m.env_values("central")["LIBROWISE_DATABASE_URL"] == before["SHELFWISE_DATABASE_URL"]
+    m.remove("central", purge_data=True)  # the legacy URL still identifies the managed database
+    assert db_identifier("central") not in fake.pg_dbs and db_identifier("central") not in fake.pg_roles
 
 
 def test_create_rerun_with_conflicting_options_fails(system_layout):

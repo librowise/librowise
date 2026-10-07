@@ -161,7 +161,16 @@ class System:
         if not path.exists():
             return False
         if self._act(f"delete directory {path} and everything in it"):
-            shutil.rmtree(path)
+            # Windows keeps a stopped process's files and working directory locked for a moment
+            # (venv launchers exit before their child interpreter): retry briefly.
+            for attempt in range(40 if self.is_windows else 1):
+                try:
+                    shutil.rmtree(path)
+                    break
+                except OSError as exc:
+                    if attempt == (39 if self.is_windows else 0):
+                        raise InstanceError(f"could not delete {path}: {exc}") from exc
+                    time.sleep(0.25)
         return True
 
     def symlink(self, target: Path, link: Path) -> bool:

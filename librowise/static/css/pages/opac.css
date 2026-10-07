@@ -686,3 +686,5 @@ a.you-card:hover { transform: translateY(-2px); border-color: var(--border-stron
 .opac-app .os-bar .os-summary { min-height: 1.55em; }
 .opac-app .os-results[aria-busy="true"] { min-height: 60vh; }
 .opac-app .ra-primary.btn { white-space: normal; text-align: center; }
+/* Example chips wrap differently before and after the web font loads; reserve two rows on wide screens. */
+@media (min-width: 641px) { .opac-app .hero .suggest-chips { min-height: 5.1rem; align-content: flex-start; } }

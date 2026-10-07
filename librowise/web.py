@@ -477,7 +477,16 @@ async def cover_image(biblio_id: int, ext: str, size: str = "M", v: str | None =
         # Versioned URLs (?v=mtime) never change; unversioned ones revalidate daily.
         cache = "public, max-age=31536000, immutable" if v else "public, max-age=86400"
         return Response(data, media_type=img.content_type, headers={"Cache-Control": cache})
-    biblio = db.get(Biblio, biblio_id)
+    def load() -> Biblio | None:
+        # In a worker thread (never block the event loop waiting for a pooled connection), and release the
+        # connection before the possibly slow remote fetch: a page of covers must not exhaust the pool.
+        b = db.get(Biblio, biblio_id)
+        db.close()
+        return b
+
+    from starlette.concurrency import run_in_threadpool
+
+    biblio = await run_in_threadpool(load)
     if biblio is None or biblio.deleted_at is not None:
         return missing
     found = await covers.fetch_remote(biblio, size)

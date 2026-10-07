@@ -97,9 +97,20 @@ def test_paginate_with_start_offset():
     ("R 030 ENC", False, ["R", "030", "ENC"]),
     ("", False, []),
     ("a b c d e f g h", False, ["a", "b", "c", "d", "e", "f g h"]),
+    ("QA76.76 .D47 M37 2009", False, ["QA", "76.76", ".D47", "M37", "2009"]),  # cutters never split
 ])
 def test_split_call_number(cn, split, lines):
     assert labels.split_call_number(cn, split_decimal=split) == lines
+
+
+def test_fit_font_shrinks_long_call_numbers():
+    from shelfwise.models import LabelLayout
+
+    layout = LabelLayout(**{k: v for k, v in labels.PRESETS[3].items() if k != "page_size"}, page_width=210, page_height=297)
+    assert labels.fit_font(["823.8", "DOY"], layout) == layout.font_size
+    small = labels.fit_font(["QA", "76.76", ".D47", "M37", "2009", "c.2"], layout)
+    assert small < layout.font_size and 6 * small * 0.3528 * 1.2 <= layout.label_height - 2 * layout.padding
+    assert labels.fit_font(["X" * 200], layout) == 4.0  # never below a legible minimum
 
 
 def test_presets_are_valid_and_overflow_is_rejected():

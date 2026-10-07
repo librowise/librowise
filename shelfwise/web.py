@@ -113,6 +113,8 @@ router.add_api_route("/staff/catalog/{biblio_id}/marc", _staff("staff-marc-edito
 @router.api_route("/staff/labels/print", methods=["GET", "POST"], response_class=HTMLResponse)
 async def labels_print(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
     """Printable label/card sheets. Read-only, so a plain form POST (no CSRF token) is fine."""
+    from starlette.concurrency import run_in_threadpool
+
     from .errors import DomainError
     from .services import labels as labels_svc
 
@@ -127,7 +129,7 @@ async def labels_print(request: Request, db: Session = Depends(get_db), user: Pa
         error = "You do not have permission to print these labels."
     else:
         try:
-            job = labels_svc.build(db, params)
+            job = await run_in_threadpool(labels_svc.build, db, params)  # SVG rendering is CPU-bound
             db.commit()
         except DomainError as exc:
             error = exc.message

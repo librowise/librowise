@@ -66,7 +66,7 @@ def require_job_permission(user: Patron, kind: str) -> None:
 def list_layouts(db: Session = Depends(get_db), _: Patron = Depends(require("catalog:read"))):
     if svc.ensure_presets(db):
         db.commit()
-    rows = db.scalars(select(LabelLayout).order_by(LabelLayout.is_preset.desc(), LabelLayout.kind, LabelLayout.name))
+    rows = db.scalars(select(LabelLayout).order_by(LabelLayout.is_preset.desc(), LabelLayout.id))
     return {"results": [svc.layout_out(x) for x in rows], "page_sizes": svc.PAGE_SIZES}
 
 

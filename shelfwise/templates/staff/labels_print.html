@@ -24,7 +24,7 @@
   {% for page in job.pages %}
   <section class="label-page" style="width:{{ L.page_width }}mm;height:{{ L.page_height }}mm" aria-label="Sheet {{ loop.index }} of {{ job.sheets }}">
     {% for cell in page %}{% set e = cell.entry %}
-    <div class="label-cell {{ job.kind }}{% if not e %} blank{% endif %}" style="left:{{ cell.left }}mm;top:{{ cell.top }}mm;width:{{ L.label_width }}mm;height:{{ L.label_height }}mm;padding:{{ L.padding }}mm;font-size:{{ L.font_size }}pt">
+    <div class="label-cell {{ job.kind }}{% if not e %} blank{% endif %}" style="left:{{ cell.left }}mm;top:{{ cell.top }}mm;width:{{ L.label_width }}mm;height:{{ L.label_height }}mm;padding:{{ L.padding }}mm;font-size:{{ e.font_size if e and e.font_size else L.font_size }}pt">
       {%- if e and job.kind == 'spine' -%}
         {% for line in e.lines %}<div class="line">{{ line }}</div>{% else %}<div class="line">{{ e.barcode }}</div>{% endfor %}
       {%- elif e and job.kind == 'item' -%}

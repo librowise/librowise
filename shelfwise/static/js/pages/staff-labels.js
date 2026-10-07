@@ -201,9 +201,19 @@ export default async function init() {
   renderSource(p);
   try { await loadLayouts(); } catch (e) { toast(e.message, "error"); }
 
+  // item and patron selections are remembered separately while switching what to print
+  const remembered = { item: p, patron: p };
+  let shownKind = kindOf();
   form().addEventListener("change", (e) => {
     const t = e.target;
-    if (t.name === "kind") { renderSource(Object.fromEntries(new FormData(form()))); renderLayoutSelect(); }
+    if (t.name === "kind") {
+      const group = (k) => (k === "patron" ? "patron" : "item");
+      const values = Object.fromEntries(new FormData(form()));
+      remembered[group(shownKind)] = values;
+      shownKind = t.value;
+      renderSource({ ...remembered[group(shownKind)], kind: shownKind });
+      renderLayoutSelect();
+    }
     else if (t.name === "source") $$("[data-src]", form()).forEach((d) => { d.hidden = d.dataset.src !== t.value; });
     else if (t.name === "layout_id") layoutChanged();
     else if (t.id === "start") renderPicker();

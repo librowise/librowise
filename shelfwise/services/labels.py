@@ -7,6 +7,7 @@ starting at ``start`` (1-based) so partly used sheets can be reused.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping
 from datetime import date, timedelta
@@ -147,8 +148,8 @@ _DEWEY = re.compile(r"^(\d{1,3})(\.\d+)$")
 def split_call_number(call_number: str | None, *, split_decimal: bool = False, max_lines: int = 6) -> list[str]:
     """Spine label lines: "823.912 CHR" -> ["823.912", "CHR"]; LC "QA76.73 .P98 2019" -> ["QA", "76.73", ".P98", "2019"]."""
     lines: list[str] = []
-    for token in (call_number or "").split():
-        if m := _LC.match(token):
+    for n, token in enumerate((call_number or "").split()):
+        if n == 0 and (m := _LC.match(token)):  # only the class number splits; "M37" is a cutter
             lines += [m.group(1), m.group(2)]
         elif split_decimal and (m := _DEWEY.match(token)):
             lines += [m.group(1), m.group(2)]
@@ -165,6 +166,16 @@ def _barcode_svg(value: str) -> tuple[str | None, str | None]:
         return barcodes.svg(value, height=30, text=False), None
     except ValueError as exc:
         return None, str(exc)
+
+
+def fit_font(lines: list[str], layout: LabelLayout) -> float:
+    """Largest font size (pt, at most the layout's) at which every line fits the label."""
+    if not lines:
+        return layout.font_size
+    pt = 0.3528  # millimetres per point
+    by_height = (layout.label_height - 2 * layout.padding) / (len(lines) * 1.2 * pt)
+    by_width = (layout.label_width - 2 * layout.padding) / (max(len(x) for x in lines) * 0.62 * pt)
+    return max(math.floor(min(layout.font_size, by_height, by_width) * 10) / 10, 4.0)
 
 
 def item_entry(item: Item, kind: str, *, split_decimal: bool = False) -> dict:
@@ -276,6 +287,9 @@ def build(db: Session, params: Mapping) -> dict:
         items, missing = select_items(db, params)
         split = str(params.get("split_decimal") or "").lower() in ("1", "true", "on", "yes")
         entries = [item_entry(i, kind, split_decimal=split) for i in items]
+        if kind == "spine":
+            for e in entries:
+                e["font_size"] = fit_font(e["lines"], layout)
     entries = [e for e in entries for _ in range(copies)][:MAX_LABELS]
     start = min(max(_int(params.get("start"), 1), 1), layout.rows * layout.cols)
     pages = paginate(entries, layout.rows, layout.cols, start)

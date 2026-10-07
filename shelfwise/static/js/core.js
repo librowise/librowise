@@ -204,6 +204,7 @@ export function modal({ title, body, submit = t("common.save", {}, "Save"), wide
       e.preventDefault();
       form.requestSubmit(primary);
     });
+    form.addEventListener("input", (e) => { if (e.target.getAttribute?.("aria-invalid") && e.target.checkValidity()) e.target.removeAttribute("aria-invalid"); });
     form.addEventListener("submit", (e) => {
       if (e.submitter && e.submitter !== primary) { e.preventDefault(); return; }
       if (!form.checkValidity()) {

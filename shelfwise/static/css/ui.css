@@ -187,6 +187,7 @@
 .notif-item.tone-warning .n-icon { background: var(--warning-soft); color: var(--warning); }
 .notif-item.tone-info .n-icon { background: var(--info-soft); color: var(--info); }
 .notif-item.tone-success .n-icon { background: var(--success-soft); color: var(--success); }
+.notif-item .n-title, .notif-item .n-body, .notif-item .n-meta { display: block; }
 .notif-item .n-title { font-weight: var(--fw-semibold); font-size: .9rem; line-height: 1.35; }
 .notif-item .n-body { font-size: .83rem; color: var(--text-2); line-height: 1.4; }
 .notif-item .n-meta { font-size: .75rem; color: var(--muted); margin-top: .15rem; }
@@ -575,6 +576,13 @@ a.kpi-tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow)
   .os-facets { position: static; max-height: none; display: none; }
   .os-facets.open { display: flex; }
   .os-facets-toggle { display: inline-flex; }
+}
+@media (max-width: 640px) {
+  .searchbox input[type=search] { flex: 1 1 calc(100% - 3rem); min-width: 0; }
+  .searchbox .btn.primary { flex: 1; }
+  .opac-header nav { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; padding-bottom: 2px; }
+  .opac-header nav::-webkit-scrollbar { display: none; }
+  .opac-header nav > * { flex: none; }
 }
 @media (max-width: 520px) { .os-card { grid-template-columns: 4.25rem minmax(0, 1fr); gap: .8rem; padding: .8rem; } }
 

@@ -298,7 +298,7 @@
     "kind_title": "Titles",
     "kind_author": "Authors",
     "kind_subject": "Subjects",
-    "did_you_mean": "Did you mean",
+    "did_you_mean": "Did you mean:",
     "did_you_mean_count": { "one": "({count} result)", "other": "({count} results)" },
     "cite": "Cite",
     "cite_title": "Cite this title",

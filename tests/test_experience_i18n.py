@@ -107,3 +107,12 @@ def test_language_switcher_lists_all_languages(client, lib):
     assert 'data-lang-switch' in html
     for code, name in i18n.languages().items():
         assert f'value="{code}"' in html and name in html
+
+
+def test_rtl_language_sets_dir(client, lib):
+    if "ur" not in i18n.languages():
+        pytest.skip("no right-to-left catalog shipped")
+    r = client.get("/?lang=ur")
+    assert '<html lang="ur" dir="rtl"' in r.text and "اب آپ کیا پڑھیں گے؟" in r.text
+    boot = json.loads(re.search(r'<script type="application/json" id="i18n">(.*?)</script>', r.text, re.S).group(1))
+    assert boot["dir"] == "rtl"

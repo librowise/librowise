@@ -1,0 +1,39 @@
+{
+  "admin": {
+    "kit": {
+      "more_actions": "More actions",
+      "more_actions_for": "More actions for {name}",
+      "copy": "Copy",
+      "copied": "Copied to the clipboard",
+      "copy_failed": "Could not copy. Select the text and copy it manually.",
+      "cron": {
+        "every_minute": "Every minute",
+        "every_n_minutes": { "one": "Every minute", "other": "Every {count} minutes" },
+        "hourly_at": "Every hour at :{minute}",
+        "every_n_hours": { "one": "Every hour at :{minute}", "other": "Every {count} hours at :{minute}" },
+        "daily": "Every day at {time}",
+        "weekdays": "Weekdays at {time}",
+        "weekends": "Weekends at {time}",
+        "weekly": "Every {days} at {time}",
+        "monthly": "Monthly on day {day} at {time}",
+        "custom": "Custom schedule"
+      },
+      "job": {
+        "nightly": "Nightly circulation run",
+        "reindex": "Rebuild search index",
+        "ai_warmup": "Warm up AI search",
+        "deliver_notices": "Send patron notices",
+        "backup": "Database backup",
+        "maintenance": "Housekeeping"
+      },
+      "job_desc": {
+        "nightly": "Sends courtesy and overdue notices, expires uncollected holds, auto-renews loans and anonymises old loan history.",
+        "reindex": "Rebuilds the full-text search index from the catalogue.",
+        "ai_warmup": "Builds and saves the semantic index used by AI search.",
+        "deliver_notices": "Sends pending patron emails and text messages.",
+        "backup": "Copies the database to the backup folder.",
+        "maintenance": "Prunes finished jobs, old schedule history and rate-limit counters."
+      }
+    }
+  }
+}

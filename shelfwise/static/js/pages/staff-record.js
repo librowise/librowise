@@ -42,6 +42,7 @@ async function render() {
       <div class="row tight">
         <a class="btn ghost" href="/record/${b.id}" target="_blank">${icon("globe")}OPAC</a>
         <a class="btn ghost" href="/api/v1/cataloging/export?fmt=xml&ids=${b.id}">${icon("download")}MARCXML</a>
+        <a class="btn ghost" href="/staff/catalog/${b.id}/marc">${icon("code")}MARC editor</a>
         <button class="btn danger" id="del">${icon("trash")}Delete</button>
         <a class="btn primary" href="/staff/catalog/${b.id}/edit">${icon("edit")}Edit record</a></div></div>
     <div class="grid split">

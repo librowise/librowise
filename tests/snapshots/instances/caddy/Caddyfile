@@ -1,0 +1,3 @@
+# Caddy configuration written by `librowise instance` (the original is kept as Caddyfile.dpkg-orig).
+# Add your own sites below; Librowise instances live in their own files.
+import /etc/caddy/librowise.d/*.caddy

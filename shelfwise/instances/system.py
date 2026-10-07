@@ -169,6 +169,7 @@ class System:
         if link.is_symlink() and os.readlink(link) == str(target):
             return False
         if self._act(f"link {link} -> {target}"):
+            link.parent.mkdir(parents=True, exist_ok=True)
             if link.is_symlink() or link.exists():
                 link.unlink()
             link.symlink_to(target)

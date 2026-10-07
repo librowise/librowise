@@ -1,0 +1,40 @@
+# Librowise web - Managed by `librowise instance`.
+# Per-instance settings: /etc/librowise/<instance>.env
+[Unit]
+Description=Librowise web server (instance %i)
+Documentation=https://github.com/librowise/librowise/blob/main/docs/INSTALL.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+ConditionPathExists=/etc/librowise/%i.env
+PartOf=librowise@%i.target
+
+[Service]
+Type=exec
+User=librowise
+Group=librowise
+EnvironmentFile=/etc/librowise/%i.env
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/librowise/%i
+ExecStart=/opt/librowise/venv/bin/python -m uvicorn shelfwise.app:app --host ${LIBROWISE_BIND} --port ${LIBROWISE_PORT} --workers ${LIBROWISE_WEB_WORKERS} --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=append:/var/log/librowise/%i/web.log
+StandardError=inherit
+SyslogIdentifier=librowise-web-%i
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+ReadWritePaths=-/var/lib/librowise/%i -/var/backups/librowise/%i
+
+[Install]
+WantedBy=librowise@%i.target

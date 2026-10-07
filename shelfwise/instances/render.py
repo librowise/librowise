@@ -6,6 +6,7 @@ sites and logrotate. Pure functions (no I/O) so they can be snapshot-tested and 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .common import (
     ENV_PREFIX,
@@ -118,6 +119,11 @@ def render_env(spec: EnvSpec) -> str:
 # ------------------------------------------------------------------ systemd
 
 
+def _p(path) -> str:
+    """Server paths are POSIX even when rendering on Windows (tests, packaging)."""
+    return Path(path).as_posix()
+
+
 def unit_name(component: str, instance: str | None = None) -> str:
     return f"{PRODUCT}-{component}@{instance or ''}.service"
 
@@ -154,7 +160,7 @@ def _hardening(layout: Layout) -> list[str]:
         "RestrictSUIDSGID=yes",
         "RestrictNamespaces=yes",
         "LockPersonality=yes",
-        f"ReadWritePaths=-{layout.data}/%i -{layout.backups}/%i",
+        f"ReadWritePaths=-{_p(layout.data)}/%i -{_p(layout.backups)}/%i",
     ]
 
 
@@ -164,13 +170,13 @@ def render_units(python: str, layout: Layout) -> dict[str, str]:
         "Documentation=" + REPO_URL + "/blob/main/docs/INSTALL.md",
         "After=network-online.target postgresql.service",
         "Wants=network-online.target",
-        f"ConditionPathExists={layout.etc}/%i.env",
+        f"ConditionPathExists={_p(layout.etc)}/%i.env",
     ]
 
     def service(component: str, description: str, exec_start: str, extra: list[str]) -> str:
         lines = [
             f"# {PRODUCT_TITLE} {component} - {HEADER.format(product=PRODUCT)}.",
-            f"# Per-instance settings: {layout.etc}/<instance>.env",
+            f"# Per-instance settings: {_p(layout.etc)}/<instance>.env",
             "[Unit]",
             f"Description={PRODUCT_TITLE} {description} (instance %i)",
             *common_unit,
@@ -180,14 +186,14 @@ def render_units(python: str, layout: Layout) -> dict[str, str]:
             "Type=exec",
             f"User={SERVICE_USER}",
             f"Group={SERVICE_GROUP}",
-            f"EnvironmentFile={layout.etc}/%i.env",
+            f"EnvironmentFile={_p(layout.etc)}/%i.env",
             "Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1",
-            f"WorkingDirectory={layout.data}/%i",
+            f"WorkingDirectory={_p(layout.data)}/%i",
             f"ExecStart={exec_start}",
             "Restart=on-failure",
             "RestartSec=5",
             *extra,
-            f"StandardOutput=append:{layout.logs}/%i/{component}.log",
+            f"StandardOutput=append:{_p(layout.logs)}/%i/{component}.log",
             "StandardError=inherit",
             f"SyslogIdentifier={PRODUCT}-{component}-%i",
             *_hardening(layout),
@@ -210,7 +216,7 @@ def render_units(python: str, layout: Layout) -> dict[str, str]:
         "[Unit]",
         f"Description={PRODUCT_TITLE} instance %i",
         "Documentation=" + REPO_URL + "/blob/main/docs/INSTALL.md",
-        f"ConditionPathExists={layout.etc}/%i.env",
+        f"ConditionPathExists={_p(layout.etc)}/%i.env",
         "",
         "[Install]",
         "WantedBy=multi-user.target",
@@ -246,7 +252,7 @@ def render_caddy_site(name: str, domain: str, port: int, email: str | None = Non
 
 
 def caddy_import_line(layout: Layout) -> str:
-    return f"import {layout.caddy_sites}/*.caddy"
+    return f"import {_p(layout.caddy_sites)}/*.caddy"
 
 
 def render_caddy_main(layout: Layout) -> str:
@@ -291,7 +297,7 @@ server {{
 
 def render_logrotate(layout: Layout) -> str:
     return f"""# {PRODUCT_TITLE} - {HEADER.format(product=PRODUCT)}.
-{layout.logs}/*.log {layout.logs}/*/*.log {{
+{_p(layout.logs)}/*.log {_p(layout.logs)}/*/*.log {{
     weekly
     rotate 8
     compress

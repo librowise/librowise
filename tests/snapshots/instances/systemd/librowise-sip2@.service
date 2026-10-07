@@ -1,0 +1,40 @@
+# Librowise sip2 - Managed by `librowise instance`.
+# Per-instance settings: /etc/librowise/<instance>.env
+[Unit]
+Description=Librowise SIP2 server (instance %i)
+Documentation=https://github.com/librowise/librowise/blob/main/docs/INSTALL.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+ConditionPathExists=/etc/librowise/%i.env
+PartOf=librowise@%i.target
+
+[Service]
+Type=exec
+User=librowise
+Group=librowise
+EnvironmentFile=/etc/librowise/%i.env
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/librowise/%i
+ExecStart=/opt/librowise/venv/bin/python -m shelfwise sip2 --host ${LIBROWISE_SIP2_BIND} --port ${LIBROWISE_SIP2_PORT}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=append:/var/log/librowise/%i/sip2.log
+StandardError=inherit
+SyslogIdentifier=librowise-sip2-%i
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+ReadWritePaths=-/var/lib/librowise/%i -/var/backups/librowise/%i
+
+[Install]
+WantedBy=librowise@%i.target

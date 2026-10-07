@@ -1,0 +1,13 @@
+# Librowise instance 'central' - Managed by `librowise instance`; local edits are overwritten.
+catalogue.example.org {
+	tls admin@example.org
+	encode zstd gzip
+	request_body {
+		max_size 60MB
+	}
+	@metrics path /metrics
+	respond @metrics 404
+	reverse_proxy 127.0.0.1:8100 {
+		header_up X-Request-ID {http.request.uuid}
+	}
+}

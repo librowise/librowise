@@ -1,0 +1,8 @@
+# Librowise instance target - Managed by `librowise instance`.
+[Unit]
+Description=Librowise instance %i
+Documentation=https://github.com/librowise/librowise/blob/main/docs/INSTALL.md
+ConditionPathExists=/etc/librowise/%i.env
+
+[Install]
+WantedBy=multi-user.target

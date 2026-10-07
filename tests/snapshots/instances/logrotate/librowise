@@ -1,0 +1,10 @@
+# Librowise - Managed by `librowise instance`.
+/var/log/librowise/*.log /var/log/librowise/*/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

@@ -214,24 +214,35 @@ def _mask(card: str) -> str:
     return "•" * max(0, len(card) - 4) + card[-4:]
 
 
+def _mask_email(email: str | None) -> str | None:
+    """``an•••@example.org``: enough for the patron to recognise their address on a public screen."""
+    if not email or "@" not in email:
+        return None
+    name, _, domain = email.partition("@")
+    return f"{name[:2]}•••@{domain}"
+
+
 def _loan_line(db: Session, loan: Loan, patron: Patron) -> dict:
-    blocks = circulation.renewal_blocks(db, loan)
+    reasons = circulation.renewal_block_reasons(db, loan)
     now = utcnow()
     return {"id": loan.id, "title": loan.item.biblio.title, "authors": loan.item.biblio.authors or [],
             "barcode": loan.item.barcode, "issued_at": loan.issued_at, "due_at": loan.due_at, "renewals": loan.renewals,
-            "overdue": loan.due_at < now, "can_renew": not blocks, "renew_blocks": blocks}
+            "overdue": loan.due_at < now, "can_renew": not reasons, "renew_blocks": circulation.messages(reasons),
+            "renew_codes": reasons}
 
 
 def _summary(db: Session, session: KioskSession) -> dict:
     p = session.patron
     holds = db.scalars(select(Hold).where(Hold.patron_id == p.id, Hold.status == HoldStatus.ready).order_by(Hold.expires_at)).all()
     return {
-        "patron": {"first_name": p.first_name, "card": _mask(p.card_number), "category": p.category.name},
+        "patron": {"first_name": p.first_name, "card": _mask(p.card_number), "category": p.category.name,
+                   "email_hint": _mask_email(p.email)},
         "loans": [_loan_line(db, loan, p) for loan in circulation.open_loans(db, p.id)],
         "holds_ready": [{"id": h.id, "title": h.biblio.title, "pickup": h.pickup_branch.name, "expires_at": h.expires_at,
                          "here": h.pickup_branch_id == session.device.branch_id} for h in holds],
         "balance": money(circulation.balance(db, p.id)),
         "blocks": circulation.patron_blocks(db, p),
+        "block_codes": circulation.patron_block_reasons(db, p),
         "max_loans": p.category.max_loans,
         "activity": session.activity or [],
         "expires_in": int(SESSION_IDLE.total_seconds()),
@@ -334,11 +345,31 @@ def receipt(session: KioskSession = Depends(kiosk_session), db: Session = Depend
     return out
 
 
+class EndIn(_In):
+    email_receipt: bool = Field(default=False, description="Also email this visit's receipt to the patron")
+
+
+def _email_receipt(db: Session, session: KioskSession, out: dict) -> str | None:
+    patron = session.patron
+    if not patron.email or not out["lines"]:
+        return None
+    lines = "\n".join(f"- {line['title']} ({line['barcode']}): {'Renewed' if line['kind'] == 'renew' else 'Borrowed'}, "
+                      f"due {line['due_at']:%d %b %Y}" for line in out["lines"])
+    library = out["library_name"] or "the library"
+    circulation.notify(db, patron, f"Your receipt from {library}",
+                       f"Dear {patron.first_name},\n\nThank you for using the self-checkout at {out['branch']}. "
+                       f"This is your receipt for {out['generated_at']:%d %b %Y}:\n\n{lines}\n\nPlease keep this message.")
+    return _mask_email(patron.email)
+
+
 @router.post("/session/end")
-def end_session(request: Request, session: KioskSession = Depends(kiosk_session), db: Session = Depends(get_db)):
+def end_session(request: Request, body: EndIn | None = None, session: KioskSession = Depends(kiosk_session),
+                db: Session = Depends(get_db)):
     out = _receipt(db, session)
+    if body is not None and body.email_receipt:
+        out["emailed_to"] = _email_receipt(db, session, out)
     session.ended_at = utcnow()
     audit.record(db, "kiosk_logout", "patron", session.patron_id, actor=session.patron, ip=client_ip(request),
-                 kiosk=session.device_id, items=len(out["lines"]))
+                 kiosk=session.device_id, items=len(out["lines"]), emailed=bool(out.get("emailed_to")) or None)
     db.commit()
     return out

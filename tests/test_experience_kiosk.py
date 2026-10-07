@@ -178,3 +178,21 @@ def test_kiosk_page_renders_without_user(client, lib):
     assert r.status_code == 200 and 'data-page="kiosk"' in r.text
     assert '"user": null' in r.text  # never rendered as the signed-in staff member
     assert r.headers["cache-control"] == "no-store"
+
+
+def test_emailed_receipt_and_structured_reasons(client, db, lib, make_book, session):
+    from librowise.models import Notification
+
+    me = client.get("/api/v1/kiosk/me", headers=session).json()
+    assert me["patron"]["email_hint"] == "re•••@example.org" and me["block_codes"] == []
+    _, (item,) = make_book("Kiosk Receipt")
+    loan = client.post("/api/v1/kiosk/checkout", headers=session, json={"barcode": item.barcode}).json()["loan"]
+    assert loan["renew_codes"] == [] and loan["can_renew"] is True
+    end = client.post("/api/v1/kiosk/session/end", headers=session, json={"email_receipt": True})
+    assert end.status_code == 200 and end.json()["emailed_to"] == "re•••@example.org"
+    note = db.query(Notification).filter(Notification.patron_id == lib["patron"].id).order_by(Notification.id.desc()).first()
+    assert "Kiosk Receipt" in note.body
+    # ending without a body still works (older kiosk screens)
+    s2 = sign_in(client, {"h": {k: v for k, v in session.items() if k == "X-Kiosk-Token"}}).json()["session_token"]
+    r = client.post("/api/v1/kiosk/session/end", headers={"X-Kiosk-Token": session["X-Kiosk-Token"], "X-Kiosk-Session": s2})
+    assert r.status_code == 200 and "emailed_to" not in r.json()

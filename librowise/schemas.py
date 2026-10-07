@@ -144,6 +144,7 @@ class CheckoutIn(StrictModel):
     branch_id: int | None = None
     override: bool = False
     due_at: datetime | None = None
+    override_reason: str | None = Field(default=None, max_length=255, description="Why staff overrode the block (audited)")
 
 
 class CheckinIn(StrictModel):
@@ -153,6 +154,7 @@ class CheckinIn(StrictModel):
 
 class RenewIn(StrictModel):
     override: bool = False
+    override_reason: str | None = Field(default=None, max_length=255)
 
 
 class HoldIn(StrictModel):
@@ -342,7 +344,10 @@ def hold_out(h: Hold, position: int | None = None) -> dict:
         "biblio": {"id": h.biblio.id, "title": h.biblio.title, "authors": h.biblio.authors},
         "patron": {"id": h.patron.id, "card_number": h.patron.card_number, "full_name": h.patron.full_name},
         "pickup_branch": {"id": h.pickup_branch.id, "name": h.pickup_branch.name},
-        "item": {"id": h.item.id, "barcode": h.item.barcode} if h.item else None,
+        "item": {"id": h.item.id, "barcode": h.item.barcode, "call_number": h.item.call_number,
+                 "status": h.item.status.value, "branch": {"id": h.item.branch.id, "name": h.item.branch.name},
+                 "shelf_location": h.item.shelf_location, "last_seen_at": h.item.last_seen_at}
+        if h.item else None,
         "requested_item": {"id": h.requested_item.id, "barcode": h.requested_item.barcode}
         if h.requested_item else None,
         "item_level": h.requested_item_id is not None, "suspended": bool(h.suspended),

@@ -13,7 +13,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, tzinfo
+from datetime import UTC, datetime, tzinfo
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -127,6 +127,11 @@ class Ctx:
 
     def dt(self, value: datetime | None) -> str:
         return p.sip_datetime(value, self.tz)
+
+    def day(self, value: datetime) -> str:
+        """Human-readable date in the library's time zone, for screen messages."""
+        aware = value.replace(tzinfo=UTC)
+        return (aware.astimezone(self.tz) if self.tz else aware).strftime("%d %b %Y")
 
     @property
     def ao(self) -> str:
@@ -661,7 +666,7 @@ class Sip2Handler:
         return Reply("12", ["1", p.yn(renewed), self._magnetic(item), "Y", c.now()], [
             ("AO", c.ao), ("AA", patron.card_number), ("AB", item.barcode), ("AJ", item.biblio.title),
             ("AH", c.dt(loan.due_at)), ("CK", self._media(item)), ("BK", str(loan.id)),
-            ("AF", " ".join([f"{msg}. Due {loan.due_at:%d %b %Y}.", *warnings])),
+            ("AF", " ".join([f"{msg}. Due {c.day(loan.due_at)}.", *warnings])),
         ])
 
     def _checkout_failed(self, c: Ctx, patron: Patron, item: Item, message: str) -> Reply:
@@ -695,7 +700,7 @@ class Sip2Handler:
         return Reply("30", ["1", "Y", self._magnetic(item), "U", c.now()], [
             ("AO", c.ao), ("AA", patron.card_number), ("AB", item.barcode), ("AJ", item.biblio.title),
             ("AH", c.dt(loan.due_at)), ("CK", self._media(item)), ("BK", str(loan.id)),
-            ("AF", f"Renewed. Due {loan.due_at:%d %b %Y}.")])
+            ("AF", f"Renewed. Due {c.day(loan.due_at)}.")])
 
     def renew_all(self, c: Ctx) -> Reply:
         db = c.db

@@ -160,3 +160,13 @@ See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
 
 ## License
 GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+
+## Interoperability (SIP2, SRU, OAI-PMH, copy cataloguing)
+Shelfwise speaks the standard library protocols, so existing hardware and partner systems keep working:
+
+- **SIP2** for self-check kiosks, security gates, sorters and e-book platforms: `python -m shelfwise sip2 --host 0.0.0.0 --port 6001`. Each terminal logs in with its own SIP account (Staff → Interoperability). Demo account after `seed`: `selfcheck` / `SelfCheck#Demo2026`.
+- **SRU 1.2/2.0** with CQL at `/sru` (MARCXML and Dublin Core) and an **OAI-PMH 2.0** provider at `/oai` (`oai_dc`, `marc21`, sets, deleted records, resumption tokens).
+- **Copy cataloguing** from the Library of Congress or any SRU target (Staff → Copy cataloguing), with ISBN de-duplication.
+- **schema.org JSON-LD** and Open Graph tags on every public record page.
+
+Configuration, supported messages and a sample self-check setup are in [docs/INTEROP.md](docs/INTEROP.md).

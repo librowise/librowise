@@ -16,7 +16,7 @@ from ..models import Biblio, ItemStatus
 
 SCHEMA_TYPES = {"book": "Book", "ebook": "Book", "comic": "Book", "audiobook": "Audiobook", "dvd": "Movie",
                 "serial": "Periodical"}
-BOOK_FORMATS = {"book": "https://schema.org/Hardcover", "ebook": "https://schema.org/EBook",
+BOOK_FORMATS = {"ebook": "https://schema.org/EBook",
                 "comic": "https://schema.org/GraphicNovel", "audiobook": "https://schema.org/AudiobookFormat"}
 OG_TYPES = {"book": "book", "ebook": "book", "comic": "book", "audiobook": "book", "dvd": "video.movie"}
 _UNAVAILABLE = {ItemStatus.withdrawn, ItemStatus.lost}

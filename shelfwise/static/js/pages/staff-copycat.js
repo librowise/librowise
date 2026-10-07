@@ -92,8 +92,7 @@ async function importRecord(i, btn) {
     }));
     r.existing_biblio_id = b.id;
     $(`[data-actions="${i}"]`).innerHTML = html`${badge("ok", "Imported")}
-      <a class="btn sm primary" href="/staff/catalog/${b.id}">${icon("arrow-right")}Open record</a>
-      <a class="btn sm" href="/staff/catalog/${b.id}#items">${icon("plus")}Add items</a>`;
+      <a class="btn sm primary" href="/staff/catalog/${b.id}">${icon("arrow-right")}Open record &amp; add items</a>`;
     toast(`Imported “${b.title}”`, "success");
   } catch (e) {
     if (e.data?.existing_biblio_id) {

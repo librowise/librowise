@@ -19,7 +19,8 @@
     "close": "बंद करें",
     "save": "सहेजें",
     "branch": "शाखा",
-    "all_branches": "सभी शाखाएँ"
+    "all_branches": "सभी शाखाएँ",
+    "confirm": "पुष्टि करें"
   },
   "lang": {
     "en": "अंग्रेज़ी",
@@ -99,7 +100,51 @@
     "authorities": "प्राधिकार",
     "labels": "लेबल और कार्ड",
     "batch": "बैच आइटम टूल",
-    "inventory": "इन्वेंटरी"
+    "inventory": "इन्वेंटरी",
+    "hub": {
+      "home": "होम",
+      "circulation": "परिसंचरण",
+      "catalogue": "सूची",
+      "acquisitions": "अधिग्रहण",
+      "patrons": "सदस्य",
+      "courses": "पाठ्यक्रम आरक्षण",
+      "insights": "अंतर्दृष्टि",
+      "administration": "प्रशासन",
+      "more": "और"
+    },
+    "tab": {
+      "dashboard": "आज",
+      "circulation": "डेस्क",
+      "holds": "आरक्षण",
+      "calendar": "कैलेंडर",
+      "kiosks": "कियोस्क",
+      "catalog": "रिकॉर्ड",
+      "authorities": "प्राधिकार",
+      "copycat": "कॉपी कैटलॉगिंग",
+      "labels": "लेबल और कार्ड",
+      "batch": "बैच और भंडार-जाँच",
+      "acquisitions": "ऑर्डर और बजट",
+      "serials": "पत्रिकाएँ",
+      "patrons": "सदस्य",
+      "requests": "अनुरोध",
+      "notices": "सूचनाएँ",
+      "courses": "पाठ्यक्रम आरक्षण",
+      "reports": "रिपोर्ट",
+      "analytics": "विश्लेषण",
+      "insights": "AI अंतर्दृष्टि",
+      "admin": "सेटिंग्स",
+      "roles": "भूमिकाएँ और अनुमतियाँ",
+      "system": "सिस्टम",
+      "interop": "अंतर-संचालनीयता"
+    },
+    "detail": {
+      "record": "रिकॉर्ड",
+      "record_edit": "रिकॉर्ड संपादित करें",
+      "record_new": "नया रिकॉर्ड",
+      "marc_editor": "MARC संपादक",
+      "patron": "सदस्य",
+      "labels_print": "प्रिंट"
+    }
   },
   "staff": {
     "open_palette": "कमांड पैलेट खोलें",
@@ -117,7 +162,7 @@
       "browse_headings": "लेखक और विषय"
     },
     "footer": {
-      "powered": "{library} · Shelfwise ILS v{version} द्वारा संचालित",
+      "powered": "{library} · Librowise v{version} द्वारा संचालित",
       "press": "खोजने के लिए",
       "to_search": "दबाएँ",
       "for_commands": "कमांड के लिए",
@@ -614,5 +659,436 @@
     "receipt_for": "{name} की रसीद (कार्ड {card})",
     "receipt_this_visit": "आज उधार ली गई या नवीनीकृत किताबें",
     "receipt_thanks": "पुस्तकालय का उपयोग करने के लिए धन्यवाद। कृपया यह रसीद सँभालकर रखें।"
+  },
+  "ui": {
+    "undo": "पूर्ववत करें",
+    "role": {
+      "patron": "सदस्य",
+      "librarian": "पुस्तकालयाध्यक्ष",
+      "admin": "प्रशासक"
+    },
+    "shell": {
+      "close_menu": "मेन्यू बंद करें",
+      "toggle_section": "{section} के पेज दिखाएँ या छिपाएँ",
+      "collapse": "साइडबार छोटा करें",
+      "expand": "साइडबार बड़ा करें",
+      "search_placeholder": "रिकॉर्ड, सदस्य, प्रतियाँ या कमांड खोजें…",
+      "user_menu": "खाता मेन्यू",
+      "account_security": "मेरा खाता और सुरक्षा",
+      "shortcuts": "कीबोर्ड शॉर्टकट",
+      "design_system": "डिज़ाइन सिस्टम",
+      "breadcrumb": "ब्रेडक्रम्ब",
+      "sections_of": "{section} के खंड"
+    },
+    "copilot": {
+      "title": "पुस्तकालय कोपायलट",
+      "live_data": "लाइव डेटा",
+      "read_only": "केवल पढ़ने हेतु",
+      "close": "कोपायलट बंद करें",
+      "intro": "ऋण, सदस्यों, संग्रह या रुझानों के बारे में पूछें। उदाहरण:",
+      "placeholder": "अपने पुस्तकालय के बारे में कुछ भी पूछें…",
+      "question": "प्रश्न",
+      "send": "भेजें"
+    },
+    "appearance": {
+      "title": "रूप-रंग",
+      "theme": "थीम",
+      "density": "घनत्व",
+      "text_size": "अक्षर का आकार",
+      "system": "सिस्टम",
+      "light": "हल्की",
+      "dark": "गहरी",
+      "sepia": "सीपिया",
+      "contrast": "उच्च कंट्रास्ट",
+      "comfortable": "आरामदायक",
+      "compact": "सघन",
+      "synced": "साइन इन होने पर आपकी पसंद सभी उपकरणों पर आपके खाते के साथ रहती है।",
+      "done": "हो गया"
+    },
+    "cmd": {
+      "new_record": "नया सूची रिकॉर्ड",
+      "checkout": "प्रतियाँ जारी करें",
+      "checkin": "प्रतियाँ वापस लें",
+      "register_patron": "सदस्य पंजीकृत करें",
+      "copilot": "AI कोपायलट से पूछें",
+      "home": "होम",
+      "appearance": "रूप-रंग: थीम, घनत्व और अक्षर आकार",
+      "toggle_dark": "गहरी थीम चालू/बंद करें"
+    },
+    "keys": {
+      "palette": "खोज और कमांड पैलेट",
+      "search": "पेज की खोज पर जाएँ",
+      "help": "कीबोर्ड शॉर्टकट दिखाएँ",
+      "copilot": "AI कोपायलट",
+      "hubs": "साइडबार खंड पर जाएँ",
+      "sidebar": "साइडबार छोटा या बड़ा करें",
+      "desk": "परिसंचरण: जारी करें / वापस लें",
+      "rows": "तालिका की पंक्तियों में आगे-पीछे जाएँ",
+      "select": "चुनी हुई पंक्ति का चयन करें",
+      "close": "डायलॉग और मेन्यू बंद करें"
+    },
+    "palette": {
+      "title": "खोज और कमांड",
+      "placeholder": "सूची खोजें या कमांड लिखें…",
+      "placeholder_staff": "रिकॉर्ड, सदस्य, बारकोड खोजें — या कमांड लिखें…",
+      "scope": "इसमें खोजें",
+      "scope_all": "सभी",
+      "scope_records": "रिकॉर्ड",
+      "scope_patrons": "सदस्य",
+      "scope_items": "प्रतियाँ",
+      "scope_commands": "कमांड",
+      "results": "परिणाम",
+      "navigate": "चलें",
+      "open": "खोलें",
+      "switch_scope": "दायरा बदलें",
+      "prefix_hint": "<kbd>&gt;</kbd> कमांड · <kbd>@</kbd> सदस्य · <kbd>#</kbd> बारकोड",
+      "search_catalogue": "सूची में “{q}” खोजें",
+      "find_patron": "“{q}” से मेल खाते सदस्य खोजें",
+      "ask_copilot": "कोपायलट से पूछें: “{q}”",
+      "no_matches": "कोई मेल नहीं",
+      "result_count": {
+        "one": "{count} परिणाम",
+        "other": "{count} परिणाम"
+      },
+      "group_goto": "यहाँ जाएँ",
+      "group_actions": "कार्य",
+      "group_prefs": "पसंद",
+      "group_help": "सहायता",
+      "group_records": "रिकॉर्ड",
+      "group_patrons": "सदस्य",
+      "group_items": "प्रतियाँ"
+    },
+    "notif": {
+      "title": "सूचनाएँ",
+      "title_unread": {
+        "one": "सूचनाएँ, {count} अपठित",
+        "other": "सूचनाएँ, {count} अपठित"
+      },
+      "mark_all": "सभी को पढ़ा हुआ चिह्नित करें",
+      "unread": "अपठित",
+      "empty_title": "सब कुछ देख लिया गया है",
+      "empty_body": "आरक्षण, सूचनाओं और सिस्टम से जुड़ी चेतावनियाँ यहाँ दिखेंगी।",
+      "updated": "{when} अपडेट हुआ",
+      "refresh": "रीफ़्रेश करें",
+      "kind": {
+        "holds_ready": {
+          "one": "{count} आरक्षण होल्ड शेल्फ़ पर प्रतीक्षा में",
+          "other": "{count} आरक्षण होल्ड शेल्फ़ पर प्रतीक्षा में"
+        },
+        "holds_ready_body": "दो दिनों में समाप्त होने वाले: {expiring}",
+        "notices_failed": {
+          "one": "{count} सदस्य सूचना भेजी नहीं जा सकी",
+          "other": "{count} सदस्य सूचनाएँ भेजी नहीं जा सकीं"
+        },
+        "notices_failed_body": "पिछले 7 दिनों में।",
+        "registrations": {
+          "one": "{count} स्व-पंजीकरण स्वीकृति की प्रतीक्षा में",
+          "other": "{count} स्व-पंजीकरण स्वीकृति की प्रतीक्षा में"
+        },
+        "suggestions": {
+          "one": "समीक्षा के लिए {count} खरीद सुझाव",
+          "other": "समीक्षा के लिए {count} खरीद सुझाव"
+        },
+        "jobs_failed": {
+          "one": "{count} बैकग्राउंड कार्य विफल रहा",
+          "other": "{count} बैकग्राउंड कार्य विफल रहे"
+        },
+        "jobs_failed_body": "पिछले 24 घंटों में।"
+      }
+    },
+    "state": {
+      "error_title": "कुछ गलत हो गया",
+      "retry": "फिर से कोशिश करें"
+    },
+    "status": {
+      "active": "सक्रिय",
+      "due_soon": "जल्द देय",
+      "overdue": "अतिदेय",
+      "returned": "लौटाया गया",
+      "draft": "मसौदा",
+      "ordered": "ऑर्डर किया गया",
+      "partial": "आंशिक रूप से प्राप्त",
+      "received": "प्राप्त",
+      "pending": "लंबित",
+      "accepted": "स्वीकृत",
+      "rejected": "अस्वीकृत",
+      "sent": "भेजा गया",
+      "failed": "विफल",
+      "running": "चल रहा है",
+      "succeeded": "सफल",
+      "dead": "छोड़ दिया गया",
+      "expiring": "जल्द समाप्त",
+      "inactive": "निष्क्रिय",
+      "owing": "बकाया",
+      "staff": "स्टाफ़",
+      "suspended": "निलंबित",
+      "expected": "अपेक्षित",
+      "arrived": "आ गया",
+      "late": "देर से",
+      "missing": "गुम",
+      "claimed": "दावा किया गया",
+      "not_published": "प्रकाशित नहीं",
+      "approved": "स्वीकृत"
+    },
+    "table": {
+      "export": "निर्यात",
+      "export_hint": "CSV के रूप में डाउनलोड करें (चुनी हुई पंक्तियाँ, या सभी परिणाम)",
+      "density": "पंक्ति घनत्व",
+      "density_default": "सामान्य पंक्ति ऊँचाई",
+      "density_compact": "सघन पंक्तियाँ",
+      "density_comfortable": "आरामदायक पंक्तियाँ",
+      "columns": "कॉलम चुनें",
+      "show_columns": "कॉलम दिखाएँ",
+      "reset_columns": "डिफ़ॉल्ट पर लौटाएँ",
+      "bulk_actions": "सामूहिक कार्य",
+      "clear_selection": "चयन हटाएँ",
+      "select_page": "इस पेज की सभी पंक्तियाँ चुनें",
+      "select_row": "{name} चुनें",
+      "selected": {
+        "one": "{count} चुना गया",
+        "other": "{count} चुने गए"
+      },
+      "selection_cleared": "चयन हटा दिया गया",
+      "sorted_asc": "{column} के अनुसार, आरोही क्रम",
+      "sorted_desc": "{column} के अनुसार, अवरोही क्रम",
+      "no_results": "कोई परिणाम नहीं",
+      "range": "{total} में से {from}–{to}",
+      "pagination": "पृष्ठ क्रमांकन",
+      "per_page": "प्रति पेज पंक्तियाँ",
+      "per_page_n": {
+        "one": "प्रति पेज {count}",
+        "other": "प्रति पेज {count}"
+      },
+      "previous": "पिछला",
+      "next": "अगला",
+      "page_of": "पेज {page} / {pages}",
+      "exported": {
+        "one": "{count} पंक्ति निर्यात की गई",
+        "other": "{count} पंक्तियाँ निर्यात की गईं"
+      },
+      "keyboard_hint": "<kbd>↑</kbd><kbd>↓</kbd> चलें · <kbd>Enter</kbd> खोलें · <kbd>X</kbd> चुनें"
+    },
+    "filters": {
+      "label": "फ़िल्टर",
+      "active": "लागू फ़िल्टर",
+      "remove": "फ़िल्टर {filter} हटाएँ",
+      "clear_all": "सभी फ़िल्टर हटाएँ",
+      "clear_search": "खोज साफ़ करें",
+      "views": "दृश्य",
+      "save_view": "दृश्य सहेजें",
+      "view_name": "दृश्य का नाम",
+      "delete_view": "दृश्य {name} हटाएँ"
+    },
+    "form": {
+      "optional": "वैकल्पिक",
+      "required": "यह फ़ील्ड आवश्यक है।",
+      "email": "मान्य ईमेल पता लिखें।",
+      "invalid": "यह मान जाँचें।",
+      "too_short": "कम से कम {min} अक्षर लिखें।",
+      "too_long": "अधिकतम {max} अक्षर लिखें।",
+      "min": "{min} या उससे अधिक होना चाहिए।",
+      "max": "{max} या उससे कम होना चाहिए।",
+      "errors": {
+        "one": "{count} फ़ील्ड पर ध्यान दें।",
+        "other": "{count} फ़ील्ड पर ध्यान दें।"
+      },
+      "no_changes": "कोई बिना सहेजा बदलाव नहीं",
+      "unsaved": "बिना सहेजे बदलाव",
+      "saved": "सभी बदलाव सहेजे गए",
+      "leave_confirm": "आपके कुछ बदलाव सहेजे नहीं गए हैं। क्या यह पेज छोड़कर उन्हें हटा दें?"
+    },
+    "dialog": {
+      "type_to_confirm": "पुष्टि के लिए {word} लिखें"
+    },
+    "combo": {
+      "no_matches": "कोई मेल नहीं",
+      "results": {
+        "one": "{count} सुझाव",
+        "other": "{count} सुझाव"
+      }
+    },
+    "date": {
+      "presets": "त्वरित अवधि",
+      "from": "से",
+      "to": "तक",
+      "preset_today": "आज",
+      "preset_7d": "7 दिन",
+      "preset_30d": "30 दिन",
+      "preset_90d": "90 दिन",
+      "preset_month": "इस महीने",
+      "preset_last_month": "पिछले महीने",
+      "preset_year": "इस वर्ष",
+      "end_before_start": "अंतिम तिथि आरंभ तिथि से पहले है।",
+      "too_long": "{days} दिन या उससे कम की अवधि चुनें।"
+    },
+    "stat": {
+      "increase": "वृद्धि",
+      "decrease": "कमी",
+      "no_change": "कोई बदलाव नहीं"
+    },
+    "cover": {
+      "title": "आवरण",
+      "upload": "आवरण अपलोड करें",
+      "replace": "आवरण बदलें",
+      "remove": "आवरण हटाएँ",
+      "hint": "5 MB तक JPEG, PNG, WebP या GIF — या यहाँ चित्र छोड़ें",
+      "bad_type": "JPEG, PNG, WebP या GIF चित्र चुनें।",
+      "too_big": "आवरण चित्र 5 MB या उससे छोटा होना चाहिए।",
+      "saved": "आवरण अपडेट हो गया",
+      "removed": "अपलोड किया गया आवरण हटा दिया गया",
+      "remove_title": "अपलोड किया गया आवरण हटाएँ?",
+      "remove_text": "रिकॉर्ड पर इसके बजाय Open Library का आवरण (यदि हो) या बनाया गया आवरण दिखेगा।"
+    },
+    "health": {
+      "title": "सिस्टम की स्थिति",
+      "open": "सिस्टम खोलें →",
+      "database": "डेटाबेस",
+      "worker": "बैकग्राउंड वर्कर",
+      "queue": "कार्य कतार",
+      "backup": "पिछला बैकअप",
+      "ok_ms": "ठीक · {ms} ms",
+      "down": "उपलब्ध नहीं",
+      "heartbeat": "चल रहा है · {s} सेकंड पहले",
+      "no_worker": "कोई वर्कर नहीं चल रहा",
+      "failed_jobs": {
+        "one": "{count} विफल कार्य",
+        "other": "{count} विफल कार्य"
+      },
+      "queue_ok": {
+        "one": "{count} कतार में",
+        "other": "{count} कतार में"
+      },
+      "no_backup": "अभी तक कोई बैकअप नहीं",
+      "uptime": "{when} शुरू हुआ"
+    },
+    "search": {
+      "filters": "फ़िल्टर",
+      "availability": "उपलब्धता",
+      "view": "परिणाम दृश्य",
+      "view_list": "सूची",
+      "view_grid": "ग्रिड",
+      "show_more": {
+        "one": "{count} और दिखाएँ",
+        "other": "{count} और दिखाएँ"
+      },
+      "show_less": "कम दिखाएँ",
+      "empty_title": "कोई मेल खाता शीर्षक नहीं",
+      "try_ai": "AI खोज आज़माएँ",
+      "filter_audience": "पाठक वर्ग",
+      "filter_year_from": "प्रकाशित"
+    },
+    "patrons": {
+      "title": "सदस्य",
+      "subtitle": "सदस्य खोजें, नए पंजीकृत करें और सदस्यताएँ चालू रखें।",
+      "register": "सदस्य पंजीकृत करें",
+      "register_submit": "पंजीकृत करें",
+      "registered": "{name} पंजीकृत — कार्ड {card}",
+      "search_label": "सदस्य खोजें",
+      "search_placeholder": "नाम, कार्ड संख्या या ईमेल",
+      "any_status": "कोई भी स्थिति",
+      "any_role": "कोई भी भूमिका",
+      "any_category": "कोई भी श्रेणी",
+      "staff_only": "केवल स्टाफ़",
+      "col_name": "नाम",
+      "col_card": "कार्ड",
+      "col_category": "श्रेणी",
+      "col_branch": "मुख्य शाखा",
+      "col_loans": "ऋण",
+      "col_balance": "शेष राशि",
+      "col_expires": "सदस्यता",
+      "col_email": "ईमेल",
+      "col_phone": "फ़ोन",
+      "col_created": "पंजीकृत",
+      "col_status": "स्थिति",
+      "col_role": "भूमिका",
+      "expired_on": "{date} को समाप्त",
+      "expires_on": "{date} को समाप्त होगी",
+      "view_all": "सभी सदस्य",
+      "view_expiring": "जल्द समाप्त",
+      "view_expired": "समाप्त",
+      "view_owing": "बकाया",
+      "view_staff": "स्टाफ़",
+      "empty_title": "कोई सदस्य नहीं मिला",
+      "empty_body": "कोई दूसरा नाम या कार्ड संख्या आज़माएँ, या फ़िल्टर हटाएँ।",
+      "bulk_renew": "सदस्यता नवीनीकृत करें",
+      "bulk_cards": "पुस्तकालय कार्ड प्रिंट करें",
+      "bulk_export": "CSV निर्यात करें",
+      "renew_title": {
+        "one": "{count} सदस्यता नवीनीकृत करें?",
+        "other": "{count} सदस्यताएँ नवीनीकृत करें?"
+      },
+      "renew_body": "हर सदस्यता उसकी श्रेणी की नामांकन अवधि जितनी बढ़ाई जाएगी — आज से या वर्तमान समाप्ति तिथि से, जो भी बाद में हो।",
+      "renewed": {
+        "one": "{count} सदस्यता नवीनीकृत हुई",
+        "other": "{count} सदस्यताएँ नवीनीकृत हुईं"
+      },
+      "renewed_some": {
+        "one": "{count} सदस्यता नवीनीकृत, {skipped} छोड़ी गईं (स्टाफ़ खाते)",
+        "other": "{count} सदस्यताएँ नवीनीकृत, {skipped} छोड़ी गईं (स्टाफ़ खाते)"
+      },
+      "renew_undone": "नवीनीकरण पूर्ववत किया गया"
+    },
+    "catalog": {
+      "title": "सूची",
+      "subtitle": "ग्रंथसूची रिकॉर्ड खोजें, संपादित करें और समृद्ध करें।",
+      "new": "नया रिकॉर्ड",
+      "export_all": "MARCXML निर्यात करें",
+      "search_label": "सूची खोजें",
+      "search_placeholder": "शीर्षक, लेखक, विषय, ISBN…",
+      "any_format": "कोई भी प्रारूप",
+      "any_availability": "कोई भी उपलब्धता",
+      "sort_auto": "सर्वोत्तम मेल",
+      "view_all": "सभी रिकॉर्ड",
+      "col_cover": "आवरण",
+      "col_title": "शीर्षक",
+      "col_authors": "लेखक",
+      "col_year": "वर्ष",
+      "col_format": "प्रारूप",
+      "col_class": "वर्गांक",
+      "col_publisher": "प्रकाशक",
+      "col_language": "भाषा",
+      "col_copies": "प्रतियाँ",
+      "empty_title": "कोई रिकॉर्ड नहीं मिला",
+      "empty_body": "दूसरे शब्द या कम फ़िल्टर आज़माएँ — या नया रिकॉर्ड बनाएँ।",
+      "bulk_marcxml": "MARCXML निर्यात करें",
+      "bulk_mrc": "MARC निर्यात करें (ISO 2709)"
+    },
+    "sg": {
+      "intro": "Librowise का हर घटक, उसकी सभी अवस्थाओं में। जाँचने के लिए थीम और दिशा बदलें; उपयोग के लिए docs/DESIGN_SYSTEM.md देखें।",
+      "contents": "विषय-सूची",
+      "direction": "दिशा",
+      "brand": "ब्रांड",
+      "colour": "रंग",
+      "type": "टाइपोग्राफ़ी",
+      "scales": "अंतराल, गोलाई, ऊँचाई और गति",
+      "buttons": "बटन",
+      "status": "बैज और स्थिति चिह्न",
+      "header": "पेज शीर्षक",
+      "filters": "फ़िल्टर पट्टी और सहेजे गए दृश्य",
+      "table": "डेटा तालिका",
+      "forms": "फ़ॉर्म",
+      "tabs": "टैब और खंडित नियंत्रण",
+      "combobox": "कॉम्बोबॉक्स",
+      "dates": "तिथियाँ और अवधि",
+      "stats": "आँकड़ा टाइल और प्रगति",
+      "empty": "खाली, त्रुटि और लोडिंग अवस्थाएँ",
+      "feedback": "टोस्ट और टूलटिप",
+      "overlays": "डायलॉग और साइड पैनल",
+      "people": "अवतार",
+      "covers": "पुस्तक आवरण",
+      "brand_note": "चिह्न (शेल्फ़ पर तीन किताबें, आख़िरी झुकी हुई) किसी भी पृष्ठभूमि पर काम करता है; शब्दचिह्न पाठ के रंग में है और “wise” मुख्य रंग में।",
+      "on_surface": "सतह पर",
+      "ramps": "रंग-क्रम",
+      "chart_palette": "चार्ट रंग",
+      "contrast_note": "scripts/check_contrast.py चारों थीम में पाठ टोकन को WCAG 2.2 AA के लिए जाँचता है।",
+      "tabular": "सारणीबद्ध अंक",
+      "spacing": "अंतराल",
+      "radius_elevation": "गोलाई और ऊँचाई",
+      "motion": "गति",
+      "covers_note": "आवरण /covers/{id}.jpg से आते हैं — अपलोड किया गया आवरण, अन्यथा ISBN से Open Library (कैश), अन्यथा यह बनाया गया आवरण।"
+    },
+    "brand": {
+      "tagline": "आधुनिक पुस्तकालय प्रणाली"
+    }
   }
 }

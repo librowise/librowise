@@ -111,53 +111,123 @@ export async function withBusy(btn, fn) {
 
 // ------------------------------------------------------------------ feedback
 
-export function toast(message, type = "info", ms = 4200) {
+/**
+ * Show a toast. `opts` may be a number (duration in ms, legacy) or
+ * `{ duration, action: { label, run }, dismissible }`. An action (e.g. Undo) keeps the toast up longer and
+ * the returned handle lets callers close it early: `const h = toast("Deleted", "success", { action: { label: "Undo", run } })`.
+ */
+export function toast(message, type = "info", opts = 4200) {
   const box = $("#toasts");
-  if (!box) return;
-  const t = document.createElement("div");
-  t.className = `toast ${type}`;
-  t.setAttribute("role", type === "error" ? "alert" : "status");
-  t.innerHTML = html`${icon(type === "error" ? "alert" : type === "success" ? "check" : "info")}<div>${message}</div>`;
-  box.append(t);
-  setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, ms);
+  if (!box) return { close() {} };
+  const o = typeof opts === "number" ? { duration: opts } : { ...opts };
+  const duration = o.duration ?? (o.action ? 8000 : 4200);
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.setAttribute("role", type === "error" ? "alert" : "status");
+  const ic = { error: "alert", success: "check", warn: "alert" }[type] || "info";
+  el.innerHTML = html`${icon(ic)}<div class="toast-msg">${message}</div>
+    ${o.action ? html`<button type="button" class="toast-action">${o.action.label}</button>` : ""}
+    <button type="button" class="toast-close" aria-label="${t("common.close", {}, "Close")}">${icon("x")}</button>`;
+  box.append(el);
+  let timer;
+  const close = () => {
+    clearTimeout(timer);
+    if (!el.isConnected) return;
+    el.classList.add("leaving");
+    setTimeout(() => el.remove(), 260);
+  };
+  const arm = () => { clearTimeout(timer); if (duration > 0) timer = setTimeout(close, duration); };
+  el.querySelector(".toast-close").addEventListener("click", close);
+  el.querySelector(".toast-action")?.addEventListener("click", async () => { close(); await o.action.run(); });
+  // WCAG 2.2.1: pause the timer while the pointer or keyboard focus is on the toast.
+  el.addEventListener("mouseenter", () => clearTimeout(timer));
+  el.addEventListener("mouseleave", arm);
+  el.addEventListener("focusin", () => clearTimeout(timer));
+  el.addEventListener("focusout", arm);
+  arm();
+  return { close, el };
 }
 
 export const skeleton = (rows = 3) => Array.from({ length: rows }, () => `<div class="skeleton" style="height:1.1rem;margin:.6rem 0"></div>`).join("");
 export const empty = (msg, ic = "inbox") => html`<div class="empty">${icon(ic)}<div>${msg}</div></div>`;
 
+const FOCUSABLE = 'a[href],area[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"]),[contenteditable="true"]';
+/** Keep Tab / Shift+Tab inside `root` (modal dialogs, side panels). Returns a function that removes the trap. */
+export function trapFocus(root) {
+  const onKey = (e) => {
+    if (e.key !== "Tab") return;
+    const items = [...root.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    if (!items.length) { e.preventDefault(); return; }
+    const first = items[0], last = items.at(-1);
+    if (e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+  };
+  root.addEventListener("keydown", onKey);
+  return () => root.removeEventListener("keydown", onKey);
+}
+
 let dialogSeq = 0;
-/** Simple modal built on <dialog>. Resolves with the submitted FormData or null. */
-export function modal({ title, body, submit = t("common.save", {}, "Save"), wide = false, danger = false }) {
+/**
+ * Modal dialog built on <dialog>. Resolves with the submitted FormData, or null when cancelled.
+ * Options: title, body (html``), submit (label), size ("sm" | "md" | "lg" | "xl"; `wide` = "lg"), danger,
+ * cancel (label or false to hide), className. Enter in any single-line field submits the primary action,
+ * focus is trapped while open and returned to the opener afterwards.
+ */
+export function modal({ title, body, submit = t("common.save", {}, "Save"), wide = false, danger = false, size, cancel, className = "" }) {
   return new Promise((resolve) => {
     const opener = document.activeElement;
     const d = document.createElement("dialog");
+    const sz = size || (wide ? "lg" : "md");
+    if (sz !== "md") d.classList.add(sz);
     if (wide) d.classList.add("wide");
+    if (className) d.classList.add(...className.split(/\s+/).filter(Boolean));
     const titleId = `dlg-${++dialogSeq}`;
     d.setAttribute("aria-labelledby", titleId);
     d.innerHTML = html`<form method="dialog" novalidate>
       <div class="dialog-head"><h2 id="${titleId}">${title}</h2><button type="button" class="btn ghost icon-only" data-dismiss aria-label="${t("common.close", {}, "Close")}">${icon("x")}</button></div>
       <div class="dialog-body">${raw(body)}</div>
-      <div class="dialog-foot"><button type="button" class="btn" data-dismiss>${t("common.cancel", {}, "Cancel")}</button>
-      <button class="btn ${danger ? "danger" : "primary"}" value="ok">${submit}</button></div></form>`;
-    // Return focus to whatever opened the dialog (WCAG 2.4.3).
-    d.addEventListener("close", () => { if (opener?.isConnected) opener.focus?.(); });
+      <div class="dialog-foot">${cancel === false ? "" : html`<button type="button" class="btn" data-dismiss>${cancel || t("common.cancel", {}, "Cancel")}</button>`}
+      <button type="submit" class="btn ${danger ? "danger solid" : "primary"}" value="ok" data-primary>${submit}</button></div></form>`;
     document.body.append(d);
     const form = $("form", d);
-    // Only the primary button submits, so Enter in a field confirms instead of cancelling.
+    const primary = $("[data-primary]", d);
+    const release = trapFocus(d);
     d.addEventListener("click", (e) => { if (e.target.closest("[data-dismiss]")) d.close("cancel"); });
+    // Buttons inside the body default to type=submit; make them plain buttons so they never close the dialog.
+    $$(".dialog-body button:not([type])", d).forEach((b) => { b.type = "button"; });
+    // Enter in a single-line field always runs the primary action (never a body button or "cancel").
+    form.addEventListener("keydown", (e) => {
+      const el = e.target;
+      if (e.key !== "Enter" || e.isComposing || e.shiftKey || e.altKey) return;
+      if (el.tagName === "TEXTAREA" || el.tagName === "BUTTON" || el.tagName === "A" || el.closest("[role=listbox],[role=combobox][aria-expanded=true]")) return;
+      if (el.tagName === "INPUT" && /^(checkbox|radio|file|button|submit|reset|range|color)$/.test(el.type)) return;
+      e.preventDefault();
+      form.requestSubmit(primary);
+    });
     form.addEventListener("submit", (e) => {
-      if (e.submitter?.value === "ok" && !form.checkValidity()) { e.preventDefault(); form.reportValidity(); }
+      if (e.submitter && e.submitter !== primary) { e.preventDefault(); return; }
+      if (!form.checkValidity()) {
+        e.preventDefault();
+        const bad = form.querySelector(":invalid");
+        bad?.setAttribute("aria-invalid", "true");
+        form.reportValidity();
+        return;
+      }
+      d.returnValue = "ok";
     });
     d.addEventListener("close", () => {
+      release();
       resolve(d.returnValue === "ok" ? new FormData(form) : null);
       d.remove();
+      // Return focus to whatever opened the dialog (WCAG 2.4.3).
+      if (opener?.isConnected) opener.focus?.();
     });
     d.showModal();
-    $("input,select,textarea", d)?.focus();
+    ($("[autofocus]", d) || $(".dialog-body input:not([type=hidden]):not([disabled]),.dialog-body select,.dialog-body textarea", d) || primary).focus();
   });
 }
-export const confirmDialog = (title, text, submit = "Confirm", danger = true) =>
-  modal({ title, body: `<p>${esc(text)}</p>`, submit, danger }).then((r) => r !== null);
+export const confirmDialog = (title, text, submit = t("common.confirm", {}, "Confirm"), danger = true) =>
+  modal({ title, body: html`<p>${text}</p>`, submit, danger, size: "sm" }).then((r) => r !== null);
 
 export function formData(form) {
   const out = {};
@@ -169,16 +239,32 @@ export function formData(form) {
 
 const PALETTES = [["#0f766e", "#134e4a"], ["#7c3aed", "#4c1d95"], ["#b45309", "#78350f"], ["#1d4ed8", "#1e3a8a"],
   ["#be185d", "#831843"], ["#15803d", "#14532d"], ["#9a3412", "#7c2d12"], ["#334155", "#0f172a"]];
+/** URL of a record's cover image via the cover service (/covers/{id}.jpg), or null when none can exist.
+ *  The server serves an uploaded cover, else a cached Open Library cover by ISBN; on 404 the generated
+ *  gradient cover underneath stays visible. `large` asks for the high-resolution variant. */
+export function coverSrc(b, large = false) {
+  if (b.cover) return large ? `${b.cover}${b.cover.includes("?") ? "&" : "?"}size=L` : b.cover;
+  if (b.id && (b.isbn || b.cover_url)) return `/covers/${encodeURIComponent(b.id)}.jpg${large ? "?size=L" : ""}`;
+  return null;
+}
 export function cover(b, size = "") {
   const h = [...(b.title || "")].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const [c1, c2] = PALETTES[h % PALETTES.length];
   const author = (b.authors || [])[0] || "";
-  const img = b.cover_url ? `<img src="${esc(b.cover_url)}" alt="" loading="lazy">` : "";
+  const src = coverSrc(b, size === "lg");
+  const img = src ? `<img src="${esc(src)}" alt="" loading="lazy" decoding="async">` : "";
   return raw(`<div class="cover ${size}" style="background:linear-gradient(160deg,${c1},${c2})">
     <div class="gen"><div class="gt">${esc(b.title)}</div><div class="ga">${esc(author.split(",")[0])}</div></div>${img}</div>`);
 }
-// CSP forbids inline handlers, so remove broken cover images via a capturing error listener instead.
+// CSP forbids inline handlers, so handle cover images with capturing listeners: fade in when loaded,
+// remove when broken (the generated cover underneath then shows).
 document.addEventListener("error", (e) => { if (e.target.tagName === "IMG" && e.target.closest(".cover")) e.target.remove(); }, true);
+document.addEventListener("load", (e) => {
+  const img = e.target;
+  if (img.tagName !== "IMG" || !img.closest(".cover")) return;
+  // Open Library answers unknown ISBNs with a 1×1 placeholder; treat tiny images as missing.
+  if (img.naturalWidth < 8) img.remove(); else img.classList.add("loaded");
+}, true);
 
 export const authors = (list) => (list || []).map((a) => a.split(",").reverse().join(" ").trim()).join(", ");
 export const availabilityBadge = (a) => {
@@ -249,17 +335,20 @@ if (BOOT.user?.preferences && Object.keys(BOOT.user.preferences).length) {
   if (prefs.font_scale) d.style.setProperty("--scale", prefs.font_scale);
 }
 
-async function appearanceDialog() {
-  const t = prefs.theme || "system";
+export async function appearanceDialog() {
+  const cur = prefs.theme || "system";
+  const themes = { system: t("ui.appearance.system"), light: t("ui.appearance.light"), dark: t("ui.appearance.dark"),
+    sepia: t("ui.appearance.sepia"), contrast: t("ui.appearance.contrast") };
+  const densities = { comfortable: t("ui.appearance.comfortable"), compact: t("ui.appearance.compact") };
   const body = html`<div class="stack">
-    <div class="field"><label>Theme</label><div class="row tight">${["system", "light", "dark", "sepia", "contrast"].map((v) =>
-      raw(`<button type="button" class="chip" data-theme-pick="${v}" aria-pressed="${t === v}">${{ system: "System", light: "Light", dark: "Dark", sepia: "Sepia", contrast: "High contrast" }[v]}</button>`))}</div></div>
-    <div class="field"><label>Density</label><div class="row tight">${["comfortable", "compact"].map((v) =>
-      raw(`<button type="button" class="chip" data-density-pick="${v}" aria-pressed="${(prefs.density || "comfortable") === v}">${v[0].toUpperCase() + v.slice(1)}</button>`))}</div></div>
-    <div class="field"><label for="fs">Text size <span class="muted" id="fs-v">${Math.round((prefs.font_scale || 1) * 100)}%</span></label>
+    <div class="field"><span class="label-like" id="ap-theme">${t("ui.appearance.theme")}</span><div class="row tight" role="group" aria-labelledby="ap-theme">${Object.entries(themes).map(([v, l]) =>
+      html`<button type="button" class="chip" data-theme-pick="${v}" aria-pressed="${cur === v}">${l}</button>`)}</div></div>
+    <div class="field"><span class="label-like" id="ap-density">${t("ui.appearance.density")}</span><div class="row tight" role="group" aria-labelledby="ap-density">${Object.entries(densities).map(([v, l]) =>
+      html`<button type="button" class="chip" data-density-pick="${v}" aria-pressed="${(prefs.density || "comfortable") === v}">${l}</button>`)}</div></div>
+    <div class="field"><label for="fs">${t("ui.appearance.text_size")} <span class="muted" id="fs-v">${Math.round((prefs.font_scale || 1) * 100)}%</span></label>
       <input id="fs" type="range" min="0.85" max="1.4" step="0.05" value="${prefs.font_scale || 1}"></div>
-    <p class="small muted">Preferences follow your account across devices when you are signed in.</p></div>`;
-  const p = modal({ title: "Appearance", body, submit: "Done" });
+    <p class="small muted">${t("ui.appearance.synced")}</p></div>`;
+  const p = modal({ title: t("ui.appearance.title"), body, submit: t("ui.appearance.done"), cancel: false });
   const dlg = $$("dialog").at(-1);
   dlg.addEventListener("click", (e) => {
     const tp = e.target.closest("[data-theme-pick]"), dp = e.target.closest("[data-density-pick]");
@@ -277,91 +366,40 @@ async function appearanceDialog() {
 // ------------------------------------------------------------------ command palette
 
 const STAFF = !!BOOT.user?.is_staff;
-const COMMANDS = [
+const go = (href) => () => (location.href = href);
+/** Static commands. Staff navigation commands are added from the sidebar (so they follow permissions). */
+export const COMMANDS = [
   ...(STAFF ? [
-    { group: "Go to", label: "Dashboard", hint: "Alt+1", run: () => (location.href = "/staff"), icon: "home" },
-    { group: "Go to", label: "Circulation desk", hint: "Alt+2", run: () => (location.href = "/staff/circulation"), icon: "repeat" },
-    { group: "Go to", label: "Catalogue", hint: "Alt+3", run: () => (location.href = "/staff/catalog"), icon: "book" },
-    { group: "Go to", label: "Patrons", hint: "Alt+4", run: () => (location.href = "/staff/patrons"), icon: "users" },
-    { group: "Go to", label: "Holds", hint: "Alt+5", run: () => (location.href = "/staff/holds"), icon: "bookmark" },
-    { group: "Go to", label: "Acquisitions", hint: "Alt+6", run: () => (location.href = "/staff/acquisitions"), icon: "cart" },
-    { group: "Go to", label: "Reports", hint: "Alt+7", run: () => (location.href = "/staff/reports"), icon: "chart" },
-    { group: "Go to", label: "Analytics", hint: "Alt+8", run: () => (location.href = "/staff/analytics"), icon: "trend" },
-    { group: "Go to", label: "AI insights", hint: "Alt+9", run: () => (location.href = "/staff/insights"), icon: "sparkle" },
-    { group: "Go to", label: "Self-checkout kiosks", run: () => (location.href = "/staff/kiosks"), icon: "monitor" },
-    { group: "Go to", label: "Administration", run: () => (location.href = "/staff/admin"), icon: "settings" },
-    { group: "Actions", label: "New catalogue record", run: () => (location.href = "/staff/catalog/new"), icon: "plus" },
-    { group: "Actions", label: "Check out items", run: () => (location.href = "/staff/circulation#checkout"), icon: "arrow-up" },
-    { group: "Actions", label: "Check in items", run: () => (location.href = "/staff/circulation#checkin"), icon: "arrow-down" },
-    { group: "Actions", label: "Register a patron", run: () => (location.href = "/staff/patrons#new"), icon: "user-plus" },
-    { group: "Actions", label: "Ask the AI copilot", hint: "Ctrl+J", run: () => openCopilot(), icon: "sparkle" },
-    { group: "Go to", label: "Public catalogue (OPAC)", run: () => (location.href = "/"), icon: "globe" },
-    { group: "Go to", label: "My account & security (2FA, sessions, API tokens)", run: () => (location.href = "/staff/security"), icon: "shield" },
-    { group: "Go to", label: "Roles & permissions", run: () => (location.href = "/staff/roles"), icon: "shield" },
+    { group: "actions", label: t("ui.cmd.new_record"), run: go("/staff/catalog/new"), icon: "plus", keywords: "catalogue add create" },
+    { group: "actions", label: t("ui.cmd.checkout"), hint: "F2", run: go("/staff/circulation#checkout"), icon: "arrow-up", keywords: "issue loan" },
+    { group: "actions", label: t("ui.cmd.checkin"), hint: "F3", run: go("/staff/circulation#checkin"), icon: "arrow-down", keywords: "return discharge" },
+    { group: "actions", label: t("ui.cmd.register_patron"), run: go("/staff/patrons#new"), icon: "user-plus", keywords: "member new" },
+    { group: "actions", label: t("ui.cmd.copilot"), hint: "Ctrl+J", run: () => openCopilot(), icon: "sparkle", keywords: "ai assistant" },
+    { group: "goto", label: t("ui.shell.account_security"), run: go("/staff/security"), icon: "shield", keywords: "2fa sessions tokens password" },
+    { group: "goto", label: t("nav.public_catalogue"), run: go("/"), icon: "globe", keywords: "opac" },
+    { group: "goto", label: t("ui.shell.design_system"), run: go("/staff/styleguide"), icon: "swatch", keywords: "style guide components" },
   ] : [
-    { group: "Go to", label: "Home", run: () => (location.href = "/"), icon: "home" },
-    { group: "Go to", label: "My account", run: () => (location.href = "/account"), icon: "user" },
+    { group: "goto", label: t("ui.cmd.home"), run: go("/"), icon: "home" },
+    { group: "goto", label: t("opac.nav.account"), run: go("/account"), icon: "user" },
   ]),
-  { group: "Preferences", label: "Appearance: theme, density & text size", run: () => appearanceDialog(), icon: "palette" },
-  { group: "Preferences", label: "Toggle dark mode", run: () => applyPrefs({ theme: document.documentElement.dataset.theme === "dark" ? "light" : "dark" }), icon: "moon" },
-  { group: "Help", label: "Keyboard shortcuts", run: () => shortcutsHelp(), icon: "keyboard" },
-  { group: "Help", label: "API documentation", run: () => window.open("/api/docs"), icon: "code" },
-  ...(STAFF ? [
-    { group: "Interoperability", label: "Copy cataloguing (Library of Congress, SRU)", run: () => (location.href = "/staff/copycat"), icon: "download" },
-    { group: "Interoperability", label: "SIP2 accounts, SRU and OAI-PMH endpoints", run: () => (location.href = "/staff/interop"), icon: "globe" },
-  ] : []),
+  { group: "prefs", label: t("ui.cmd.appearance"), run: () => appearanceDialog(), icon: "palette", keywords: "theme density font size" },
+  { group: "prefs", label: t("ui.cmd.toggle_dark"), run: () => applyPrefs({ theme: document.documentElement.dataset.theme === "dark" ? "light" : "dark" }), icon: "moon" },
+  { group: "help", label: t("ui.shell.shortcuts"), hint: "?", run: () => shortcutsHelp(), icon: "keyboard" },
+  { group: "help", label: t("nav.api_docs"), run: () => window.open("/api/docs"), icon: "code" },
 ];
 
-function shortcutsHelp() {
-  modal({ title: "Keyboard shortcuts", submit: "Close", body: `<div class="stack tight">
-    ${[["Ctrl/⌘ + K", "Command palette"], ["/", "Focus search"], ["Ctrl/⌘ + J", "AI copilot (staff)"], ["Alt + 1…9", "Staff sections"],
-      ["F2 / F3", "Circulation: check out / check in"], ["Esc", "Close dialogs"]].map(([k, v]) => `<div class="kv"><span>${v}</span><kbd>${k}</kbd></div>`).join("")}</div>` });
+export function shortcutsHelp() {
+  const rows = [["Ctrl/⌘ + K", t("ui.keys.palette")], ["/", t("ui.keys.search")], ["?", t("ui.keys.help")],
+    ...(STAFF ? [["Ctrl/⌘ + J", t("ui.keys.copilot")], ["Alt + 1…9", t("ui.keys.hubs")], ["[", t("ui.keys.sidebar")],
+      ["F2 / F3", t("ui.keys.desk")], ["J / K, ↑ / ↓", t("ui.keys.rows")], ["X / Space", t("ui.keys.select")]] : []),
+    ["Esc", t("ui.keys.close")]];
+  modal({ title: t("ui.shell.shortcuts"), submit: t("common.close"), cancel: false, size: "sm",
+    body: html`<div class="stack tight">${rows.map(([k, v]) => html`<div class="kv"><span>${v}</span><kbd>${k}</kbd></div>`)}</div>` });
 }
 
-function openPalette() {
-  const d = document.createElement("dialog");
-  d.className = "palette";
-  d.innerHTML = `<input type="search" placeholder="Type a command, title, card number or barcode…" aria-label="Command">
-    <ul role="listbox"></ul><div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>Enter</kbd> run</span><span><kbd>Esc</kbd> close</span></div>`;
-  document.body.append(d);
-  const input = $("input", d), list = $("ul", d);
-  let items = [], sel = 0;
-  const dynamic = (q) => {
-    if (!q) return [];
-    const out = [{ group: "Search", label: `Search catalogue for “${q}”`, icon: "search",
-      run: () => (location.href = STAFF ? `/staff/catalog?q=${encodeURIComponent(q)}` : `/search?q=${encodeURIComponent(q)}`) }];
-    if (STAFF) {
-      out.push({ group: "Search", label: `Find patron “${q}”`, icon: "users", run: () => (location.href = `/staff/patrons?q=${encodeURIComponent(q)}`) });
-      out.push({ group: "Search", label: `Ask copilot: “${q}”`, icon: "sparkle", run: () => openCopilot(q) });
-    }
-    return out;
-  };
-  const render = () => {
-    const q = input.value.trim().toLowerCase();
-    const matches = COMMANDS.filter((c) => !q || q.split(/\s+/).every((w) => c.label.toLowerCase().includes(w)));
-    items = [...dynamic(input.value.trim()), ...matches];
-    sel = Math.min(sel, Math.max(items.length - 1, 0));
-    let last = "";
-    list.innerHTML = items.map((c, i) => {
-      const head = c.group !== last ? `<li class="group" role="presentation">${esc(c.group)}</li>` : "";
-      last = c.group;
-      return `${head}<li role="option" data-i="${i}" aria-selected="${i === sel}">${icon(c.icon || "chevron").__raw}<span>${esc(c.label)}</span>${c.hint ? `<span class="hint">${esc(c.hint)}</span>` : ""}</li>`;
-    }).join("") || `<li class="group">No matches</li>`;
-    $(`[aria-selected="true"]`, list)?.scrollIntoView({ block: "nearest" });
-  };
-  const run = (i) => { const c = items[i]; d.close(); c?.run(); };
-  input.addEventListener("input", () => { sel = 0; render(); });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowDown") { sel = (sel + 1) % items.length; render(); e.preventDefault(); }
-    if (e.key === "ArrowUp") { sel = (sel - 1 + items.length) % items.length; render(); e.preventDefault(); }
-    if (e.key === "Enter") { run(sel); e.preventDefault(); }
-  });
-  list.addEventListener("click", (e) => { const li = e.target.closest("[data-i]"); if (li) run(+li.dataset.i); });
-  d.addEventListener("close", () => d.remove());
-  d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
-  render();
-  d.showModal();
-  input.focus();
+/** Open the command palette (global search over records, patrons, items and commands). */
+export function openPalette(initial = "") {
+  return import("/static/js/ui/palette.js").then((m) => m.openPalette({ commands: COMMANDS, staff: STAFF, initial }));
 }
 
 // ------------------------------------------------------------------ AI copilot drawer (staff)
@@ -404,7 +442,7 @@ function initCopilot() {
     try {
       const r = await api("/ai/ask", { method: "POST", body: { question: q, history: chat.slice(-8) } });
       chat.push({ role: "user", content: q }, { role: "assistant", content: r.answer });
-      const tools = (r.trace || []).map((t) => t.tool.replace(/_/g, " ")).join(" · ");
+      const tools = (r.trace || []).map((x) => x.tool.replace(/_/g, " ")).join(" · ");
       typing.outerHTML = html`<div class="msg bot">${markdown(r.answer)}<div class="trace">${r.engine === "claude" ? "Claude" : "Local AI"}${tools ? " · used: " + tools : ""}</div></div>`;
     } catch (err) {
       typing.outerHTML = html`<div class="msg bot">Sorry — ${err.message}</div>`;
@@ -415,27 +453,32 @@ function initCopilot() {
 
 // ------------------------------------------------------------------ global wiring
 
+const isTyping = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+
 function initShell() {
   wireLanguageSwitchers();
-  $$("[data-open-palette]").forEach((b) => b.addEventListener("click", openPalette));
-  $$("[data-appearance]").forEach((b) => b.addEventListener("click", appearanceDialog));
+  $$("[data-open-palette]").forEach((b) => b.addEventListener("click", () => openPalette()));
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-appearance]")) appearanceDialog();
+    else if (e.target.closest("[data-shortcuts]")) shortcutsHelp();
+  });
   $$("[data-logout]").forEach((b) => b.addEventListener("click", async () => {
     await api("/auth/logout", { method: "POST" }).catch(() => {});
     location.href = "/";
   }));
-  const sidebar = $(".sidebar");
-  $(".menu-toggle")?.addEventListener("click", () => sidebar?.classList.toggle("open"));
   document.addEventListener("keydown", (e) => {
-    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+    if (e.defaultPrevented) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j" && STAFF) { e.preventDefault(); openCopilot(); }
-    else if (e.key === "/" && !typing) { const s = $("[data-search-focus]"); if (s) { e.preventDefault(); s.focus(); } else if (STAFF) { e.preventDefault(); openPalette(); } }
-    else if (e.altKey && /^[1-9]$/.test(e.key) && STAFF) {
-      const link = $$(".sidebar .nav-link")[+e.key - 1];
-      if (link) { e.preventDefault(); location.href = link.href; }
-    }
+    else if (e.key === "/" && !isTyping() && !e.ctrlKey && !e.metaKey) {
+      const s = $("[data-search-focus]");
+      if (s) { e.preventDefault(); s.focus(); s.select?.(); } else if (STAFF) { e.preventDefault(); openPalette(); }
+    } else if (e.key === "?" && !isTyping() && !document.querySelector("dialog[open]")) { e.preventDefault(); shortcutsHelp(); }
   });
   initCopilot();
+  // Staff shell (sidebar, hubs, user menu, notifications) and global tooltips load on demand.
+  if ($("[data-shell]")) import("/static/js/ui/shell.js").then((m) => m.initShell()).catch((err) => console.error(err));
+  import("/static/js/ui/tooltip.js").then((m) => m.initTooltips()).catch(() => {});
 }
 
 initShell();

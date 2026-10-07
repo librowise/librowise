@@ -19,7 +19,8 @@
     "close": "Close",
     "save": "Save",
     "branch": "Branch",
-    "all_branches": "All branches"
+    "all_branches": "All branches",
+    "confirm": "Confirm"
   },
   "lang": {
     "en": "English",
@@ -99,7 +100,51 @@
     "authorities": "Authorities",
     "labels": "Labels & cards",
     "batch": "Batch item tools",
-    "inventory": "Inventory"
+    "inventory": "Inventory",
+    "hub": {
+      "home": "Home",
+      "circulation": "Circulation",
+      "catalogue": "Catalogue",
+      "acquisitions": "Acquisitions",
+      "patrons": "Patrons",
+      "courses": "Course reserves",
+      "insights": "Insights",
+      "administration": "Administration",
+      "more": "More"
+    },
+    "tab": {
+      "dashboard": "Today",
+      "circulation": "Desk",
+      "holds": "Holds",
+      "calendar": "Calendar",
+      "kiosks": "Kiosks",
+      "catalog": "Records",
+      "authorities": "Authorities",
+      "copycat": "Copy cataloguing",
+      "labels": "Labels & cards",
+      "batch": "Batch & inventory",
+      "acquisitions": "Orders & budgets",
+      "serials": "Serials",
+      "patrons": "Patrons",
+      "requests": "Requests",
+      "notices": "Notices",
+      "courses": "Course reserves",
+      "reports": "Reports",
+      "analytics": "Analytics",
+      "insights": "AI insights",
+      "admin": "Settings",
+      "roles": "Roles & permissions",
+      "system": "System",
+      "interop": "Interoperability"
+    },
+    "detail": {
+      "record": "Record",
+      "record_edit": "Edit record",
+      "record_new": "New record",
+      "marc_editor": "MARC editor",
+      "patron": "Patron",
+      "labels_print": "Print"
+    }
   },
   "staff": {
     "open_palette": "Open command palette",
@@ -117,7 +162,7 @@
       "browse_headings": "Authors & subjects"
     },
     "footer": {
-      "powered": "{library} · Powered by Shelfwise ILS v{version}",
+      "powered": "{library} · Powered by Librowise v{version}",
       "press": "Press",
       "to_search": "to search",
       "for_commands": "for commands",
@@ -614,5 +659,436 @@
     "receipt_for": "Receipt for {name} (card {card})",
     "receipt_this_visit": "Borrowed or renewed today",
     "receipt_thanks": "Thank you for using the library. Please keep this receipt."
+  },
+  "ui": {
+    "undo": "Undo",
+    "role": {
+      "patron": "Patron",
+      "librarian": "Librarian",
+      "admin": "Administrator"
+    },
+    "shell": {
+      "close_menu": "Close menu",
+      "toggle_section": "Show or hide {section} pages",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "search_placeholder": "Search records, patrons, items or commands…",
+      "user_menu": "Account menu",
+      "account_security": "My account & security",
+      "shortcuts": "Keyboard shortcuts",
+      "design_system": "Design system",
+      "breadcrumb": "Breadcrumb",
+      "sections_of": "{section} sections"
+    },
+    "copilot": {
+      "title": "Library copilot",
+      "live_data": "Live data",
+      "read_only": "read-only",
+      "close": "Close copilot",
+      "intro": "Ask about loans, patrons, the collection or trends. Try:",
+      "placeholder": "Ask anything about your library…",
+      "question": "Question",
+      "send": "Send"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "density": "Density",
+      "text_size": "Text size",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark",
+      "sepia": "Sepia",
+      "contrast": "High contrast",
+      "comfortable": "Comfortable",
+      "compact": "Compact",
+      "synced": "Preferences follow your account across devices when you are signed in.",
+      "done": "Done"
+    },
+    "cmd": {
+      "new_record": "New catalogue record",
+      "checkout": "Check out items",
+      "checkin": "Check in items",
+      "register_patron": "Register a patron",
+      "copilot": "Ask the AI copilot",
+      "home": "Home",
+      "appearance": "Appearance: theme, density & text size",
+      "toggle_dark": "Toggle dark mode"
+    },
+    "keys": {
+      "palette": "Search & command palette",
+      "search": "Focus the page search",
+      "help": "Show keyboard shortcuts",
+      "copilot": "AI copilot",
+      "hubs": "Go to a sidebar section",
+      "sidebar": "Collapse or expand the sidebar",
+      "desk": "Circulation: check out / check in",
+      "rows": "Move between table rows",
+      "select": "Select the focused row",
+      "close": "Close dialogs and menus"
+    },
+    "palette": {
+      "title": "Search and commands",
+      "placeholder": "Search the catalogue or type a command…",
+      "placeholder_staff": "Search records, patrons, barcodes — or type a command…",
+      "scope": "Search in",
+      "scope_all": "All",
+      "scope_records": "Records",
+      "scope_patrons": "Patrons",
+      "scope_items": "Items",
+      "scope_commands": "Commands",
+      "results": "Results",
+      "navigate": "navigate",
+      "open": "open",
+      "switch_scope": "switch scope",
+      "prefix_hint": "<kbd>&gt;</kbd> commands · <kbd>@</kbd> patrons · <kbd>#</kbd> barcode",
+      "search_catalogue": "Search the catalogue for “{q}”",
+      "find_patron": "Find patrons matching “{q}”",
+      "ask_copilot": "Ask the copilot: “{q}”",
+      "no_matches": "No matches",
+      "result_count": {
+        "one": "{count} result",
+        "other": "{count} results"
+      },
+      "group_goto": "Go to",
+      "group_actions": "Actions",
+      "group_prefs": "Preferences",
+      "group_help": "Help",
+      "group_records": "Records",
+      "group_patrons": "Patrons",
+      "group_items": "Items"
+    },
+    "notif": {
+      "title": "Notifications",
+      "title_unread": {
+        "one": "Notifications, {count} unread",
+        "other": "Notifications, {count} unread"
+      },
+      "mark_all": "Mark all as read",
+      "unread": "Unread",
+      "empty_title": "You're all caught up",
+      "empty_body": "Alerts about holds, notices and the system will appear here.",
+      "updated": "Updated {when}",
+      "refresh": "Refresh",
+      "kind": {
+        "holds_ready": {
+          "one": "{count} hold waiting on the hold shelf",
+          "other": "{count} holds waiting on the hold shelf"
+        },
+        "holds_ready_body": "Expiring within two days: {expiring}",
+        "notices_failed": {
+          "one": "{count} patron notice failed to send",
+          "other": "{count} patron notices failed to send"
+        },
+        "notices_failed_body": "In the last 7 days.",
+        "registrations": {
+          "one": "{count} self-registration awaiting approval",
+          "other": "{count} self-registrations awaiting approval"
+        },
+        "suggestions": {
+          "one": "{count} purchase suggestion to review",
+          "other": "{count} purchase suggestions to review"
+        },
+        "jobs_failed": {
+          "one": "{count} background job failed",
+          "other": "{count} background jobs failed"
+        },
+        "jobs_failed_body": "In the last 24 hours."
+      }
+    },
+    "state": {
+      "error_title": "Something went wrong",
+      "retry": "Try again"
+    },
+    "status": {
+      "active": "Active",
+      "due_soon": "Due soon",
+      "overdue": "Overdue",
+      "returned": "Returned",
+      "draft": "Draft",
+      "ordered": "Ordered",
+      "partial": "Partly received",
+      "received": "Received",
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "sent": "Sent",
+      "failed": "Failed",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "dead": "Gave up",
+      "expiring": "Expiring soon",
+      "inactive": "Inactive",
+      "owing": "Owes money",
+      "staff": "Staff",
+      "suspended": "Suspended",
+      "expected": "Expected",
+      "arrived": "Arrived",
+      "late": "Late",
+      "missing": "Missing",
+      "claimed": "Claimed",
+      "not_published": "Not published",
+      "approved": "Approved"
+    },
+    "table": {
+      "export": "Export",
+      "export_hint": "Download as CSV (selected rows, or every match)",
+      "density": "Row density",
+      "density_default": "Default row height",
+      "density_compact": "Compact rows",
+      "density_comfortable": "Comfortable rows",
+      "columns": "Choose columns",
+      "show_columns": "Show columns",
+      "reset_columns": "Reset to default",
+      "bulk_actions": "Bulk actions",
+      "clear_selection": "Clear selection",
+      "select_page": "Select all rows on this page",
+      "select_row": "Select {name}",
+      "selected": {
+        "one": "{count} selected",
+        "other": "{count} selected"
+      },
+      "selection_cleared": "Selection cleared",
+      "sorted_asc": "Sorted by {column}, ascending",
+      "sorted_desc": "Sorted by {column}, descending",
+      "no_results": "No results",
+      "range": "{from}–{to} of {total}",
+      "pagination": "Pagination",
+      "per_page": "Rows per page",
+      "per_page_n": {
+        "one": "{count} per page",
+        "other": "{count} per page"
+      },
+      "previous": "Previous",
+      "next": "Next",
+      "page_of": "Page {page} of {pages}",
+      "exported": {
+        "one": "Exported {count} row",
+        "other": "Exported {count} rows"
+      },
+      "keyboard_hint": "<kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>X</kbd> select"
+    },
+    "filters": {
+      "label": "Filters",
+      "active": "Active filters",
+      "remove": "Remove filter {filter}",
+      "clear_all": "Clear all filters",
+      "clear_search": "Clear search",
+      "views": "Views",
+      "save_view": "Save view",
+      "view_name": "View name",
+      "delete_view": "Delete view {name}"
+    },
+    "form": {
+      "optional": "optional",
+      "required": "This field is required.",
+      "email": "Enter a valid email address.",
+      "invalid": "Check this value.",
+      "too_short": "Use at least {min} characters.",
+      "too_long": "Use at most {max} characters.",
+      "min": "Must be {min} or more.",
+      "max": "Must be {max} or less.",
+      "errors": {
+        "one": "{count} field needs attention.",
+        "other": "{count} fields need attention."
+      },
+      "no_changes": "No unsaved changes",
+      "unsaved": "Unsaved changes",
+      "saved": "All changes saved",
+      "leave_confirm": "You have unsaved changes. Leave this page and discard them?"
+    },
+    "dialog": {
+      "type_to_confirm": "Type {word} to confirm"
+    },
+    "combo": {
+      "no_matches": "No matches",
+      "results": {
+        "one": "{count} suggestion",
+        "other": "{count} suggestions"
+      }
+    },
+    "date": {
+      "presets": "Quick ranges",
+      "from": "From",
+      "to": "To",
+      "preset_today": "Today",
+      "preset_7d": "7 days",
+      "preset_30d": "30 days",
+      "preset_90d": "90 days",
+      "preset_month": "This month",
+      "preset_last_month": "Last month",
+      "preset_year": "This year",
+      "end_before_start": "The end date is before the start date.",
+      "too_long": "Choose a range of {days} days or fewer."
+    },
+    "stat": {
+      "increase": "increase",
+      "decrease": "decrease",
+      "no_change": "no change"
+    },
+    "cover": {
+      "title": "Cover",
+      "upload": "Upload cover",
+      "replace": "Replace cover",
+      "remove": "Remove cover",
+      "hint": "JPEG, PNG, WebP or GIF up to 5 MB — or drop an image here",
+      "bad_type": "Choose a JPEG, PNG, WebP or GIF image.",
+      "too_big": "Cover images must be 5 MB or smaller.",
+      "saved": "Cover updated",
+      "removed": "Uploaded cover removed",
+      "remove_title": "Remove the uploaded cover?",
+      "remove_text": "The record will show its Open Library cover (if any) or a generated cover instead."
+    },
+    "health": {
+      "title": "System health",
+      "open": "Open System →",
+      "database": "Database",
+      "worker": "Background worker",
+      "queue": "Job queue",
+      "backup": "Last backup",
+      "ok_ms": "OK · {ms} ms",
+      "down": "Unavailable",
+      "heartbeat": "Running · {s}s ago",
+      "no_worker": "No worker running",
+      "failed_jobs": {
+        "one": "{count} failed job",
+        "other": "{count} failed jobs"
+      },
+      "queue_ok": {
+        "one": "{count} queued",
+        "other": "{count} queued"
+      },
+      "no_backup": "No backups yet",
+      "uptime": "Started {when}"
+    },
+    "search": {
+      "filters": "Filters",
+      "availability": "Availability",
+      "view": "Results view",
+      "view_list": "List",
+      "view_grid": "Grid",
+      "show_more": {
+        "one": "Show {count} more",
+        "other": "Show {count} more"
+      },
+      "show_less": "Show less",
+      "empty_title": "No matching titles",
+      "try_ai": "Try AI search",
+      "filter_audience": "Audience",
+      "filter_year_from": "Published"
+    },
+    "patrons": {
+      "title": "Patrons",
+      "subtitle": "Find members, register new ones and keep memberships current.",
+      "register": "Register patron",
+      "register_submit": "Register",
+      "registered": "Registered {name} — card {card}",
+      "search_label": "Search patrons",
+      "search_placeholder": "Name, card number or email",
+      "any_status": "Any status",
+      "any_role": "Any role",
+      "any_category": "Any category",
+      "staff_only": "Staff only",
+      "col_name": "Name",
+      "col_card": "Card",
+      "col_category": "Category",
+      "col_branch": "Home branch",
+      "col_loans": "Loans",
+      "col_balance": "Balance",
+      "col_expires": "Membership",
+      "col_email": "Email",
+      "col_phone": "Phone",
+      "col_created": "Registered",
+      "col_status": "Status",
+      "col_role": "Role",
+      "expired_on": "Expired {date}",
+      "expires_on": "Expires {date}",
+      "view_all": "All patrons",
+      "view_expiring": "Expiring soon",
+      "view_expired": "Expired",
+      "view_owing": "Owes money",
+      "view_staff": "Staff",
+      "empty_title": "No patrons match",
+      "empty_body": "Try a different name or card number, or clear the filters.",
+      "bulk_renew": "Renew membership",
+      "bulk_cards": "Print library cards",
+      "bulk_export": "Export CSV",
+      "renew_title": {
+        "one": "Renew {count} membership?",
+        "other": "Renew {count} memberships?"
+      },
+      "renew_body": "Each membership is extended by its category's enrolment period, from today or from the current expiry date, whichever is later.",
+      "renewed": {
+        "one": "{count} membership renewed",
+        "other": "{count} memberships renewed"
+      },
+      "renewed_some": {
+        "one": "{count} membership renewed, {skipped} skipped (staff accounts)",
+        "other": "{count} memberships renewed, {skipped} skipped (staff accounts)"
+      },
+      "renew_undone": "Renewal undone"
+    },
+    "catalog": {
+      "title": "Catalogue",
+      "subtitle": "Search, edit and enrich bibliographic records.",
+      "new": "New record",
+      "export_all": "Export MARCXML",
+      "search_label": "Search the catalogue",
+      "search_placeholder": "Title, author, subject, ISBN…",
+      "any_format": "Any format",
+      "any_availability": "Any availability",
+      "sort_auto": "Best match",
+      "view_all": "All records",
+      "col_cover": "Cover",
+      "col_title": "Title",
+      "col_authors": "Authors",
+      "col_year": "Year",
+      "col_format": "Format",
+      "col_class": "Class",
+      "col_publisher": "Publisher",
+      "col_language": "Language",
+      "col_copies": "Copies",
+      "empty_title": "No records match",
+      "empty_body": "Try different terms or fewer filters — or create a new record.",
+      "bulk_marcxml": "Export MARCXML",
+      "bulk_mrc": "Export MARC (ISO 2709)"
+    },
+    "sg": {
+      "intro": "Every Librowise component in its states. Switch theme and direction to check them; see docs/DESIGN_SYSTEM.md for usage.",
+      "contents": "Contents",
+      "direction": "Direction",
+      "brand": "Brand",
+      "colour": "Colour",
+      "type": "Typography",
+      "scales": "Space, radius, elevation & motion",
+      "buttons": "Buttons",
+      "status": "Badges & status pills",
+      "header": "Page header",
+      "filters": "Filter bar & saved views",
+      "table": "Data table",
+      "forms": "Forms",
+      "tabs": "Tabs & segmented control",
+      "combobox": "Combobox",
+      "dates": "Dates & ranges",
+      "stats": "Stat tiles & progress",
+      "empty": "Empty, error & loading states",
+      "feedback": "Toasts & tooltips",
+      "overlays": "Dialogs & side panel",
+      "people": "Avatars",
+      "covers": "Book covers",
+      "brand_note": "The mark (three books on a shelf, the last leaning in) works on any background; the wordmark uses the text colour with “wise” in the primary colour.",
+      "on_surface": "on surface",
+      "ramps": "Ramps",
+      "chart_palette": "Chart palette",
+      "contrast_note": "Text tokens are checked against WCAG 2.2 AA in all four themes by scripts/check_contrast.py.",
+      "tabular": "tabular figures",
+      "spacing": "Spacing",
+      "radius_elevation": "Radius & elevation",
+      "motion": "Motion",
+      "covers_note": "Covers come from /covers/{id}.jpg — an uploaded cover, else Open Library by ISBN (cached), else this generated cover."
+    },
+    "brand": {
+      "tagline": "The modern library system"
+    }
   }
 }

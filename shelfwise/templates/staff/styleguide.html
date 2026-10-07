@@ -1,0 +1,32 @@
+{% extends "staff_base.html" %}
+{% block page_title %}{{ t('ui.shell.design_system') }}{% endblock %}
+{% block content %}
+{%- set sections = [
+  ('brand', t('ui.sg.brand')), ('colour', t('ui.sg.colour')), ('type', t('ui.sg.type')), ('scales', t('ui.sg.scales')),
+  ('buttons', t('ui.sg.buttons')), ('status', t('ui.sg.status')), ('header', t('ui.sg.header')), ('filters', t('ui.sg.filters')),
+  ('table', t('ui.sg.table')), ('forms', t('ui.sg.forms')), ('tabs', t('ui.sg.tabs')), ('combobox', t('ui.sg.combobox')),
+  ('dates', t('ui.sg.dates')), ('stats', t('ui.sg.stats')), ('empty', t('ui.sg.empty')), ('feedback', t('ui.sg.feedback')),
+  ('overlays', t('ui.sg.overlays')), ('people', t('ui.sg.people')), ('covers', t('ui.sg.covers')),
+] -%}
+<header class="page-header">
+  <div class="ph-main">
+    <div class="ph-eyebrow">{{ product_name }} UI</div>
+    <h1 id="page-title">{{ t('ui.shell.design_system') }}</h1>
+    <p class="ph-sub">{{ t('ui.sg.intro') }}</p>
+  </div>
+  <div class="ph-actions" id="sg-preview-controls"></div>
+</header>
+<div class="sg-layout">
+  <nav class="sg-toc" aria-label="{{ t('ui.sg.contents') }}">
+    {% for id, title in sections %}<a href="#sg-{{ id }}">{{ title }}</a>{% endfor %}
+  </nav>
+  <div id="sg-root">
+    {% for id, title in sections %}
+    <section class="sg-section" id="sg-{{ id }}" aria-labelledby="sg-{{ id }}-h">
+      <h2 id="sg-{{ id }}-h">{{ title }}</h2>
+      <div data-sg="{{ id }}"><div class="skeleton" style="height:4rem"></div></div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

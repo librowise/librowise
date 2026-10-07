@@ -1,6 +1,6 @@
 {% extends "staff_base.html" %}
 {% block page_title %}Record{% endblock %}
+{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.record') }}</span></li>{% endblock %}
 {% block content %}
-<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/catalog">Catalogue</a> / <span id="crumb">Record</span></nav>
 <div id="record"><div class="skeleton" style="height:12rem"></div></div>
 {% endblock %}

@@ -162,7 +162,7 @@ function renderReady(rows) {
 function renderPull(rows) {
   const branch = state.branches.find((b) => String(b.id) === state.branch);
   const hint = html`<div class="alert info" style="margin-bottom:1rem">${icon("info")}<div>
-    Pull these copies and <strong>check them in at the circulation desk</strong> — Shelfwise routes each one automatically:
+    Pull these copies and <strong>check them in at the circulation desk</strong> — Librowise routes each one automatically:
     to the hold shelf if it's already at the pickup branch, otherwise into transit.
     ${branch ? html`Showing copies shelved at <strong>${branch.name}</strong>.` : ""}
     <a href="/staff/circulation#checkin">Open check-in ${icon("arrow-right")}</a></div></div>`;

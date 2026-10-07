@@ -1,56 +1,134 @@
 {% extends "base.html" %}
+{#- Staff shell: collapsible sidebar of hubs (web.HUBS), top bar, breadcrumbs and the hub's tab bar.
+    Page templates fill {% block content %}; detail pages may refine the trail with {% block crumbs_extra %}. -#}
 {% block title %}{% block page_title %}{{ t('nav.staff') }}{% endblock %} · {{ library_name }}{% endblock %}
 {% block body %}
-<div class="shell">
-  <aside class="sidebar" aria-label="{{ t('nav.staff_navigation') }}">
-    <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>Shelfwise</a>
-    <nav class="nav-groups" aria-label="{{ t('nav.staff_navigation') }}">
-    {% for group in staff_nav_groups %}
-      <div class="nav-section" role="group" aria-labelledby="nav-sec-{{ group.id }}">
-        <div class="nav-section-title" id="nav-sec-{{ group.id }}">{{ t('nav.section.' ~ group.id, group.title) }}</div>
-        {% for item in group['items'] %}
-        <a class="nav-link" href="{{ item.href }}" {% if page == 'staff-' ~ item.key or (item.key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (item.key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
-          <svg class="icon" aria-hidden="true"><use href="#i-{{ item.icon }}"></use></svg>{{ t('nav.' ~ item.key, item.label) }}{% if item.index <= 9 %}<span class="kbd-hint">Alt+{{ item.index }}</span>{% endif %}
-        </a>
-        {% endfor %}
-      </div>
-    {% endfor %}
+{%- set hub = shell.hub if shell else None -%}
+<div class="shell" data-shell>
+  <aside class="sidebar" id="sidebar" aria-label="{{ t('nav.staff_navigation') }}">
+    <div class="sidebar-head">
+      <a class="brand" href="/staff" aria-label="{{ product_name }} · {{ t('nav.hub.home') }}" title="{{ product_name }} — {{ t('ui.brand.tagline') }}">
+        <span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span>
+        <span class="wordmark">Libro<span>wise</span></span>
+      </a>
+      <button type="button" class="btn ghost icon-only sidebar-close" data-sidebar-close aria-label="{{ t('ui.shell.close_menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+    </div>
+    <nav class="hub-nav" aria-label="{{ t('nav.staff_navigation') }}">
+      <ul role="list">
+      {%- for h in shell.hubs %}
+        {%- set active = hub and hub.id == h.id %}
+        <li class="hub-item{% if active %} active{% endif %}{% if h.tabs|length == 1 %} single{% endif %}" data-hub="{{ h.id }}">
+          <div class="hub-row" data-label="{{ t('nav.hub.' ~ h.id, h.label) }}">
+            <a class="hub-link" href="{{ h.href }}" data-hub-index="{{ h.index }}"{% if active %} aria-current="{{ 'page' if (shell.tab and shell.tab.href == h.href and not shell.detail) else 'location' }}"{% endif %}>
+              <svg class="icon" aria-hidden="true"><use href="#i-{{ h.icon }}"></use></svg>
+              <span class="hub-label">{{ t('nav.hub.' ~ h.id, h.label) }}</span>
+              {% if h.index <= 9 %}<kbd class="kbd-hint" aria-hidden="true">Alt {{ h.index }}</kbd>{% endif %}
+            </a>
+            {%- if h.tabs|length > 1 %}
+            <button type="button" class="hub-toggle" aria-expanded="{{ 'true' if active else 'false' }}" aria-controls="hub-sub-{{ h.id }}"
+                    aria-label="{{ t('ui.shell.toggle_section', section=t('nav.hub.' ~ h.id, h.label)) }}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>
+            {%- endif %}
+          </div>
+          {%- if h.tabs|length > 1 %}
+          <ul class="hub-sub" id="hub-sub-{{ h.id }}" role="list" aria-label="{{ t('nav.hub.' ~ h.id, h.label) }}"{% if not active %} hidden{% endif %}>
+            <li class="hub-sub-title" aria-hidden="true">{{ t('nav.hub.' ~ h.id, h.label) }}</li>
+            {%- for tab in h.tabs %}
+            <li><a href="{{ tab.href }}"{% if shell.tab and shell.tab.key == tab.key %} aria-current="{{ 'location' if shell.detail else 'page' }}"{% endif %}>{{ t('nav.tab.' ~ tab.key, tab.label) }}</a></li>
+            {%- endfor %}
+          </ul>
+          {%- endif %}
+        </li>
+      {%- endfor %}
+      </ul>
     </nav>
-    <div class="spacer"></div>
-    <a class="nav-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>{{ t('nav.public_catalogue') }}</a>
-    <a class="nav-link" href="/kiosk"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>{{ t('nav.self_checkout') }}</a>
-    <a class="nav-link" href="/api/docs" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg>{{ t('nav.api_docs') }}</a>
-    <div class="sidebar-footer">v{{ version }} · {{ user.home_branch.name }}</div>
+    <div class="sidebar-foot">
+      <a class="side-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg><span>{{ t('nav.public_catalogue') }}</span></a>
+      <a class="side-link" href="/kiosk"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg><span>{{ t('nav.self_checkout') }}</span></a>
+      <a class="side-link" href="/api/docs" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg><span>{{ t('nav.api_docs') }}</span></a>
+      <button type="button" class="side-link sidebar-collapse" data-sidebar-collapse aria-pressed="false" title="{{ t('ui.shell.collapse') }} ( [ )">
+        <svg class="icon" aria-hidden="true"><use href="#i-sidebar"></use></svg><span data-label-expanded>{{ t('ui.shell.collapse') }}</span><span data-label-collapsed class="sr-only">{{ t('ui.shell.expand') }}</span>
+      </button>
+      <div class="sidebar-meta" title="{{ product_name }} v{{ version }}">v{{ version }} · {{ user.home_branch.name }}</div>
+    </div>
   </aside>
+  <div class="sidebar-scrim" data-sidebar-close hidden></div>
   <div class="main">
     <header class="topbar">
-      <button class="btn ghost icon-only menu-toggle" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
-      <button class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}">
-        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('staff.search_or_command') }}</span><kbd>Ctrl K</kbd>
+      <button type="button" class="btn ghost icon-only menu-toggle" data-sidebar-open aria-controls="sidebar" aria-expanded="false" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
+      <a class="brand brand-compact" href="/staff" aria-label="{{ product_name }}"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span></a>
+      <button type="button" class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}" aria-keyshortcuts="Control+K">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('ui.shell.search_placeholder') }}</span><kbd>Ctrl K</kbd>
       </button>
-      <div class="row tight" style="margin-left:auto">
-        <button class="btn ai sm" data-open-copilot title="{{ t('staff.copilot_title') }}"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><span>{{ t('staff.copilot') }}</span></button>
-        {% include "_lang_switch.html" %}
-        <button class="btn ghost icon-only" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
-        <a class="avatar" href="/staff/security" title="{{ user.full_name }} ({{ user.role.value }}) · My account &amp; security" aria-label="My account and security" style="width:2.1rem;height:2.1rem;font-size:.8rem;text-decoration:none">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</a>
-        <button class="btn ghost icon-only" data-logout aria-label="{{ t('common.sign_out') }}" title="{{ t('common.sign_out') }}"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg></button>
+      <div class="topbar-actions">
+        <button type="button" class="btn ai sm copilot-btn" data-open-copilot title="{{ t('staff.copilot_title') }}" aria-keyshortcuts="Control+J"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><span>{{ t('staff.copilot') }}</span></button>
+        <div class="notif" data-notifications>
+          <button type="button" class="btn ghost icon-only notif-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-panel" aria-label="{{ t('ui.notif.title') }}" title="{{ t('ui.notif.title') }}">
+            <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg><span class="notif-count" hidden></span>
+          </button>
+          <section class="notif-panel popover" id="notif-panel" role="dialog" aria-label="{{ t('ui.notif.title') }}" hidden></section>
+        </div>
+        <span class="topbar-wide">{% include "_lang_switch.html" %}</span>
+        <button type="button" class="btn ghost icon-only topbar-wide" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
+        <div class="user-menu" data-menu>
+          <button type="button" class="user-trigger" data-menu-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu-list" title="{{ user.full_name }}">
+            <span class="avatar sm" data-avatar="{{ user.full_name }}" aria-hidden="true">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</span>
+            <span class="user-name">{{ user.first_name }}</span><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+            <span class="sr-only">{{ t('ui.shell.user_menu') }}</span>
+          </button>
+          <div class="menu popover" id="user-menu-list" role="menu" aria-label="{{ t('ui.shell.user_menu') }}" hidden>
+            <div class="menu-header" role="presentation">
+              <strong>{{ user.full_name }}</strong>
+              <span class="small muted">{{ t('ui.role.' ~ user.role.value, user.role.value) }} · {{ user.home_branch.name }}</span>
+            </div>
+            <a role="menuitem" href="/staff/security"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>{{ t('ui.shell.account_security') }}</a>
+            <button type="button" role="menuitem" data-appearance><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg>{{ t('common.appearance') }}</button>
+            <button type="button" role="menuitem" data-shortcuts><svg class="icon" aria-hidden="true"><use href="#i-keyboard"></use></svg>{{ t('ui.shell.shortcuts') }}</button>
+            <a role="menuitem" href="/staff/styleguide"><svg class="icon" aria-hidden="true"><use href="#i-swatch"></use></svg>{{ t('ui.shell.design_system') }}</a>
+            <div class="menu-lang" role="presentation">{% include "_lang_switch.html" %}</div>
+            <hr role="separator">
+            <button type="button" role="menuitem" data-logout><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg>{{ t('common.sign_out') }}</button>
+          </div>
+        </div>
       </div>
     </header>
+    {%- if hub and (hub.tabs|length > 1 or shell.detail) %}
+    <div class="hub-head">
+      <nav class="crumbs" aria-label="{{ t('ui.shell.breadcrumb') }}">
+        <ol>
+          {%- for c in shell.crumbs %}
+          {%- if loop.last and not shell.detail %}
+          <li><span aria-current="page">{{ t(c.key, c.label) }}</span></li>
+          {%- else %}
+          <li><a href="{{ c.href }}">{{ t(c.key, c.label) }}</a></li>
+          {%- endif %}
+          {%- endfor %}
+          {%- if shell.detail %}{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t(shell.detail_key, shell.detail) }}</span></li>{% endblock %}{% endif %}
+        </ol>
+      </nav>
+      {%- if hub.tabs|length > 1 %}
+      <nav class="hub-tabs" aria-label="{{ t('ui.shell.sections_of', section=t('nav.hub.' ~ hub.id, hub.label)) }}">
+        {%- for tab in hub.tabs %}
+        <a href="{{ tab.href }}"{% if shell.tab and shell.tab.key == tab.key %} aria-current="{{ 'location' if shell.detail else 'page' }}"{% endif %}>{{ t('nav.tab.' ~ tab.key, tab.label) }}</a>
+        {%- endfor %}
+      </nav>
+      {%- endif %}
+    </div>
+    {%- endif %}
     <main id="main" class="content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
   </div>
 </div>
 
-<aside class="drawer" id="copilot" aria-hidden="true" aria-label="AI copilot">
+<aside class="drawer" id="copilot" aria-hidden="true" aria-label="{{ t('ui.copilot.title') }}">
   <div class="drawer-head">
-    <span class="brand-mark" style="width:1.8rem;height:1.8rem"><svg class="icon"><use href="#i-sparkle"></use></svg></span>
-    <div class="grow"><strong>Library copilot</strong><div class="tiny muted">Live data · <span id="copilot-engine">…</span> · read-only</div></div>
-    <button class="btn ghost icon-only" id="copilot-close" aria-label="Close copilot"><svg class="icon"><use href="#i-x"></use></svg></button>
+    <span class="brand-mark ai-mark" style="width:1.8rem;height:1.8rem"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></span>
+    <div class="grow"><strong>{{ t('ui.copilot.title') }}</strong><div class="tiny muted">{{ t('ui.copilot.live_data') }} · <span id="copilot-engine">…</span> · {{ t('ui.copilot.read_only') }}</div></div>
+    <button class="btn ghost icon-only" id="copilot-close" aria-label="{{ t('ui.copilot.close') }}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
   </div>
   <div class="drawer-body" id="copilot-body" aria-live="polite">
     <div class="copilot-welcome stack tight">
-      <p class="muted small">Ask about loans, patrons, the collection or trends. Try:</p>
+      <p class="muted small">{{ t('ui.copilot.intro') }}</p>
       <button class="chip" data-suggest="Give me today's library overview">Today's overview</button>
       <button class="chip" data-suggest="Which loans are overdue?">Overdue loans</button>
       <button class="chip" data-suggest="Which loans are at risk of being returned late?">Late-return risk</button>
@@ -60,8 +138,8 @@
     </div>
   </div>
   <form class="drawer-foot input-group" id="copilot-form">
-    <input id="copilot-input" type="text" placeholder="Ask anything about your library…" autocomplete="off" aria-label="Question">
-    <button class="btn primary" aria-label="Send"><svg class="icon"><use href="#i-send"></use></svg></button>
+    <input id="copilot-input" type="text" placeholder="{{ t('ui.copilot.placeholder') }}" autocomplete="off" aria-label="{{ t('ui.copilot.question') }}">
+    <button class="btn primary" aria-label="{{ t('ui.copilot.send') }}"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg></button>
   </form>
 </aside>
 {% endblock %}

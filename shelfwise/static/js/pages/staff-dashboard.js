@@ -161,4 +161,6 @@ export default async function init() {
   refresh();
   loadRisk();
   schedule();
+  const health = $("#sys-health");
+  if (health) import("/static/js/pages/lib/system-health.js").then((m) => m.renderSystemHealth(health)).catch(() => {});
 }

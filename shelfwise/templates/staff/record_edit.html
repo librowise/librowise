@@ -1,7 +1,7 @@
 {% extends "staff_base.html" %}
 {% block page_title %}Edit record{% endblock %}
+{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.record_edit') if path_params.biblio_id else t('nav.detail.record_new') }}</span></li>{% endblock %}
 {% block content %}
-<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/catalog">Catalogue</a> / <span id="crumb">New record</span></nav>
 <div class="page-head">
   <div><h1 id="heading">New record</h1><div class="sub">Start from an ISBN to fetch metadata, then let AI suggest subjects and classification.</div></div>
 </div>

@@ -98,7 +98,7 @@ export async function mountSecurity(root, { enroll = false, password = false } =
     <section class="card pad stack hidden" aria-labelledby="sec-id-h" data-identities-card><h3 id="sec-id-h">Linked sign-in accounts</h3><div data-identities></div></section>
     <section class="card pad stack" aria-labelledby="sec-tok-h">
       <div class="row between"><h3 id="sec-tok-h">Personal API tokens</h3><button class="btn sm" data-new-token>${icon("plus")}New token</button></div>
-      <p class="small muted">Tokens let scripts and integrations call the Shelfwise API as you, limited to the scopes you choose. Treat them like passwords.</p>
+      <p class="small muted">Tokens let scripts and integrations call the Librowise API as you, limited to the scopes you choose. Treat them like passwords.</p>
       <div data-tokens>${raw(skeleton(2))}</div></section>
     <section class="card pad stack" aria-labelledby="sec-log-h"><h3 id="sec-log-h">Recent sign-in activity</h3><div data-logins>${raw(skeleton(3))}</div></section>
   </div>`;

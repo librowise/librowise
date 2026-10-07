@@ -19,7 +19,8 @@
     "close": "بند کریں",
     "save": "محفوظ کریں",
     "branch": "شاخ",
-    "all_branches": "تمام شاخیں"
+    "all_branches": "تمام شاخیں",
+    "confirm": "تصدیق کریں"
   },
   "lang": {
     "en": "انگریزی",
@@ -99,7 +100,51 @@
     "authorities": "اتھارٹیز",
     "labels": "لیبل اور کارڈ",
     "batch": "بیچ آئٹم ٹولز",
-    "inventory": "انوینٹری"
+    "inventory": "انوینٹری",
+    "hub": {
+      "home": "ہوم",
+      "circulation": "اجرا و واپسی",
+      "catalogue": "فہرست",
+      "acquisitions": "حصولیات",
+      "patrons": "اراکین",
+      "courses": "نصابی محفوظات",
+      "insights": "بصیرت",
+      "administration": "انتظامیہ",
+      "more": "مزید"
+    },
+    "tab": {
+      "dashboard": "آج",
+      "circulation": "ڈیسک",
+      "holds": "ریزرویشن",
+      "calendar": "کیلنڈر",
+      "kiosks": "کیوسک",
+      "catalog": "ریکارڈ",
+      "authorities": "مستند اندراجات",
+      "copycat": "کاپی کیٹلاگنگ",
+      "labels": "لیبل اور کارڈ",
+      "batch": "بیچ اور ذخیرہ جانچ",
+      "acquisitions": "آرڈر اور بجٹ",
+      "serials": "رسائل",
+      "patrons": "اراکین",
+      "requests": "درخواستیں",
+      "notices": "اطلاعات",
+      "courses": "نصابی محفوظات",
+      "reports": "رپورٹیں",
+      "analytics": "تجزیات",
+      "insights": "AI بصیرت",
+      "admin": "ترتیبات",
+      "roles": "کردار اور اجازتیں",
+      "system": "سسٹم",
+      "interop": "باہمی ربط"
+    },
+    "detail": {
+      "record": "ریکارڈ",
+      "record_edit": "ریکارڈ میں ترمیم",
+      "record_new": "نیا ریکارڈ",
+      "marc_editor": "MARC ایڈیٹر",
+      "patron": "رکن",
+      "labels_print": "پرنٹ"
+    }
   },
   "staff": {
     "open_palette": "کمانڈ پیلیٹ کھولیں",
@@ -117,7 +162,7 @@
       "browse_headings": "مصنفین اور موضوعات"
     },
     "footer": {
-      "powered": "{library} · Shelfwise ILS v{version} کے ذریعے",
+      "powered": "{library} · Librowise v{version} کے ذریعے",
       "press": "تلاش کے لیے",
       "to_search": "دبائیں",
       "for_commands": "کمانڈز کے لیے",
@@ -614,5 +659,436 @@
     "receipt_for": "{name} کی رسید (کارڈ {card})",
     "receipt_this_visit": "آج مستعار لی گئی یا تجدید شدہ کتابیں",
     "receipt_thanks": "لائبریری استعمال کرنے کا شکریہ۔ براہِ کرم یہ رسید سنبھال کر رکھیں۔"
+  },
+  "ui": {
+    "undo": "واپس لیں",
+    "role": {
+      "patron": "رکن",
+      "librarian": "لائبریرین",
+      "admin": "منتظم"
+    },
+    "shell": {
+      "close_menu": "مینو بند کریں",
+      "toggle_section": "{section} کے صفحات دکھائیں یا چھپائیں",
+      "collapse": "سائیڈ بار سمیٹیں",
+      "expand": "سائیڈ بار پھیلائیں",
+      "search_placeholder": "ریکارڈ، اراکین، نسخے یا کمانڈ تلاش کریں…",
+      "user_menu": "اکاؤنٹ مینو",
+      "account_security": "میرا اکاؤنٹ اور سیکیورٹی",
+      "shortcuts": "کی بورڈ شارٹ کٹ",
+      "design_system": "ڈیزائن سسٹم",
+      "breadcrumb": "راستہ",
+      "sections_of": "{section} کے حصے"
+    },
+    "copilot": {
+      "title": "لائبریری کوپائلٹ",
+      "live_data": "براہِ راست ڈیٹا",
+      "read_only": "صرف پڑھنے کے لیے",
+      "close": "کوپائلٹ بند کریں",
+      "intro": "قرضوں، اراکین، ذخیرے یا رجحانات کے بارے میں پوچھیں۔ مثال:",
+      "placeholder": "اپنی لائبریری کے بارے میں کچھ بھی پوچھیں…",
+      "question": "سوال",
+      "send": "بھیجیں"
+    },
+    "appearance": {
+      "title": "ظاہری شکل",
+      "theme": "تھیم",
+      "density": "کثافت",
+      "text_size": "متن کا سائز",
+      "system": "سسٹم",
+      "light": "ہلکی",
+      "dark": "گہری",
+      "sepia": "سیپیا",
+      "contrast": "زیادہ کنٹراسٹ",
+      "comfortable": "آرام دہ",
+      "compact": "مختصر",
+      "synced": "سائن اِن ہونے پر آپ کی ترجیحات تمام آلات پر آپ کے اکاؤنٹ کے ساتھ رہتی ہیں۔",
+      "done": "مکمل"
+    },
+    "cmd": {
+      "new_record": "نیا فہرستی ریکارڈ",
+      "checkout": "نسخے جاری کریں",
+      "checkin": "نسخے واپس لیں",
+      "register_patron": "رکن رجسٹر کریں",
+      "copilot": "AI کوپائلٹ سے پوچھیں",
+      "home": "ہوم",
+      "appearance": "ظاہری شکل: تھیم، کثافت اور متن کا سائز",
+      "toggle_dark": "گہری تھیم آن/آف کریں"
+    },
+    "keys": {
+      "palette": "تلاش اور کمانڈ پیلیٹ",
+      "search": "صفحے کی تلاش پر جائیں",
+      "help": "کی بورڈ شارٹ کٹ دکھائیں",
+      "copilot": "AI کوپائلٹ",
+      "hubs": "سائیڈ بار کے حصے پر جائیں",
+      "sidebar": "سائیڈ بار سمیٹیں یا پھیلائیں",
+      "desk": "اجرا و واپسی: جاری کریں / واپس لیں",
+      "rows": "جدول کی قطاروں میں آگے پیچھے جائیں",
+      "select": "منتخب قطار چنیں",
+      "close": "ڈائیلاگ اور مینو بند کریں"
+    },
+    "palette": {
+      "title": "تلاش اور کمانڈ",
+      "placeholder": "فہرست میں تلاش کریں یا کمانڈ لکھیں…",
+      "placeholder_staff": "ریکارڈ، اراکین، بارکوڈ تلاش کریں — یا کمانڈ لکھیں…",
+      "scope": "اس میں تلاش کریں",
+      "scope_all": "سب",
+      "scope_records": "ریکارڈ",
+      "scope_patrons": "اراکین",
+      "scope_items": "نسخے",
+      "scope_commands": "کمانڈ",
+      "results": "نتائج",
+      "navigate": "حرکت",
+      "open": "کھولیں",
+      "switch_scope": "دائرہ بدلیں",
+      "prefix_hint": "<kbd>&gt;</kbd> کمانڈ · <kbd>@</kbd> اراکین · <kbd>#</kbd> بارکوڈ",
+      "search_catalogue": "فہرست میں “{q}” تلاش کریں",
+      "find_patron": "“{q}” سے ملتے اراکین تلاش کریں",
+      "ask_copilot": "کوپائلٹ سے پوچھیں: “{q}”",
+      "no_matches": "کوئی مماثلت نہیں",
+      "result_count": {
+        "one": "{count} نتیجہ",
+        "other": "{count} نتائج"
+      },
+      "group_goto": "یہاں جائیں",
+      "group_actions": "اقدامات",
+      "group_prefs": "ترجیحات",
+      "group_help": "مدد",
+      "group_records": "ریکارڈ",
+      "group_patrons": "اراکین",
+      "group_items": "نسخے"
+    },
+    "notif": {
+      "title": "اطلاعات",
+      "title_unread": {
+        "one": "اطلاعات، {count} غیر پڑھی",
+        "other": "اطلاعات، {count} غیر پڑھی"
+      },
+      "mark_all": "سب کو پڑھا ہوا نشان زد کریں",
+      "unread": "غیر پڑھی",
+      "empty_title": "سب کچھ دیکھ لیا گیا ہے",
+      "empty_body": "ریزرویشن، اطلاعات اور سسٹم سے متعلق انتباہات یہاں ظاہر ہوں گے۔",
+      "updated": "{when} تازہ کیا گیا",
+      "refresh": "تازہ کریں",
+      "kind": {
+        "holds_ready": {
+          "one": "{count} ریزرویشن ہولڈ شیلف پر منتظر",
+          "other": "{count} ریزرویشن ہولڈ شیلف پر منتظر"
+        },
+        "holds_ready_body": "دو دن میں ختم ہونے والے: {expiring}",
+        "notices_failed": {
+          "one": "{count} رکن اطلاع بھیجی نہ جا سکی",
+          "other": "{count} رکن اطلاعات بھیجی نہ جا سکیں"
+        },
+        "notices_failed_body": "گزشتہ 7 دنوں میں۔",
+        "registrations": {
+          "one": "{count} خود رجسٹریشن منظوری کی منتظر",
+          "other": "{count} خود رجسٹریشن منظوری کی منتظر"
+        },
+        "suggestions": {
+          "one": "جائزے کے لیے {count} خریداری تجویز",
+          "other": "جائزے کے لیے {count} خریداری تجاویز"
+        },
+        "jobs_failed": {
+          "one": "{count} پس منظر کا کام ناکام ہوا",
+          "other": "{count} پس منظر کے کام ناکام ہوئے"
+        },
+        "jobs_failed_body": "گزشتہ 24 گھنٹوں میں۔"
+      }
+    },
+    "state": {
+      "error_title": "کچھ غلط ہو گیا",
+      "retry": "دوبارہ کوشش کریں"
+    },
+    "status": {
+      "active": "فعال",
+      "due_soon": "جلد واجب",
+      "overdue": "تاخیر شدہ",
+      "returned": "واپس شدہ",
+      "draft": "مسودہ",
+      "ordered": "آرڈر شدہ",
+      "partial": "جزوی طور پر موصول",
+      "received": "موصول",
+      "pending": "زیرِ التوا",
+      "accepted": "منظور",
+      "rejected": "مسترد",
+      "sent": "بھیجا گیا",
+      "failed": "ناکام",
+      "running": "جاری",
+      "succeeded": "کامیاب",
+      "dead": "ترک کر دیا گیا",
+      "expiring": "جلد ختم",
+      "inactive": "غیر فعال",
+      "owing": "واجب الادا",
+      "staff": "عملہ",
+      "suspended": "معطل",
+      "expected": "متوقع",
+      "arrived": "موصول ہو گیا",
+      "late": "تاخیر سے",
+      "missing": "گمشدہ",
+      "claimed": "دعویٰ کیا گیا",
+      "not_published": "شائع نہیں ہوا",
+      "approved": "منظور شدہ"
+    },
+    "table": {
+      "export": "برآمد",
+      "export_hint": "CSV کے طور پر ڈاؤن لوڈ کریں (منتخب قطاریں، یا تمام نتائج)",
+      "density": "قطار کی کثافت",
+      "density_default": "عام قطار اونچائی",
+      "density_compact": "مختصر قطاریں",
+      "density_comfortable": "آرام دہ قطاریں",
+      "columns": "کالم منتخب کریں",
+      "show_columns": "کالم دکھائیں",
+      "reset_columns": "پہلے جیسا کریں",
+      "bulk_actions": "اجتماعی اقدامات",
+      "clear_selection": "انتخاب صاف کریں",
+      "select_page": "اس صفحے کی تمام قطاریں منتخب کریں",
+      "select_row": "{name} منتخب کریں",
+      "selected": {
+        "one": "{count} منتخب",
+        "other": "{count} منتخب"
+      },
+      "selection_cleared": "انتخاب صاف کر دیا گیا",
+      "sorted_asc": "{column} کے مطابق، صعودی ترتیب",
+      "sorted_desc": "{column} کے مطابق، نزولی ترتیب",
+      "no_results": "کوئی نتیجہ نہیں",
+      "range": "{total} میں سے {from}–{to}",
+      "pagination": "صفحہ بندی",
+      "per_page": "فی صفحہ قطاریں",
+      "per_page_n": {
+        "one": "فی صفحہ {count}",
+        "other": "فی صفحہ {count}"
+      },
+      "previous": "پچھلا",
+      "next": "اگلا",
+      "page_of": "صفحہ {page} از {pages}",
+      "exported": {
+        "one": "{count} قطار برآمد کی گئی",
+        "other": "{count} قطاریں برآمد کی گئیں"
+      },
+      "keyboard_hint": "<kbd>↑</kbd><kbd>↓</kbd> حرکت · <kbd>Enter</kbd> کھولیں · <kbd>X</kbd> منتخب کریں"
+    },
+    "filters": {
+      "label": "فلٹر",
+      "active": "لاگو فلٹر",
+      "remove": "فلٹر {filter} ہٹائیں",
+      "clear_all": "تمام فلٹر ہٹائیں",
+      "clear_search": "تلاش صاف کریں",
+      "views": "مناظر",
+      "save_view": "منظر محفوظ کریں",
+      "view_name": "منظر کا نام",
+      "delete_view": "منظر {name} حذف کریں"
+    },
+    "form": {
+      "optional": "اختیاری",
+      "required": "یہ خانہ لازمی ہے۔",
+      "email": "درست ای میل پتہ درج کریں۔",
+      "invalid": "یہ قدر جانچیں۔",
+      "too_short": "کم از کم {min} حروف استعمال کریں۔",
+      "too_long": "زیادہ سے زیادہ {max} حروف استعمال کریں۔",
+      "min": "{min} یا اس سے زیادہ ہونا چاہیے۔",
+      "max": "{max} یا اس سے کم ہونا چاہیے۔",
+      "errors": {
+        "one": "{count} خانے پر توجہ درکار ہے۔",
+        "other": "{count} خانوں پر توجہ درکار ہے۔"
+      },
+      "no_changes": "کوئی غیر محفوظ تبدیلی نہیں",
+      "unsaved": "غیر محفوظ تبدیلیاں",
+      "saved": "تمام تبدیلیاں محفوظ ہو گئیں",
+      "leave_confirm": "آپ کی کچھ تبدیلیاں محفوظ نہیں ہوئیں۔ کیا یہ صفحہ چھوڑ کر انہیں ختم کر دیں؟"
+    },
+    "dialog": {
+      "type_to_confirm": "تصدیق کے لیے {word} لکھیں"
+    },
+    "combo": {
+      "no_matches": "کوئی مماثلت نہیں",
+      "results": {
+        "one": "{count} تجویز",
+        "other": "{count} تجاویز"
+      }
+    },
+    "date": {
+      "presets": "فوری مدت",
+      "from": "سے",
+      "to": "تک",
+      "preset_today": "آج",
+      "preset_7d": "7 دن",
+      "preset_30d": "30 دن",
+      "preset_90d": "90 دن",
+      "preset_month": "اس مہینے",
+      "preset_last_month": "پچھلے مہینے",
+      "preset_year": "اس سال",
+      "end_before_start": "آخری تاریخ آغاز کی تاریخ سے پہلے ہے۔",
+      "too_long": "{days} دن یا اس سے کم کی مدت منتخب کریں۔"
+    },
+    "stat": {
+      "increase": "اضافہ",
+      "decrease": "کمی",
+      "no_change": "کوئی تبدیلی نہیں"
+    },
+    "cover": {
+      "title": "سرورق",
+      "upload": "سرورق اپ لوڈ کریں",
+      "replace": "سرورق تبدیل کریں",
+      "remove": "سرورق ہٹائیں",
+      "hint": "5 MB تک JPEG، PNG، WebP یا GIF — یا تصویر یہاں چھوڑیں",
+      "bad_type": "JPEG، PNG، WebP یا GIF تصویر منتخب کریں۔",
+      "too_big": "سرورق کی تصویر 5 MB یا اس سے چھوٹی ہونی چاہیے۔",
+      "saved": "سرورق تازہ کر دیا گیا",
+      "removed": "اپ لوڈ شدہ سرورق ہٹا دیا گیا",
+      "remove_title": "اپ لوڈ شدہ سرورق ہٹائیں؟",
+      "remove_text": "ریکارڈ پر اس کی جگہ Open Library کا سرورق (اگر ہو) یا بنایا گیا سرورق دکھایا جائے گا۔"
+    },
+    "health": {
+      "title": "سسٹم کی صحت",
+      "open": "سسٹم کھولیں ←",
+      "database": "ڈیٹا بیس",
+      "worker": "پس منظر ورکر",
+      "queue": "کاموں کی قطار",
+      "backup": "آخری بیک اپ",
+      "ok_ms": "ٹھیک · {ms} ms",
+      "down": "دستیاب نہیں",
+      "heartbeat": "جاری · {s} سیکنڈ پہلے",
+      "no_worker": "کوئی ورکر نہیں چل رہا",
+      "failed_jobs": {
+        "one": "{count} ناکام کام",
+        "other": "{count} ناکام کام"
+      },
+      "queue_ok": {
+        "one": "{count} قطار میں",
+        "other": "{count} قطار میں"
+      },
+      "no_backup": "ابھی تک کوئی بیک اپ نہیں",
+      "uptime": "{when} شروع ہوا"
+    },
+    "search": {
+      "filters": "فلٹر",
+      "availability": "دستیابی",
+      "view": "نتائج کا منظر",
+      "view_list": "فہرست",
+      "view_grid": "گرڈ",
+      "show_more": {
+        "one": "{count} مزید دکھائیں",
+        "other": "{count} مزید دکھائیں"
+      },
+      "show_less": "کم دکھائیں",
+      "empty_title": "کوئی ملتا جلتا عنوان نہیں",
+      "try_ai": "AI تلاش آزمائیں",
+      "filter_audience": "قارئین",
+      "filter_year_from": "اشاعت"
+    },
+    "patrons": {
+      "title": "اراکین",
+      "subtitle": "اراکین تلاش کریں، نئے رجسٹر کریں اور رکنیت جاری رکھیں۔",
+      "register": "رکن رجسٹر کریں",
+      "register_submit": "رجسٹر کریں",
+      "registered": "{name} رجسٹر ہو گئے — کارڈ {card}",
+      "search_label": "اراکین تلاش کریں",
+      "search_placeholder": "نام، کارڈ نمبر یا ای میل",
+      "any_status": "کوئی بھی حیثیت",
+      "any_role": "کوئی بھی کردار",
+      "any_category": "کوئی بھی زمرہ",
+      "staff_only": "صرف عملہ",
+      "col_name": "نام",
+      "col_card": "کارڈ",
+      "col_category": "زمرہ",
+      "col_branch": "بنیادی شاخ",
+      "col_loans": "قرض",
+      "col_balance": "بقایا",
+      "col_expires": "رکنیت",
+      "col_email": "ای میل",
+      "col_phone": "فون",
+      "col_created": "رجسٹرڈ",
+      "col_status": "حیثیت",
+      "col_role": "کردار",
+      "expired_on": "{date} کو ختم",
+      "expires_on": "{date} کو ختم ہوگی",
+      "view_all": "تمام اراکین",
+      "view_expiring": "جلد ختم",
+      "view_expired": "ختم شدہ",
+      "view_owing": "واجب الادا",
+      "view_staff": "عملہ",
+      "empty_title": "کوئی رکن نہیں ملا",
+      "empty_body": "کوئی دوسرا نام یا کارڈ نمبر آزمائیں، یا فلٹر ہٹائیں۔",
+      "bulk_renew": "رکنیت کی تجدید کریں",
+      "bulk_cards": "لائبریری کارڈ پرنٹ کریں",
+      "bulk_export": "CSV برآمد کریں",
+      "renew_title": {
+        "one": "{count} رکنیت کی تجدید کریں؟",
+        "other": "{count} رکنیتوں کی تجدید کریں؟"
+      },
+      "renew_body": "ہر رکنیت اپنے زمرے کی اندراج مدت جتنی بڑھائی جائے گی — آج سے یا موجودہ اختتامی تاریخ سے، جو بھی بعد میں ہو۔",
+      "renewed": {
+        "one": "{count} رکنیت کی تجدید ہو گئی",
+        "other": "{count} رکنیتوں کی تجدید ہو گئی"
+      },
+      "renewed_some": {
+        "one": "{count} رکنیت کی تجدید، {skipped} چھوڑ دی گئیں (عملے کے اکاؤنٹ)",
+        "other": "{count} رکنیتوں کی تجدید، {skipped} چھوڑ دی گئیں (عملے کے اکاؤنٹ)"
+      },
+      "renew_undone": "تجدید واپس لے لی گئی"
+    },
+    "catalog": {
+      "title": "فہرست",
+      "subtitle": "کتابیاتی ریکارڈ تلاش کریں، ترمیم کریں اور بہتر بنائیں۔",
+      "new": "نیا ریکارڈ",
+      "export_all": "MARCXML برآمد کریں",
+      "search_label": "فہرست میں تلاش کریں",
+      "search_placeholder": "عنوان، مصنف، موضوع، ISBN…",
+      "any_format": "کوئی بھی شکل",
+      "any_availability": "کوئی بھی دستیابی",
+      "sort_auto": "بہترین مماثلت",
+      "view_all": "تمام ریکارڈ",
+      "col_cover": "سرورق",
+      "col_title": "عنوان",
+      "col_authors": "مصنفین",
+      "col_year": "سال",
+      "col_format": "شکل",
+      "col_class": "درجہ بندی",
+      "col_publisher": "ناشر",
+      "col_language": "زبان",
+      "col_copies": "نسخے",
+      "empty_title": "کوئی ریکارڈ نہیں ملا",
+      "empty_body": "دوسرے الفاظ یا کم فلٹر آزمائیں — یا نیا ریکارڈ بنائیں۔",
+      "bulk_marcxml": "MARCXML برآمد کریں",
+      "bulk_mrc": "MARC برآمد کریں (ISO 2709)"
+    },
+    "sg": {
+      "intro": "Librowise کا ہر جزو اپنی تمام حالتوں میں۔ جانچنے کے لیے تھیم اور سمت بدلیں؛ استعمال کے لیے docs/DESIGN_SYSTEM.md دیکھیں۔",
+      "contents": "فہرستِ مضامین",
+      "direction": "سمت",
+      "brand": "برانڈ",
+      "colour": "رنگ",
+      "type": "خطاطی",
+      "scales": "فاصلہ، گولائی، بلندی اور حرکت",
+      "buttons": "بٹن",
+      "status": "بیج اور حیثیت کے نشان",
+      "header": "صفحے کا سرنامہ",
+      "filters": "فلٹر پٹی اور محفوظ مناظر",
+      "table": "ڈیٹا جدول",
+      "forms": "فارم",
+      "tabs": "ٹیب اور حصہ دار کنٹرول",
+      "combobox": "کومبو باکس",
+      "dates": "تاریخیں اور مدت",
+      "stats": "اعداد و شمار ٹائل اور پیش رفت",
+      "empty": "خالی، غلطی اور لوڈنگ حالتیں",
+      "feedback": "ٹوسٹ اور ٹول ٹپ",
+      "overlays": "ڈائیلاگ اور سائیڈ پینل",
+      "people": "اوتار",
+      "covers": "کتابوں کے سرورق",
+      "brand_note": "نشان (شیلف پر تین کتابیں، آخری جھکی ہوئی) کسی بھی پس منظر پر کام کرتا ہے؛ لفظی نشان متن کے رنگ میں ہے اور “wise” بنیادی رنگ میں۔",
+      "on_surface": "سطح پر",
+      "ramps": "رنگ زینے",
+      "chart_palette": "چارٹ کے رنگ",
+      "contrast_note": "scripts/check_contrast.py چاروں تھیموں میں متن کے ٹوکن WCAG 2.2 AA کے لیے جانچتا ہے۔",
+      "tabular": "جدولی ہندسے",
+      "spacing": "فاصلہ",
+      "radius_elevation": "گولائی اور بلندی",
+      "motion": "حرکت",
+      "covers_note": "سرورق /covers/{id}.jpg سے آتے ہیں — اپ لوڈ شدہ سرورق، ورنہ ISBN سے Open Library (محفوظ)، ورنہ یہ بنایا گیا سرورق۔"
+    },
+    "brand": {
+      "tagline": "جدید لائبریری نظام"
+    }
   }
 }

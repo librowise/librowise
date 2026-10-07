@@ -24,6 +24,13 @@
   <a class="qa" href="/staff/analytics"><svg class="icon" aria-hidden="true"><use href="#i-trend"></use></svg>{{ t('dash.qa_analytics') }}</a>
 </nav>
 
+{% if can(user, 'jobs:manage') %}
+{#- Role-aware Home: administrators also see platform health (librarians get the "Today" workspace only). -#}
+<section class="card" aria-labelledby="health-h" style="margin-bottom:var(--gap)">
+  <div class="card-head"><h2 id="health-h"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg> {{ t('ui.health.title') }}</h2><a class="small" href="/staff/system">{{ t('ui.health.open') }}</a></div>
+  <div class="card-body" id="sys-health"><div class="skeleton" style="height:3rem"></div></div>
+</section>
+{% endif %}
 <section class="grid kpi-grid compact" id="kpis" aria-label="{{ t('dash.key_figures') }}" aria-busy="true">
   {% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:4.4rem"></div></div>{% endfor %}
 </section>

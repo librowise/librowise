@@ -34,7 +34,7 @@ def _local_secret() -> str:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SHELFWISE_", env_file=".env", extra="ignore")
 
-    app_name: str = "Shelfwise ILS"
+    app_name: str = "Librowise ILS"  # product brand shown in the API docs (package/env names stay "shelfwise")
     environment: str = "development"  # development | production | test
     # Defaults to a SQLite file next to the project; use postgresql+psycopg://… in production.
     database_url: str = f"sqlite:///{(BASE_DIR.parent / 'shelfwise.db').as_posix()}"
@@ -116,6 +116,16 @@ class Settings(BaseSettings):
     # Local semantic index snapshot (shared by web processes; built by the ai_warmup job)
     cache_dir: str = str(BASE_DIR.parent / "var")
     semantic_sync_build_limit: int = 20000  # larger catalogues are (re)built in the background
+
+    # ---- design system: book covers (services/covers.py) ----
+    # Uploaded files (staff cover uploads) live here; back this directory up with the database.
+    media_dir: str = str(BASE_DIR.parent / "media")
+    cover_upload_max_bytes: int = 5 * 1024 * 1024
+    # Fetch missing covers from Open Library by ISBN (cached under cache_dir/covers). Disable for air-gapped sites.
+    covers_remote_enabled: bool = True
+    covers_fetch_timeout: float = 4.0
+    covers_remote_max_bytes: int = 2 * 1024 * 1024
+    covers_negative_ttl: int = 7 * 86400  # remember "no cover for this ISBN" for a week
 
     @property
     def is_sqlite(self) -> bool:

@@ -53,3 +53,9 @@ from . import authorities, batch_items, labels, marc_editor  # noqa: E402
 
 for module in (authorities, marc_editor, labels, batch_items):
     api_router.include_router(module.router)
+
+# ---- design system: staff shell notifications, cover uploads ----
+from . import covers, ui  # noqa: E402
+
+for module in (ui, covers):
+    api_router.include_router(module.router)

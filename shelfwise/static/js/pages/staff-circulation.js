@@ -24,7 +24,7 @@ function setMode(m) {
 const branchId = () => +$("#desk-branch").value;
 
 function feed(kind, title, detail, extra = "") {
-  session.unshift({ kind, title, detail, at: new Date() });
+  session.unshift({ kind, title, detail, at: new Date(), patronId: patron?.id ?? null });
   const cls = { out: "out", in: "in", err: "err", info: "out" }[kind];
   const ic = { out: "arrow-up", in: "arrow-down", err: "alert", info: "info" }[kind];
   const item = html`<div class="feed-item"><span class="feed-icon ${cls}">${icon(ic)}</span>
@@ -161,10 +161,14 @@ async function scanWithCamera(targetId) {
 }
 
 function printReceipt() {
-  if (!session.length) { toast("Nothing to print yet"); return; }
+  // Only the loaded patron's checkouts: the session feed spans every patron served at this desk,
+  // and one patron's slip must never list another patron's loans.
+  if (!patron) { toast("Load a patron to print their receipt", "error"); $("#patron-card").focus(); return; }
+  const mine = session.filter((s) => s.kind === "out" && s.patronId === patron.id);
+  if (!mine.length) { toast("Nothing to print yet for this patron"); return; }
   const w = window.open("", "_blank", "width=420,height=600");
   if (!w) return;
-  const lines = session.filter((s) => s.kind === "out").map((s) => html`<li><strong>${s.title}</strong><br><small>${s.detail}</small></li>`);
+  const lines = mine.map((s) => html`<li><strong>${s.title}</strong><br><small>${s.detail}</small></li>`);
   w.document.write(html`<!doctype html><title>Receipt</title><body style="font-family:system-ui;padding:1rem">
     <h2>Loan receipt</h2><p>${patron ? patron.full_name : ""} · ${new Date().toLocaleString()}</p><ol>${lines}</ol>
     <p><small>Thank you for using the library.</small></p></body>`.toString());

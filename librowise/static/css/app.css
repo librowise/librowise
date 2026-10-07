@@ -65,6 +65,8 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 1rem 0; }
 .btn.danger:hover { background: var(--danger-soft); }
 .btn.danger.solid { background: var(--danger); border-color: var(--danger); color: #fff; }
 :root[data-theme="contrast"] .btn.danger.solid { color: #000; }
+:root[data-theme="dark"] .btn.danger.solid { color: #1a0705; } /* white on the light dark-theme red is 2.3:1 */
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .btn.danger.solid { color: #1a0705; } }
 .btn.ai { background: linear-gradient(135deg, var(--violet-600), var(--indigo-700)); color: #fff; border-color: transparent; } /* fixed dark violet: white label stays ≥ 4.5:1 in every theme */
 :root[data-theme="contrast"] .btn.ai { background: var(--ai); color: #000; }
 .btn.ghost { border-color: transparent; background: transparent; box-shadow: none; }

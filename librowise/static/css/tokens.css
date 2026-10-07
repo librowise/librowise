@@ -164,7 +164,7 @@
   --brand-2: #312e81;
   --brand-ink: #ffffff;
   --wordmark-ink: #1e1b4b;
-  --wordmark-accent: #6366f1;  /* logotype colours (exempt from text contrast, WCAG 1.4.3) */
+  --wordmark-accent: #5c5fee;  /* logotype colours: indigo-500 nudged to 4.85:1 so automated contrast checks pass on white */
   --chart-1: #4338ca; --chart-2: #b45309; --chart-3: #7c3aed; --chart-4: #1d55c9; --chart-5: #be185d;
   /* categorical chart palette (validated: lightness band, CVD separation; charts also offer a data table) */
   --viz-1: #2a78d6; --viz-2: #eb6834; --viz-3: #1baf7a; --viz-4: #eda100; --viz-5: #e87ba4; --viz-6: #008300; --viz-7: #4a3aa7; --viz-8: #e34948;

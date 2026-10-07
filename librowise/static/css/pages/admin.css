@@ -19,9 +19,16 @@
 .lw-dl { display: grid; gap: 0; margin: 0; font-size: .9rem; }
 .lw-dl.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; }
 .lw-dl.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 1.5rem; }
-.lw-dl-row { display: grid; grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr); gap: .75rem; padding: .45rem 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.lw-dl-row { display: grid; grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr); align-items: baseline; gap: .75rem; padding: .45rem 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .lw-dl-row:last-child { border-bottom: 0; }
 .lw-dl.cols-2 .lw-dl-row:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
 .lw-dl dt { color: var(--muted); font-weight: var(--fw-medium); margin: 0; }
 .lw-dl dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 720px) { .lw-dl.cols-2, .lw-dl.cols-3 { grid-template-columns: minmax(0, 1fr); } .lw-dl.cols-2 .lw-dl-row:nth-last-child(2):nth-child(odd) { border-bottom: 1px solid var(--border); } }
+
+/* ---- style guide: sections render while hidden and are revealed together (no layout shift); the delayed
+   animation is a safety net that reveals them even if the page script fails to load. */
+#sg-root.sg-pending { visibility: hidden; animation: lw-reveal 0s 4s forwards; }
+#sg-root [data-sg="patterns"] > h3 { margin: 1.75rem 0 .6rem; font-size: 1rem; }
+#sg-root [data-sg="patterns"] > h3:first-child { margin-top: .5rem; }
+@keyframes lw-reveal { to { visibility: visible; } }

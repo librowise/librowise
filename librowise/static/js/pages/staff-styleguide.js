@@ -15,10 +15,11 @@ import { sidePanel } from "/static/js/ui/panel.js";
 import { progress, statTile } from "/static/js/ui/stat.js";
 import { STATUS, statusPill } from "/static/js/ui/status.js";
 import { segmented, tabs, wireSegmented, wireTabsPanel } from "/static/js/ui/tabs.js";
+import { bytes, copyButton, cronText, dl, duration, jobLabel, pill, rowMenu, wireKit } from "/static/js/pages/lib/admin-kit.js";
 
 const slot = (id) => $(`[data-sg="${id}"]`);
 const demo = (content, cls = "") => html`<div class="sg-demo ${cls}">${content}</div>`;
-const code = (text) => html`<pre class="sg-code"><code>${text}</code></pre>`;
+const code = (text) => html`<pre class="sg-code" tabindex="0" role="region" aria-label="${t("admin.styleguide.code_sample")}"><code>${text}</code></pre>`;
 const SEMANTIC = ["bg", "surface", "surface-2", "surface-3", "border", "border-strong", "border-input", "text", "text-2", "muted",
   "primary", "primary-2", "primary-soft", "accent", "success", "success-soft", "warning", "warning-soft", "danger", "danger-soft",
   "info", "info-soft", "ai", "ai-soft", "focus"];
@@ -49,13 +50,16 @@ const SAMPLE = [
 ];
 
 function previewControls() {
+  // The two segmented controls are server-rendered (no layout shift); sync them with the live state and wire them.
   const root = document.documentElement;
-  $("#sg-preview-controls").innerHTML = html`
-    ${segmented({ name: "theme", label: t("ui.appearance.theme"), value: root.dataset.theme || "system",
-      options: [["system", t("ui.appearance.system")], ["light", t("ui.appearance.light")], ["dark", t("ui.appearance.dark")],
-        ["sepia", t("ui.appearance.sepia")], ["contrast", t("ui.appearance.contrast")]] })}
-    ${segmented({ name: "dir", label: t("ui.sg.direction"), value: root.dir || "ltr", options: [["ltr", "LTR"], ["rtl", "RTL"]] })}`;
   const [themeEl, dirEl] = $$("[data-segmented]", $("#sg-preview-controls"));
+  const check = (group, value) => $$('[role="radio"]', group).forEach((b) => {
+    const on = b.dataset.value === value;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  check(themeEl, root.dataset.theme || "system");
+  check(dirEl, root.dir || "ltr");
   wireSegmented(themeEl, (v) => { if (v === "system") delete root.dataset.theme; else root.dataset.theme = v; renderColour(); });
   wireSegmented(dirEl, (v) => { root.dir = v; });
 }
@@ -85,7 +89,8 @@ function renderColour() {
         <div class="meta"><strong>--${tok}</strong><code>${c}</code><span class="tiny muted">${vsSurface.toFixed(2)}:1 ${t("ui.sg.on_surface")}</span></div></div>`;
     })}</div>
     <h3 style="margin-top:1.25rem">${t("ui.sg.ramps")}</h3>
-    ${RAMPS.map((r) => html`<div class="sg-ramp" aria-label="${r}" role="img">${STEPS[r].map((s) => html`<div style="background:var(--${r}-${s});color:${s >= 500 ? "#fff" : "#111"}">${s}</div>`)}</div><div class="small muted" style="margin:.25rem 0 .75rem">--${r}-*</div>`)}
+    ${RAMPS.map((r) => html`<div class="sg-ramp" aria-label="${r}" role="img">${STEPS[r].map((s) => { const bg = resolved(`${r}-${s}`), ink = contrast(bg, "rgb(255, 255, 255)") >= contrast(bg, "rgb(0, 0, 0)") ? "#fff" : "#000";
+      return html`<div style="background:var(--${r}-${s});color:${ink}">${s}</div>`; })}</div><div class="small muted" style="margin:.25rem 0 .75rem">--${r}-*</div>`)}
     <h3>${t("ui.sg.chart_palette")}</h3>
     ${demo(html`${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => html`<span class="row tight"><span class="viz-key" style="--c:var(--viz-${n});width:1.25rem;height:1.25rem"></span><code class="small">--viz-${n}</code></span>`)}`)}
     <p class="small muted">${t("ui.sg.contrast_note")}</p>`;
@@ -290,10 +295,47 @@ function renderCovers() {
     <p class="small muted">${t("ui.sg.covers_note")}</p>${code("cover(biblio, \"sm\" | \"\" | \"lg\")   →   /covers/{id}.jpg (uploaded → Open Library → generated)")}`;
 }
 
+function renderPatterns() {
+  // Shared kit of the People, Insights and Administration pages (/static/js/pages/lib/admin-kit.js).
+  wireKit();
+  const crons = ["0 2 * * *", "30 6 * * 1-5", "0 9 * * 1,4", "0 3 1 * *", "*/15 * * * *", "0 */6 * * *", "5 4 * 1 2"];
+  slot("patterns").innerHTML = html`
+    <h3>${t("admin.styleguide.row_menu")}</h3>
+    ${demo(html`<div class="table-wrap" style="width:100%"><table class="table"><caption class="sr-only">${t("admin.styleguide.row_menu")}</caption>
+      <thead><tr><th scope="col">Name</th><th scope="col">Status</th><th scope="col"><span class="sr-only">${t("admin.kit.more_actions")}</span></th></tr></thead>
+      <tbody>${SAMPLE.slice(0, 3).map((r) => html`<tr data-key="${r.id}"><td>${r.name}</td><td>${statusPill("patron", r.status)}</td>
+        <td class="right">${rowMenu({ label: r.name, items: [{ id: "edit", label: "Edit", icon: "edit" }, { id: "renew", label: "Renew membership", icon: "refresh" },
+          { id: "delete", label: "Delete", icon: "trash", danger: true }] })}</td></tr>`)}</tbody></table></div>`)}
+    ${code('rowMenu({ label: name, items: [{ id: "edit", label, icon: "edit" }, { id: "delete", label, icon: "trash", danger: true }] })\nroot.addEventListener("rowmenu", (e) => act(e.detail.action, e.target.closest("[data-key]")))')}
+    <h3>${t("admin.styleguide.pills")}</h3>
+    ${demo(html`${["success", "warning", "danger", "info", "neutral", "ai"].map((tone) => pill(tone, tone[0].toUpperCase() + tone.slice(1)))}`)}
+    ${code('pill("warning", t("…"))   // values outside ui/status.js STATUS')}
+    <h3>${t("admin.styleguide.facts")}</h3>
+    ${demo(html`<div style="width:100%">${dl([["Card number", html`<span class="mono">2026000101</span> ${copyButton("2026000101")}`], ["Category", "Adult"],
+      ["Home branch", "Main library"], ["Member since", "12 Jan 2024"], ["Email", "asha@example.org"], ["Notes", null]], { cols: 2 })}</div>`)}
+    ${code("dl([[label, value], …], { cols: 2 })   copyButton(text)")}
+    <h3>${t("admin.styleguide.humanisers")}</h3>
+    ${demo(html`<div class="table-wrap" style="width:100%" tabindex="0" role="region" aria-label="${t("admin.styleguide.humanisers")}"><table class="table">
+      <caption class="sr-only">${t("admin.styleguide.humanisers")}</caption>
+      <thead><tr><th scope="col">Input</th><th scope="col">Output</th></tr></thead><tbody>
+      ${crons.map((c) => html`<tr><td class="mono small">${c}</td><td>${cronText(c)}</td></tr>`)}
+      ${["ai_warmup", "deliver_notices", "nightly"].map((j) => html`<tr><td class="mono small">${j}</td><td>${jobLabel(j)}</td></tr>`)}
+      ${[512, 48213, 73400320].map((b) => html`<tr><td class="mono small">${b}</td><td>${bytes(b)}</td></tr>`)}
+      ${[42, 1500, 40000, 400000].map((d) => html`<tr><td class="mono small">${d} s</td><td>${duration(d)}</td></tr>`)}</tbody></table></div>`)}
+    ${code('cronText("0 2 * * *")  jobLabel("ai_warmup")  bytes(n)  duration(seconds)')}`;
+  slot("patterns").addEventListener("rowmenu", (e) => toast(`${e.detail.action}: ${e.target.closest("[data-key]")?.cells[0].textContent}`));
+}
+
 export default async function init() {
   previewControls();
   for (const fn of [renderBrand, renderColour, renderType, renderScales, renderButtons, renderStatus, renderHeader, renderFilters, renderTable,
-    renderForms, renderTabs, renderCombobox, renderDates, renderStats, renderEmpty, renderFeedback, renderOverlays, renderPeople, renderCovers]) {
+    renderForms, renderTabs, renderCombobox, renderDates, renderStats, renderEmpty, renderFeedback, renderOverlays, renderPeople, renderCovers,
+    renderPatterns]) {
     try { fn(); } catch (e) { console.error(e); }
   }
+  // Sections render while hidden (no layout shift) and are revealed together.
+  const root = $("#sg-root");
+  root.classList.remove("sg-pending");
+  root.removeAttribute("aria-busy");
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }

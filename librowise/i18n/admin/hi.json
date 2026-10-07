@@ -8,9 +8,15 @@
       "copy_failed": "कॉपी नहीं हो सका। टेक्स्ट चुनकर स्वयं कॉपी करें।",
       "cron": {
         "every_minute": "हर मिनट",
-        "every_n_minutes": { "one": "हर मिनट", "other": "हर {count} मिनट में" },
+        "every_n_minutes": {
+          "one": "हर मिनट",
+          "other": "हर {count} मिनट में"
+        },
         "hourly_at": "हर घंटे :{minute} पर",
-        "every_n_hours": { "one": "हर घंटे :{minute} पर", "other": "हर {count} घंटे में :{minute} पर" },
+        "every_n_hours": {
+          "one": "हर घंटे :{minute} पर",
+          "other": "हर {count} घंटे में :{minute} पर"
+        },
         "daily": "हर दिन {time} बजे",
         "weekdays": "सोमवार से शुक्रवार {time} बजे",
         "weekends": "सप्ताहांत पर {time} बजे",
@@ -34,6 +40,14 @@
         "backup": "डेटाबेस की प्रति बैकअप फ़ोल्डर में रखता है।",
         "maintenance": "पूरे हो चुके कार्य, पुराना समय-सारणी इतिहास और दर-सीमा गणक हटाता है।"
       }
+    },
+    "styleguide": {
+      "patterns": "पेज पैटर्न: सदस्य, अंतर्दृष्टि और प्रशासन",
+      "code_sample": "कोड उदाहरण",
+      "row_menu": "पंक्ति कार्रवाई मेनू",
+      "pills": "किसी भी मान के लिए स्थिति पिल",
+      "facts": "तथ्य सूची",
+      "humanisers": "पढ़ने योग्य मान"
     }
   }
 }

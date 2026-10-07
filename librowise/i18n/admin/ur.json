@@ -8,9 +8,15 @@
       "copy_failed": "کاپی نہیں ہو سکا۔ متن منتخب کر کے خود کاپی کریں۔",
       "cron": {
         "every_minute": "ہر منٹ",
-        "every_n_minutes": { "one": "ہر منٹ", "other": "ہر {count} منٹ بعد" },
+        "every_n_minutes": {
+          "one": "ہر منٹ",
+          "other": "ہر {count} منٹ بعد"
+        },
         "hourly_at": "ہر گھنٹے :{minute} پر",
-        "every_n_hours": { "one": "ہر گھنٹے :{minute} پر", "other": "ہر {count} گھنٹے بعد :{minute} پر" },
+        "every_n_hours": {
+          "one": "ہر گھنٹے :{minute} پر",
+          "other": "ہر {count} گھنٹے بعد :{minute} پر"
+        },
         "daily": "روزانہ {time} بجے",
         "weekdays": "پیر سے جمعہ {time} بجے",
         "weekends": "ہفتے کے آخر میں {time} بجے",
@@ -34,6 +40,14 @@
         "backup": "ڈیٹا بیس کی نقل بیک اپ فولڈر میں رکھتا ہے۔",
         "maintenance": "مکمل شدہ کام، پرانی شیڈول تاریخ اور شرح کی حد کے شمار حذف کرتا ہے۔"
       }
+    },
+    "styleguide": {
+      "patterns": "صفحہ کے نمونے: اراکین، بصیرت اور انتظام",
+      "code_sample": "کوڈ کی مثال",
+      "row_menu": "قطار کے اقدامات کا مینو",
+      "pills": "کسی بھی قدر کے لیے حالت کا نشان",
+      "facts": "حقائق کی فہرست",
+      "humanisers": "قابلِ فہم اقدار"
     }
   }
 }

@@ -1,5 +1,6 @@
 {% extends "staff_base.html" %}
 {% block page_title %}{{ t('ui.shell.design_system') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}">{% endblock %}
 {% block content %}
 {%- set sections = [
   ('brand', t('ui.sg.brand')), ('colour', t('ui.sg.colour')), ('type', t('ui.sg.type')), ('scales', t('ui.sg.scales')),
@@ -7,6 +8,7 @@
   ('table', t('ui.sg.table')), ('forms', t('ui.sg.forms')), ('tabs', t('ui.sg.tabs')), ('combobox', t('ui.sg.combobox')),
   ('dates', t('ui.sg.dates')), ('stats', t('ui.sg.stats')), ('empty', t('ui.sg.empty')), ('feedback', t('ui.sg.feedback')),
   ('overlays', t('ui.sg.overlays')), ('people', t('ui.sg.people')), ('covers', t('ui.sg.covers')),
+  ('patterns', t('admin.styleguide.patterns')),
 ] -%}
 <header class="page-header">
   <div class="ph-main">
@@ -14,13 +16,21 @@
     <h1 id="page-title">{{ t('ui.shell.design_system') }}</h1>
     <p class="ph-sub">{{ t('ui.sg.intro') }}</p>
   </div>
-  <div class="ph-actions" id="sg-preview-controls"></div>
+  <div class="ph-actions" id="sg-preview-controls">
+    {%- set themes = [('system', t('ui.appearance.system')), ('light', t('ui.appearance.light')), ('dark', t('ui.appearance.dark')), ('sepia', t('ui.appearance.sepia')), ('contrast', t('ui.appearance.contrast'))] %}
+    <div class="segmented" role="radiogroup" aria-label="{{ t('ui.appearance.theme') }}" data-segmented="theme">
+      {%- for v, l in themes %}<button type="button" role="radio" aria-checked="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" data-value="{{ v }}"><span>{{ l }}</span></button>{% endfor %}
+    </div>
+    <div class="segmented" role="radiogroup" aria-label="{{ t('ui.sg.direction') }}" data-segmented="dir">
+      {%- for v in ['ltr', 'rtl'] %}<button type="button" role="radio" aria-checked="{{ 'true' if (dir or 'ltr') == v else 'false' }}" tabindex="{{ '0' if (dir or 'ltr') == v else '-1' }}" data-value="{{ v }}"><span>{{ v|upper }}</span></button>{% endfor %}
+    </div>
+  </div>
 </header>
 <div class="sg-layout">
   <nav class="sg-toc" aria-label="{{ t('ui.sg.contents') }}">
     {% for id, title in sections %}<a href="#sg-{{ id }}">{{ title }}</a>{% endfor %}
   </nav>
-  <div id="sg-root">
+  <div id="sg-root" class="sg-pending" aria-busy="true">
     {% for id, title in sections %}
     <section class="sg-section" id="sg-{{ id }}" aria-labelledby="sg-{{ id }}-h">
       <h2 id="sg-{{ id }}-h">{{ title }}</h2>

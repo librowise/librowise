@@ -8,9 +8,15 @@
       "copy_failed": "Could not copy. Select the text and copy it manually.",
       "cron": {
         "every_minute": "Every minute",
-        "every_n_minutes": { "one": "Every minute", "other": "Every {count} minutes" },
+        "every_n_minutes": {
+          "one": "Every minute",
+          "other": "Every {count} minutes"
+        },
         "hourly_at": "Every hour at :{minute}",
-        "every_n_hours": { "one": "Every hour at :{minute}", "other": "Every {count} hours at :{minute}" },
+        "every_n_hours": {
+          "one": "Every hour at :{minute}",
+          "other": "Every {count} hours at :{minute}"
+        },
         "daily": "Every day at {time}",
         "weekdays": "Weekdays at {time}",
         "weekends": "Weekends at {time}",
@@ -34,6 +40,14 @@
         "backup": "Copies the database to the backup folder.",
         "maintenance": "Prunes finished jobs, old schedule history and rate-limit counters."
       }
+    },
+    "styleguide": {
+      "patterns": "Page patterns: People, Insights & Admin",
+      "code_sample": "Code example",
+      "row_menu": "Row action menu",
+      "pills": "Status pills for any value",
+      "facts": "Facts list",
+      "humanisers": "Humanised values"
     }
   }
 }

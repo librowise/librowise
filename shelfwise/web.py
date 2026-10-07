@@ -136,9 +136,22 @@ def opac_account(request: Request, db: Session = Depends(get_db), user: Patron |
     return _render(request, "opac/account.html", "opac-account", user, db)
 
 
+def _show_demo_logins() -> bool:
+    """The seeded demo accounts are offered on the login page everywhere except production."""
+    from .config import get_settings
+
+    return get_settings().environment != "production"
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
-    return _render(request, "login.html", "login", user, db)
+    demo_logins = None
+    if _show_demo_logins():
+        from .seed import DEMO_ACCOUNTS
+
+        demo_logins = [(key, user_name, DEMO_ACCOUNTS[user_name])
+                       for key, user_name in (("admin", "admin"), ("librarian", "librarian"), ("patron", "1000000001"))]
+    return _render(request, "login.html", "login", user, db, demo_logins=demo_logins)
 
 
 # ------------------------------------------------------------------ staff

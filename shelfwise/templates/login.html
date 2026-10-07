@@ -53,15 +53,18 @@
       <button class="btn ghost sm" type="button" data-view="login" style="align-self:flex-start">Back to sign in</button>
     </form>
 
+    {% if demo_logins %}{# never rendered in production (web._show_demo_logins) #}
     <details class="small muted" id="demo-accounts">
       <summary>{{ t('login.demo') }}</summary>
       <div class="stack tight" style="margin-top:.5rem">
-        <button type="button" class="chip" data-demo="admin">{{ t('login.demo_admin') }}</button>
-        <button type="button" class="chip" data-demo="librarian">{{ t('login.demo_librarian') }}</button>
-        <button type="button" class="chip" data-demo="patron">{{ t('login.demo_patron') }}</button>
+        {% set demo_labels = {'admin': t('login.demo_admin'), 'librarian': t('login.demo_librarian'), 'patron': t('login.demo_patron')} %}
+        {% for key, username, password in demo_logins %}
+        <button type="button" class="chip" data-demo="{{ key }}" data-username="{{ username }}" data-password="{{ password }}">{{ demo_labels[key] }}</button>
+        {% endfor %}
         <span class="tiny">{{ t('login.demo_note') }}</span>
       </div>
     </details>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

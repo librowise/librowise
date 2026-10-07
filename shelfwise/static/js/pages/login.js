@@ -1,11 +1,4 @@
-import { $, $$, ApiError, api, html, icon, withBusy } from "/static/js/core.js";
-
-// Demo accounts exist only in databases created with `python -m shelfwise seed`.
-const DEMO = {
-  admin: ["admin", "Shelfwise#Admin2026"],
-  librarian: ["librarian", "Shelfwise#Staff2026"],
-  patron: ["1000000001", "Reader#Demo2026"],
-};
+import { $, $$, ApiError, api, html, icon, t, withBusy } from "/static/js/core.js";
 
 const SSO_ERRORS = {
   state: "The sign-in attempt expired or was started in another window. Please try again.",
@@ -53,7 +46,7 @@ export default function init() {
   const view = (name) => {
     for (const [id, v] of [["#login-form", "login"], ["#mfa-form", "mfa"], ["#forgot-form", "forgot"]]) $(id).classList.toggle("hidden", v !== name);
     $("#sso").classList.toggle("hidden", name !== "login" || !$("#sso-buttons").children.length);
-    $("#demo-accounts").classList.toggle("hidden", name !== "login");
+    $("#demo-accounts")?.classList.toggle("hidden", name !== "login"); // not rendered in production
     $("#login-title").textContent = { login: "Welcome back", mfa: "Two-step verification", forgot: "Reset your password" }[name];
     $("#login-sub").textContent = {
       login: "Sign in with your library card number or email.",
@@ -90,7 +83,8 @@ export default function init() {
     const b = e.target.closest("[data-demo]");
     if (b) {
       view("login");
-      [$("#username").value, $("#password").value] = DEMO[b.dataset.demo];
+      // Demo credentials are rendered by the server, and only outside production (web._show_demo_logins).
+      [$("#username").value, $("#password").value] = [b.dataset.username, b.dataset.password];
       $("#login-form").requestSubmit();
     }
     const v = e.target.closest("[data-view]");
@@ -101,6 +95,9 @@ export default function init() {
   $("#login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     showError("");
+    // Check locally: an empty field would otherwise surface the API's raw validation text.
+    const blank = [$("#username"), $("#password")].find((i) => !i.value.trim());
+    if (blank) { showError(t("login.missing")); blank.focus(); return; }
     try {
       const r = await withBusy($("button[type=submit]", e.target), () => api("/auth/login", {
         method: "POST", body: { username: $("#username").value.trim(), password: $("#password").value },

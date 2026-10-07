@@ -1,34 +1,109 @@
 {% extends "base.html" %}
+{#- Public catalogue shell: announcement, header (collapses into a menu below 820px; account menu when signed
+    in; compact search on pages without their own search box), offline banner, main, footer.
+    Page-family styles: static/css/pages/opac.css · behaviour: static/js/opac-shell.js. -#}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/opac.css?v={{ version }}">{% block opac_head %}{% endblock %}{% endblock %}
 {% block body %}
-{% if announcement %}<div class="announcement" role="note">{{ announcement }}</div>{% endif %}
-<header class="opac-header">
+{%- set own_search = page in ('opac-home', 'opac-search') -%}
+{%- set focus_header_search = page in ('opac-record', 'opac-account', 'login', 'reset-password', 'opac-register', 'offline') -%}
+<div class="opac-app">
+{% if announcement %}<div class="announcement" role="note"><svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg><span>{{ announcement }}</span></div>{% endif %}
+<header class="opac-header" data-opac-header>
   <div class="inner">
+    <button class="btn ghost icon-only oh-menu-btn" type="button" aria-expanded="false" aria-controls="opac-menu" data-opac-menu>
+      <svg class="icon oh-open" aria-hidden="true"><use href="#i-menu"></use></svg><svg class="icon oh-close" aria-hidden="true"><use href="#i-x"></use></svg>
+      <span class="sr-only">{{ t('common.menu') }}</span>
+    </button>
     <a class="brand" href="/"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"><span class="brand-name">{{ library_name }}</span></a>
-    <nav aria-label="{{ t('opac.nav.label') }}">
-      <a href="/search"{% if page == 'opac-search' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse') }}</a>
-      <a href="/browse"{% if page == 'opac-browse' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse_headings') }}</a>
-      <a href="/courses"{% if page == 'opac-courses' %} aria-current="page"{% endif %}>{{ t('opac.nav.courses') }}</a>
-      {% if user %}
-        <a href="/account"{% if page == 'opac-account' %} aria-current="page"{% endif %}>{{ t('opac.nav.account') }}</a>
-        {% if user.is_staff %}<a href="/staff">{{ t('opac.nav.staff') }}</a>{% endif %}
+    <div class="oh-panel" id="opac-menu">
+      <nav aria-label="{{ t('opac.nav.label') }}" class="oh-nav">
+        <a href="/search"{% if page == 'opac-search' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('opac.shell.search') }}</span></a>
+        <a href="/browse"{% if page == 'opac-browse' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg><span>{{ t('opac.shell.browse') }}</span></a>
+        <a href="/courses"{% if page == 'opac-courses' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-graduation"></use></svg><span>{{ t('opac.nav.courses') }}</span></a>
+        {% if user %}<a href="/account"{% if page == 'opac-account' %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg><span>{{ t('opac.nav.account') }}</span></a>{% endif %}
+        {% if user and user.is_staff %}<a href="/staff"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg><span>{{ t('opac.shell.staff') }}</span></a>{% endif %}
+      </nav>
+      <div class="oh-tools">
+        <button class="btn ghost sm hidden" data-pwa-install type="button"><svg class="icon" aria-hidden="true"><use href="#i-install"></use></svg>{{ t('pwa.install') }}</button>
+        {% include "_lang_switch.html" %}
+        <button class="btn ghost icon-only oh-appearance" type="button" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg><span class="oh-label" aria-hidden="true">{{ t('common.appearance') }}</span></button>
+      </div>
+    </div>
+    <div class="oh-end">
+      {% if not own_search %}
+      <form class="oh-search" action="/search" role="search" aria-label="{{ t('opac.search.label') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+        <input name="q" id="oh-q" type="search" placeholder="{{ t('opac.shell.search_placeholder') }}" aria-label="{{ t('opac.search.label') }}"
+               autocomplete="off" spellcheck="false"{% if focus_header_search %} data-search-focus{% endif %}>
+      </form>
+      <a class="btn ghost icon-only oh-search-link" href="/search" aria-label="{{ t('opac.shell.search') }}"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg></a>
       {% endif %}
-      <button class="btn ghost sm hidden" data-pwa-install type="button"><svg class="icon" aria-hidden="true"><use href="#i-install"></use></svg>{{ t('pwa.install') }}</button>
-      {% include "_lang_switch.html" %}
-      <button class="btn ghost icon-only" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
       {% if user %}
-        <button class="btn ghost icon-only" data-logout aria-label="{{ t('common.sign_out') }}" title="{{ t('common.sign_out') }}"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg></button>
-      {% else %}
-        <a class="btn primary sm" href="/login"{% if page == 'login' %} aria-current="page"{% endif %}>{{ t('common.sign_in') }}</a>
+      <div class="oh-account">
+        <button class="oh-avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="oh-account-menu" data-account-menu>
+          <span class="avatar sm" aria-hidden="true">{{ (user.first_name or '?')[:1] }}{{ (user.last_name or '')[:1] }}</span>
+          <span class="oh-avatar-name">{{ user.first_name }}</span>
+          <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+          <span class="sr-only">{{ t('opac.shell.account_menu') }}</span>
+        </button>
+        <div class="popover menu oh-menu" id="oh-account-menu" role="menu" aria-label="{{ t('opac.shell.account_menu') }}" hidden>
+          <div class="oh-menu-head" role="presentation"><strong>{{ user.full_name }}</strong><span class="mono">{{ user.card_number }}</span></div>
+          <a role="menuitem" href="/account#loans"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>{{ t('opac.account.tab_loans') }}</a>
+          <a role="menuitem" href="/account#holds"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg>{{ t('opac.account.tab_holds') }}</a>
+          <a role="menuitem" href="/account#lists"><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg>{{ t('opac.account.tab_lists') }}</a>
+          <a role="menuitem" href="/account#settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>{{ t('opac.account.tab_settings') }}</a>
+          {% if user.is_staff %}<a role="menuitem" href="/staff"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>{{ t('opac.shell.staff') }}</a>{% endif %}
+          <div class="menu-sep" role="separator"></div>
+          <button role="menuitem" type="button" data-logout><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg>{{ t('common.sign_out') }}</button>
+        </div>
+      </div>
+      {% elif page != 'login' %}
+      <a class="btn primary sm oh-signin" href="/login">{{ t('common.sign_in') }}</a>
       {% endif %}
-    </nav>
+    </div>
   </div>
 </header>
 <div class="offline-banner hidden" role="status" data-offline-banner><svg class="icon" aria-hidden="true"><use href="#i-wifi-off"></use></svg>{{ t('pwa.offline_banner') }}</div>
 <main id="main" tabindex="-1">
   {% block content %}{% endblock %}
 </main>
-<footer class="site"><div class="inner">
-  <span>{{ t('opac.footer.powered', library=library_name, version=version) }}</span>
-  <span>{{ t('opac.footer.press') }} <kbd>/</kbd> {{ t('opac.footer.to_search') }} · <kbd>Ctrl K</kbd> {{ t('opac.footer.for_commands') }} · <a href="/api/docs">{{ t('opac.footer.open_api') }}</a></span>
-</div></footer>
+<footer class="site opac-footer">
+  <div class="inner">
+    <div class="of-brand">
+      <a class="brand" href="/"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"><span class="brand-name">{{ library_name }}</span></a>
+      <p>{{ t('opac.shell.footer_lead') }}</p>
+      <p class="of-powered">{{ t('opac.footer.powered', library=library_name, version=version) }}</p>
+    </div>
+    <nav aria-label="{{ t('opac.shell.footer_explore') }}" class="of-col">
+      <h2>{{ t('opac.shell.footer_explore') }}</h2>
+      <ul>
+        <li><a href="/search">{{ t('opac.shell.search') }}</a></li>
+        <li><a href="/search?sort=newest">{{ t('opac.home.shelf_new') }}</a></li>
+        <li><a href="/browse">{{ t('opac.shell.browse') }}</a></li>
+        <li><a href="/courses">{{ t('opac.nav.courses') }}</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="{{ t('opac.shell.footer_account') }}" class="of-col">
+      <h2>{{ t('opac.shell.footer_account') }}</h2>
+      <ul>
+        {% if user %}
+        <li><a href="/account">{{ t('opac.nav.account') }}</a></li>
+        <li><a href="/account#holds">{{ t('opac.account.tab_holds') }}</a></li>
+        <li><a href="/account#settings">{{ t('opac.account.tab_settings') }}</a></li>
+        {% else %}
+        <li><a href="/login">{{ t('common.sign_in') }}</a></li>
+        <li><a href="/register">{{ t('opac.shell.register') }}</a></li>
+        <li><a href="/login#forgot">{{ t('opac.shell.forgot') }}</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    <div class="of-col of-help">
+      <h2>{{ t('opac.shell.footer_help') }}</h2>
+      <p>{{ t('opac.footer.press') }} <kbd>/</kbd> {{ t('opac.footer.to_search') }} · <kbd>Ctrl K</kbd> {{ t('opac.footer.for_commands') }} · <kbd>?</kbd> {{ t('opac.shell.for_shortcuts') }}</p>
+      <p><a href="/api/docs">{{ t('opac.footer.open_api') }}</a></p>
+    </div>
+  </div>
+</footer>
+</div>
+<script type="module" src="/static/js/opac-shell.js"></script>
 {% endblock %}

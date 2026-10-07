@@ -1,36 +1,69 @@
 {% extends "opac_base.html" %}
-{% block title %}Join the library · {{ library_name }}{% endblock %}
+{#- Online registration: brand panel + a three-part form (about you, contact, your card) with inline
+    validation, a password strength meter and a show/hide toggle. Staff approve every application. -#}
+{% block title %}{{ t('opac.reg.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
-<div class="wrap" style="max-width:720px;padding-top:2rem">
-  <div class="card pad stack" id="register-card">
+<div class="wrap" style="padding-top:0">
+<div class="auth-shell wide">
+  <aside class="auth-aside" aria-hidden="true">
+    <img class="brand-seal" src="/static/brand/librowise-seal.svg" alt="" width="72" height="72">
+    <h2>{{ t('opac.reg.aside_title', library=library_name) }}</h2>
+    <p>{{ t('opac.reg.aside_lead') }}</p>
+    <ul class="auth-perks">
+      <li><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg><div><strong>{{ t('opac.reg.step1') }}</strong><span>{{ t('opac.reg.step1_sub') }}</span></div></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg><div><strong>{{ t('opac.reg.step2') }}</strong><span>{{ t('opac.reg.step2_sub') }}</span></div></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg><div><strong>{{ t('opac.reg.step3') }}</strong><span>{{ t('opac.reg.step3_sub') }}</span></div></li>
+    </ul>
+    <div class="auth-foot">{{ t('opac.auth.privacy_foot') }}</div>
+  </aside>
+  <div class="auth-main" id="register-card" tabindex="-1">
+    <div class="auth-mobile-brand"><img class="brand-seal" src="/static/brand/librowise-seal.svg" alt="" width="48" height="48"><strong>{{ library_name }}</strong></div>
     <div>
-      <h1 style="font-size:1.6rem">Join {{ library_name }}</h1>
-      <p class="muted">Register online for a library card. Staff review every application — we'll email you as soon as your account is ready.</p>
+      <h1>{{ t('opac.reg.heading', library=library_name) }}</h1>
+      <p class="lead">{{ t('opac.reg.lead') }}</p>
     </div>
     {% if registration_enabled %}
-    <form id="register-form" class="stack" novalidate>
-      <div class="grid cols-2 reg-grid">
-        <div class="field"><label for="rg-fn">First name *</label><input id="rg-fn" name="first_name" required maxlength="80" autocomplete="given-name"></div>
-        <div class="field"><label for="rg-ln">Last name *</label><input id="rg-ln" name="last_name" required maxlength="80" autocomplete="family-name"></div>
-        <div class="field"><label for="rg-em">Email *</label><input id="rg-em" name="email" type="email" required maxlength="160" autocomplete="email"><span class="hint">You'll sign in with this address.</span></div>
-        <div class="field"><label for="rg-ph">Mobile phone</label><input id="rg-ph" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
-        <div class="field" style="grid-column:1/-1"><label for="rg-ad">Address</label><input id="rg-ad" name="address" maxlength="255" autocomplete="street-address"></div>
-        <div class="field"><label for="rg-dob">Date of birth</label><input id="rg-dob" name="date_of_birth" type="date" autocomplete="bday"></div>
-        <div class="field"><label for="rg-br">Home branch *</label><select id="rg-br" name="home_branch_id" required></select></div>
-        <div class="field"><label for="rg-pw">Password *</label><input id="rg-pw" name="password" type="password" required minlength="10" maxlength="256" autocomplete="new-password" aria-describedby="rg-pw-hint">
-          <span class="hint" id="rg-pw-hint">At least 10 characters, mixing three of: lowercase, uppercase, digits, symbols. Don't use your name or email.</span></div>
-        <div class="field"><label for="rg-pw2">Confirm password *</label><input id="rg-pw2" name="password2" type="password" required minlength="10" maxlength="256" autocomplete="new-password"></div>
+    <form id="register-form" novalidate>
+      <div class="reg-steps">
+        <fieldset class="reg-group">
+          <legend><span class="n" aria-hidden="true">1</span>{{ t('opac.reg.about_you') }}</legend>
+          <div class="form-grid">
+            <div class="field"><label for="rg-fn">{{ t('opac.reg.first_name') }}<span class="req" aria-hidden="true">*</span></label><input id="rg-fn" name="first_name" required maxlength="80" autocomplete="given-name" aria-describedby="rg-fn-err"><div class="field-error" id="rg-fn-err" hidden></div></div>
+            <div class="field"><label for="rg-ln">{{ t('opac.reg.last_name') }}<span class="req" aria-hidden="true">*</span></label><input id="rg-ln" name="last_name" required maxlength="80" autocomplete="family-name" aria-describedby="rg-ln-err"><div class="field-error" id="rg-ln-err" hidden></div></div>
+            <div class="field"><label for="rg-dob">{{ t('opac.reg.dob') }} <span class="optional">{{ t('opac.reg.optional') }}</span></label><input id="rg-dob" name="date_of_birth" type="date" autocomplete="bday" aria-describedby="rg-dob-hint rg-dob-err"><span class="hint" id="rg-dob-hint">{{ t('opac.reg.dob_hint') }}</span><div class="field-error" id="rg-dob-err" hidden></div></div>
+          </div>
+        </fieldset>
+        <fieldset class="reg-group">
+          <legend><span class="n" aria-hidden="true">2</span>{{ t('opac.reg.contact') }}</legend>
+          <div class="form-grid">
+            <div class="field"><label for="rg-em">{{ t('opac.reg.email') }}<span class="req" aria-hidden="true">*</span></label><input id="rg-em" name="email" type="email" required maxlength="160" autocomplete="email" spellcheck="false" aria-describedby="rg-em-hint rg-em-err"><span class="hint" id="rg-em-hint">{{ t('opac.reg.email_hint') }}</span><div class="field-error" id="rg-em-err" hidden></div></div>
+            <div class="field"><label for="rg-ph">{{ t('opac.reg.phone') }} <span class="optional">{{ t('opac.reg.optional') }}</span></label><input id="rg-ph" name="phone" type="tel" maxlength="40" autocomplete="tel" aria-describedby="rg-ph-hint rg-ph-err"><span class="hint" id="rg-ph-hint">{{ t('opac.reg.phone_hint') }}</span><div class="field-error" id="rg-ph-err" hidden></div></div>
+            <div class="field span-2"><label for="rg-ad">{{ t('opac.reg.address') }} <span class="optional">{{ t('opac.reg.optional') }}</span></label><input id="rg-ad" name="address" maxlength="255" autocomplete="street-address" aria-describedby="rg-ad-err"><div class="field-error" id="rg-ad-err" hidden></div></div>
+          </div>
+        </fieldset>
+        <fieldset class="reg-group">
+          <legend><span class="n" aria-hidden="true">3</span>{{ t('opac.reg.your_card') }}</legend>
+          <div class="form-grid">
+            <div class="field span-2"><label for="rg-br">{{ t('opac.reg.branch') }}<span class="req" aria-hidden="true">*</span></label><select id="rg-br" name="home_branch_id" required aria-describedby="rg-br-hint rg-br-err"><option value="">{{ t('opac.reg.choose_branch') }}</option></select><span class="hint" id="rg-br-hint">{{ t('opac.reg.branch_hint') }}</span><div class="field-error" id="rg-br-err" hidden></div></div>
+            <div class="field"><label for="rg-pw">{{ t('opac.reg.password') }}<span class="req" aria-hidden="true">*</span></label>
+              <div class="pw-wrap"><input id="rg-pw" name="password" type="password" required minlength="10" maxlength="256" autocomplete="new-password" aria-describedby="rg-pw-rules rg-pw-err"><span data-pw-toggle-slot="rg-pw"></span></div>
+              <div data-pw-meter="rg-pw"></div><div class="field-error" id="rg-pw-err" hidden></div></div>
+            <div class="field"><label for="rg-pw2">{{ t('opac.reg.password2') }}<span class="req" aria-hidden="true">*</span></label>
+              <div class="pw-wrap"><input id="rg-pw2" name="password2" type="password" required minlength="10" maxlength="256" autocomplete="new-password" aria-describedby="rg-pw2-err"><span data-pw-toggle-slot="rg-pw2"></span></div>
+              <div class="field-error" id="rg-pw2-err" hidden></div></div>
+          </div>
+        </fieldset>
       </div>
       <div class="reg-hp" aria-hidden="true"><label for="rg-web">Website</label><input id="rg-web" name="website" tabindex="-1" autocomplete="off"></div>
       <div id="register-error" class="alert bad hidden" role="alert"></div>
-      <div class="row between">
-        <span class="small muted">Already a member? <a href="/login">Sign in</a></span>
-        <button class="btn primary lg" type="submit">Submit registration</button>
-      </div>
+      <p class="small muted" style="margin:0">{{ t('opac.reg.consent') }}</p>
+      <button class="btn primary lg" type="submit">{{ t('opac.reg.submit') }}</button>
     </form>
     {% else %}
-    <div class="alert info" role="status"><div>Online registration is not available at the moment. Please visit any branch with proof of address to join.</div></div>
+    <div class="alert info" role="status"><svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg><div>{{ t('opac.reg.closed') }}</div></div>
     {% endif %}
+    <p class="auth-alt">{{ t('opac.reg.already') }} <a href="/login">{{ t('common.sign_in') }}</a></p>
   </div>
+</div>
 </div>
 {% endblock %}

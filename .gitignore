@@ -21,3 +21,5 @@ htmlcov/
 # runtime data (semantic-index snapshots, local backups)
 var/
 backups/
+# uploaded media (staff cover uploads); back up alongside the database
+media/

@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from .models import Biblio, Hold, Item, Loan, Patron
+from .services.covers import cover_src
 
 
 class StrictModel(BaseModel):
@@ -295,7 +296,7 @@ def biblio_out(b: Biblio, avail: dict | None = None, *, full: bool = False) -> d
         "isbn": b.isbn, "publisher": b.publisher, "pub_year": b.pub_year,
         "language": b.language, "material_type": b.material_type, "subjects": b.subjects or [],
         "classification": b.classification, "audience": b.audience, "cover_url": b.cover_url,
-        "series": b.series,
+        "series": b.series, "cover": cover_src(b),
     }
     if avail is not None:
         out["availability"] = avail

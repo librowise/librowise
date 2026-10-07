@@ -1,4 +1,6 @@
 import { $, BOOT, api, authors, availabilityBadge, badge, confirmDialog, cover, date, empty, html, icon, modal, relative, toast, withBusy } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
+import { mountCoverEditor } from "/static/js/ui/cover-upload.js";
 
 let lk, b;
 const id = () => +BOOT.path_params.biblio_id;
@@ -62,6 +64,8 @@ async function render() {
             <td>${h.suspended ? badge("warn", "Suspended") : badge(h.status)}${h.item_level && h.requested_item ? html`<div class="tiny muted mono">${h.requested_item.barcode} only</div>` : ""}</td><td>${relative(h.created_at)}</td></tr>`)}</tbody></table></div>` : empty("No one is waiting for this title.")}</div></div>
       </div>
       <div class="stack">
+        <section class="card" aria-labelledby="cover-h"><div class="card-head"><h3 id="cover-h">${t("ui.cover.title")}</h3></div>
+          <div class="card-body" id="cover-slot"></div></section>
         <div class="card pad"><dl class="dl">
           ${[["ISBN", b.isbn], ["Publisher", b.publisher], ["Edition", b.edition], ["Pages", b.pages], ["Language", b.language], ["Format", b.material_type],
              ["Audience", b.audience], ["Classification", b.classification], ["Series", b.series], ["Added", date(b.created_at)]]
@@ -71,6 +75,7 @@ async function render() {
             <button class="btn ai" id="enrich">${icon("sparkle")}Suggest enrichments</button><div id="enrich-out"></div></div></div>
         <div class="card"><div class="card-head"><h3>Readers also borrowed</h3></div><div class="card-body" id="related">${empty("…")}</div></div>
       </div></div>`;
+  mountCoverEditor($("#cover-slot"), b, { onChange: (nb) => { b = { ...b, cover: nb.cover }; } });
   api(`/biblios/${b.id}/related`).then((r) => {
     $("#related").innerHTML = r.results.length ? html`<div class="stack tight">${r.results.map((x) => html`<a class="row tight" href="/staff/catalog/${x.id}">${cover(x, "sm")}<span class="small">${x.title}</span></a>`)}</div>` : empty("Not enough data yet");
   }).catch(() => {});

@@ -55,7 +55,7 @@ all Python dependencies in `/opt/librowise/venv`, the `librowise` command, syste
 units and man pages (`man librowise`, `man librowise-instance`).
 
 ```bash
-sudo apt install ./librowise_1.0.0-1~noble_amd64.deb
+sudo apt install ./librowise_1.1.0-1~noble_amd64.deb
 sudo apt install postgresql caddy           # recommended, not required
 sudo librowise instance create library --domain catalogue.example.org --admin-email admin@example.org
 ```
@@ -78,13 +78,13 @@ docker run --rm -v "$PWD":/src -w /src ubuntu:24.04 packaging/smoke-test-deb.sh 
 ## Docker
 
 The image `ghcr.io/librowise/librowise` (amd64 and arm64) runs the web app or, with
-`python -m shelfwise worker`, the background worker. [`docker-compose.yml`](../docker-compose.yml)
+`python -m librowise worker`, the background worker. [`docker-compose.yml`](../docker-compose.yml)
 is a complete stack with PostgreSQL:
 
 ```bash
-export SHELFWISE_SECRET_KEY=$(python3 -c "import secrets;print(secrets.token_urlsafe(64))")
+export LIBROWISE_SECRET_KEY=$(python3 -c "import secrets;print(secrets.token_urlsafe(64))")
 docker compose up -d
-docker compose run --rm app python -m shelfwise create-admin --username admin --email admin@example.org
+docker compose run --rm app python -m librowise create-admin --username admin --email admin@example.org
 ```
 
 Put a TLS proxy in front of port 8000; [DEPLOYMENT.md](DEPLOYMENT.md) covers configuration,
@@ -130,7 +130,7 @@ Any Linux with Python 3.11+ and PostgreSQL 14+ works:
 ```bash
 sudo useradd --system --user-group --home-dir /var/lib/librowise --shell /usr/sbin/nologin librowise
 sudo python3 -m venv /opt/librowise/venv
-sudo /opt/librowise/venv/bin/pip install "shelfwise[postgres] @ git+https://github.com/librowise/librowise@v1.0.0"
+sudo /opt/librowise/venv/bin/pip install "librowise[postgres] @ git+https://github.com/librowise/librowise@v1.1.0"
 sudo ln -s /opt/librowise/venv/bin/librowise /usr/local/bin/librowise
 sudo librowise instance create library --domain catalogue.example.org --dry-run   # review the plan
 sudo librowise instance create library --domain catalogue.example.org
@@ -141,7 +141,7 @@ Variations:
 * **Existing or remote PostgreSQL**: `--db-url postgresql+psycopg://user:pass@db.internal/library`
   (nothing is created; the role needs to own the database).
 * **nginx**: `--proxy nginx`, then `sudo certbot --nginx -d catalogue.example.org`, set
-  `SHELFWISE_COOKIE_SECURE=true` and `SHELFWISE_PUBLIC_URL=https://…` in the env file and restart.
+  `LIBROWISE_COOKIE_SECURE=true` and `LIBROWISE_PUBLIC_URL=https://…` in the env file and restart.
   Sites edited by certbot are never overwritten.
 * **Your own proxy or load balancer**: `--no-proxy --domain catalogue.example.org` and proxy to the
   printed local port. Set `--bind 0.0.0.0` only on a private network.
@@ -176,29 +176,29 @@ Files of a system instance `NAME`:
 | `koha-worker --start NAME` | `librowise instance start NAME` | the worker is part of every instance |
 | `koha-enable / koha-disable NAME` | `librowise instance enable / disable NAME` | start at boot or not |
 | `koha-shell NAME` | `librowise instance shell NAME [-- COMMAND]` | e.g. `-- create-admin --username jdoe --email …`, `-- reindex`, `-- jobs list` |
-| `koha-email-enable` | edit `SHELFWISE_EMAIL_BACKEND=smtp` and `SMTP_*` in the env file | then `instance restart` |
+| `koha-email-enable` | edit `LIBROWISE_EMAIL_BACKEND=smtp` and `SMTP_*` in the env file | then `instance restart` |
 | — | `librowise instance doctor NAME` | database, migration head, processes, ports, /readyz, TLS expiry, disk, backups |
 | — | `librowise instance serve NAME [web|worker|sip2]` | one process in the foreground (debugging, containers) |
 
 ## Upgrades and rollback
 
-* **Installer installs**: `sudo librowise instance upgrade --all --version v1.1.0` installs the
+* **Installer installs**: `sudo librowise instance upgrade --all --version v1.2.0` installs the
   release into `/opt/librowise/venv`, then for each instance takes a backup, runs the migrations
   and restarts the services.
-* **Debian package**: `sudo apt install ./librowise_1.1.0-1~noble_amd64.deb` — the package's
+* **Debian package**: `sudo apt install ./librowise_1.2.0-1~noble_amd64.deb` — the package's
   post-install step runs `librowise instance upgrade --all`.
-* **Docker**: pull the new tag and run `python -m shelfwise migrate` before starting the app.
+* **Docker**: pull the new tag and run `python -m librowise migrate` before starting the app.
 
 **Rollback**: migrations only move forward, so roll back by reinstalling the previous release and
 restoring the backup that `instance upgrade` took just before migrating:
 
 ```bash
 sudo librowise instance stop library
-sudo /opt/librowise/venv/bin/pip install "shelfwise[postgres] @ git+https://github.com/librowise/librowise@v1.0.0"
-#   (package installs: apt install ./librowise_1.0.0-1~noble_amd64.deb — its automatic schema
+sudo /opt/librowise/venv/bin/pip install "librowise[postgres] @ git+https://github.com/librowise/librowise@v1.1.0"
+#   (package installs: apt install ./librowise_1.1.0-1~noble_amd64.deb — its automatic schema
 #    upgrade reports a failure because the database is newer; that is expected here)
 ls -t /var/backups/librowise/library/ | head -3                    # the pre-upgrade backup
-sudo librowise instance shell library -- restore /var/backups/librowise/library/shelfwise-YYYYMMDD-HHMMSS.dump --yes
+sudo librowise instance shell library -- restore /var/backups/librowise/library/librowise-YYYYMMDD-HHMMSS.dump --yes
 sudo librowise instance start library
 ```
 
@@ -207,7 +207,7 @@ sudo librowise instance start library
 * Every instance's worker runs a nightly backup at 01:15 (library time) into
   `/var/backups/librowise/NAME`: `pg_dump --format=custom` for PostgreSQL, the SQLite online
   backup API otherwise, each with a SHA-256 manifest; the newest 14 are kept
-  (`SHELFWISE_BACKUP_KEEP`). Change the time in `SHELFWISE_SCHEDULES`.
+  (`LIBROWISE_BACKUP_KEEP`). Change the time in `LIBROWISE_SCHEDULES`.
 * On demand: `librowise instance backup NAME` (or `--all`).
 * List / verify: `librowise instance shell NAME -- backup --list` and `… -- backup --verify FILE`.
 * Restore: `librowise instance stop NAME`, then
@@ -237,8 +237,8 @@ Start with `sudo librowise instance doctor NAME`; it names the failing piece and
 | "Database is not initialised" / doctor says schema behind | `sudo librowise instance upgrade NAME` |
 | Port already in use | pick another with `--port`, or see `ss -ltnp` |
 | `/readyz` returns 503 with `worker` | `systemctl status librowise-worker@NAME`; schedules (notices, backups) need the worker |
-| Sign-in loops on plain HTTP | `SHELFWISE_COOKIE_SECURE=true` requires HTTPS; set it to `false` only for `--no-proxy` test installs |
+| Sign-in loops on plain HTTP | `LIBROWISE_COOKIE_SECURE=true` requires HTTPS; set it to `false` only for `--no-proxy` test installs |
 | Lost the administrator password | `sudo librowise instance shell NAME -- create-admin --username admin2 --email you@example.org` creates another administrator; `-- reset-2fa --username admin` clears a lockout or lost 2FA device |
-| E-mails are not sent | set `SHELFWISE_EMAIL_BACKEND=smtp` and `SHELFWISE_SMTP_*` in the env file; `instance shell NAME -- send-notices` shows delivery errors |
+| E-mails are not sent | set `LIBROWISE_EMAIL_BACKEND=smtp` and `LIBROWISE_SMTP_*` in the env file; `instance shell NAME -- send-notices` shows delivery errors |
 | Installer failed half way | read `/var/log/librowise/install.log`, fix the cause, re-run the same command |
 | Windows: `instance start` reports the web did not answer | `%LOCALAPPDATA%\Librowise\log\NAME\web.log`; another program may use the port |

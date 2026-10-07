@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from shelfwise.services import citations, discovery
+from librowise.services import citations, discovery
 
 
 def test_suggest_titles_authors_subjects(client, make_book):

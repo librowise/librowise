@@ -7,11 +7,11 @@ import pytest
 from conftest import login
 from sqlalchemy import select
 
-from shelfwise.errors import Conflict
-from shelfwise.models import Authority, Biblio, BiblioAuthority
-from shelfwise.services import authorities as auth
-from shelfwise.services import catalog
-from shelfwise.services import settings as settings_svc
+from librowise.errors import Conflict
+from librowise.models import Authority, Biblio, BiblioAuthority
+from librowise.services import authorities as auth
+from librowise.services import catalog
+from librowise.services import settings as settings_svc
 
 
 def links(db, biblio_id):
@@ -369,7 +369,7 @@ def test_opac_browse_see_and_see_also(client, db, lib, make_book):
 
 
 def test_cli_relink(engine, db, lib, make_book):
-    from shelfwise.__main__ import main
+    from librowise.__main__ import main
 
     b, _ = make_book("Roughing It", authors=["Clemens, Samuel"])
     settings_svc.set_value(db, "authority_auto_link", False)

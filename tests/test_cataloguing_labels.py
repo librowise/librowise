@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from conftest import login
 
-from shelfwise.errors import DomainError
-from shelfwise.services import barcodes, labels
+from librowise.errors import DomainError
+from librowise.services import barcodes, labels
 
 # ------------------------------------------------------------------ Code 128
 
@@ -45,7 +45,7 @@ def test_reference_symbol_patterns(value, bits):
     ("1234", [105, 12, 34, 82, 106]),
     # odd digit string: C for the pairs, the last digit in B
     ("12345", [105, 12, 34, 100, 21, 54, 106]),
-    # Shelfwise item barcode: letters in B, then switch to C for the 8-digit run
+    # Librowise item barcode: letters in B, then switch to C for the 8-digit run
     ("SW00000001", [104, 51, 55, 99, 0, 0, 0, 1, 54, 106]),
     # odd run at the end: first digit stays in B
     ("AB12345", [104, 33, 34, 17, 99, 23, 45, 7, 106]),
@@ -104,7 +104,7 @@ def test_split_call_number(cn, split, lines):
 
 
 def test_fit_font_shrinks_long_call_numbers():
-    from shelfwise.models import LabelLayout
+    from librowise.models import LabelLayout
 
     layout = LabelLayout(**{k: v for k, v in labels.PRESETS[3].items() if k != "page_size"}, page_width=210, page_height=297)
     assert labels.fit_font(["823.8", "DOY"], layout) == layout.font_size

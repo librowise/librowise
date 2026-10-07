@@ -5,24 +5,24 @@ from datetime import timedelta
 
 import pytest
 
-os.environ["SHELFWISE_ENVIRONMENT"] = "test"
-os.environ["SHELFWISE_SECRET_KEY"] = "test-secret-key-not-for-production"
-os.environ["SHELFWISE_METADATA_LOOKUP_ENABLED"] = "false"
+os.environ["LIBROWISE_ENVIRONMENT"] = "test"
+os.environ["LIBROWISE_SECRET_KEY"] = "test-secret-key-not-for-production"
+os.environ["LIBROWISE_METADATA_LOOKUP_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from shelfwise import db as dbmod  # noqa: E402
-from shelfwise.config import get_settings  # noqa: E402
-from shelfwise.models import Patron, Role, utcnow  # noqa: E402
-from shelfwise.security import ai_limiter, hash_password, login_limiter  # noqa: E402
+from librowise import db as dbmod  # noqa: E402
+from librowise.config import get_settings  # noqa: E402
+from librowise.models import Patron, Role, utcnow  # noqa: E402
+from librowise.security import ai_limiter, hash_password, login_limiter  # noqa: E402
 
 PASSWORD = "Test#Passw0rd!"
 
 
-# Set SHELFWISE_TEST_DATABASE_URL (e.g. postgresql+psycopg://user:pw@localhost:55432/shelfwise_test)
+# Set LIBROWISE_TEST_DATABASE_URL (e.g. postgresql+psycopg://user:pw@localhost:55432/librowise_test)
 # to run the whole suite against PostgreSQL. The schema is rebuilt once per session and every
 # table is truncated before each test.
-TEST_DATABASE_URL = os.environ.get("SHELFWISE_TEST_DATABASE_URL", "")
+TEST_DATABASE_URL = os.environ.get("LIBROWISE_TEST_DATABASE_URL", "")
 _schema_ready: set[str] = set()
 
 
@@ -30,7 +30,7 @@ _schema_ready: set[str] = set()
 def engine(tmp_path):
     get_settings.cache_clear()
     url = TEST_DATABASE_URL or f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
-    os.environ["SHELFWISE_DATABASE_URL"] = url
+    os.environ["LIBROWISE_DATABASE_URL"] = url
     eng = dbmod.init_engine(url)
     if TEST_DATABASE_URL and url in _schema_ready:
         dbmod.truncate_all()
@@ -41,7 +41,7 @@ def engine(tmp_path):
         dbmod.create_all()
     login_limiter.reset()
     ai_limiter.reset()
-    from shelfwise.ai import semantic
+    from librowise.ai import semantic
 
     semantic.index.invalidate()
     yield eng
@@ -58,7 +58,7 @@ def db(engine):
 @pytest.fixture()
 def lib(db):
     """Library structure (branches, item types, categories, rules) + three users."""
-    from shelfwise.seed import seed_structure
+    from librowise.seed import seed_structure
 
     s = seed_structure(db)
     cats, branches = s["cats"], s["branches"]
@@ -83,7 +83,7 @@ def lib(db):
 
 @pytest.fixture()
 def make_book(db, lib):
-    from shelfwise.services import catalog
+    from librowise.services import catalog
 
     def make(title="Test Book", copies=1, itype="BOOK", **fields):
         b = catalog.create_biblio(db, {"title": title, "authors": fields.pop("authors", ["Author, Test"]), **fields})
@@ -97,7 +97,7 @@ def make_book(db, lib):
 
 @pytest.fixture()
 def client(engine):
-    from shelfwise.app import create_app
+    from librowise.app import create_app
 
     with TestClient(create_app()) as c:
         yield c

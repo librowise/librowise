@@ -4,11 +4,11 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from shelfwise.errors import PolicyBlocked
-from shelfwise.models import BranchCalendar, CalendarClosure, HoldStatus, utcnow
-from shelfwise.services import calendar as cal
-from shelfwise.services import circulation
-from shelfwise.services import settings as settings_svc
+from librowise.errors import PolicyBlocked
+from librowise.models import BranchCalendar, CalendarClosure, HoldStatus, utcnow
+from librowise.services import calendar as cal
+from librowise.services import circulation
+from librowise.services import settings as settings_svc
 
 
 def _close(db, branch_id, day, desc="Closed", yearly=False, open_override=False):
@@ -117,7 +117,7 @@ def test_fines_count_only_open_days(db, lib, make_book):
 
 
 def test_grace_days_apply_to_open_days(db, lib, make_book):
-    from shelfwise.models import CirculationRule
+    from librowise.models import CirculationRule
 
     _, (item,) = make_book()
     main = item.branch_id

@@ -7,9 +7,9 @@ from datetime import timedelta
 import pytest
 from conftest import PASSWORD, login
 
-from shelfwise.api import kiosk as kiosk_api
-from shelfwise.models import AuditLog, Hold, HoldStatus, ItemStatus, KioskSession, Loan, utcnow
-from shelfwise.services import circulation
+from librowise.api import kiosk as kiosk_api
+from librowise.models import AuditLog, Hold, HoldStatus, ItemStatus, KioskSession, Loan, utcnow
+from librowise.services import circulation
 
 
 @pytest.fixture(autouse=True)

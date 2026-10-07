@@ -15,7 +15,7 @@ Group=librowise
 EnvironmentFile=/etc/librowise/%i.env
 Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WorkingDirectory=/var/lib/librowise/%i
-ExecStart=/opt/librowise/venv/bin/python -m uvicorn shelfwise.app:app --host ${LIBROWISE_BIND} --port ${LIBROWISE_PORT} --workers ${LIBROWISE_WEB_WORKERS} --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+ExecStart=/opt/librowise/venv/bin/python -m uvicorn librowise.app:app --host ${LIBROWISE_BIND} --port ${LIBROWISE_PORT} --workers ${LIBROWISE_WEB_WORKERS} --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

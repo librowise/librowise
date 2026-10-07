@@ -1,0 +1,67 @@
+{% extends "staff_base.html" %}
+{% block page_title %}System{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>System</h1>
+    <div class="sub">Health, background jobs, schedules, workers, database and backups.</div>
+  </div>
+  <div class="row tight">
+    <span class="small muted" id="sys-updated" aria-live="polite"></span>
+    <button class="btn" type="button" id="sys-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
+  </div>
+</div>
+
+<div class="grid cols-4" id="sys-health">{% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:3.2rem"></div></div>{% endfor %}</div>
+
+<section class="card sys-section" aria-labelledby="sys-jobs-h">
+  <div class="card-head">
+    <h2 id="sys-jobs-h">Job queue</h2>
+    <span class="small muted" id="sys-queue-summary"></span>
+  </div>
+  <div class="card-body stack">
+    <form class="row tight sys-filters" id="sys-job-filters">
+      <div class="field"><label for="sys-status">Status</label>
+        <select id="sys-status" name="status">
+          <option value="">All</option>
+          <option value="queued">Queued</option><option value="running">Running</option>
+          <option value="failed">Failed (retrying)</option><option value="dead">Dead</option>
+          <option value="succeeded">Succeeded</option><option value="cancelled">Cancelled</option>
+        </select></div>
+      <div class="field"><label for="sys-type">Type</label><select id="sys-type" name="type"><option value="">All</option></select></div>
+      <div class="spacer grow"></div>
+      <div class="field"><label for="sys-enqueue-type">Run a job now</label>
+        <div class="input-group"><select id="sys-enqueue-type" name="enqueue_type"></select>
+          <button class="btn primary" type="button" id="sys-enqueue"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Queue</button></div></div>
+    </form>
+    <div id="sys-jobs" aria-live="polite"><div class="skeleton" style="height:6rem"></div></div>
+  </div>
+</section>
+
+<div class="grid cols-2 sys-section">
+  <section class="card" aria-labelledby="sys-sched-h">
+    <div class="card-head"><h2 id="sys-sched-h">Schedules</h2><span class="small muted" id="sys-tz"></span></div>
+    <div class="card-body" id="sys-schedules"><div class="skeleton" style="height:4rem"></div></div>
+  </section>
+  <section class="card" aria-labelledby="sys-workers-h">
+    <div class="card-head"><h2 id="sys-workers-h">Workers</h2></div>
+    <div class="card-body" id="sys-workers"><div class="skeleton" style="height:4rem"></div></div>
+  </section>
+  <section class="card" aria-labelledby="sys-db-h">
+    <div class="card-head"><h2 id="sys-db-h">Database</h2></div>
+    <div class="card-body" id="sys-db"><div class="skeleton" style="height:4rem"></div></div>
+  </section>
+  <section class="card" aria-labelledby="sys-latency-h">
+    <div class="card-head"><h2 id="sys-latency-h">Request latency</h2><span class="small muted">this process, since start</span></div>
+    <div class="card-body" id="sys-latency"><div class="skeleton" style="height:4rem"></div></div>
+  </section>
+</div>
+
+<section class="card sys-section" aria-labelledby="sys-backups-h">
+  <div class="card-head"><h2 id="sys-backups-h">Backups</h2><span class="small muted" id="sys-backup-dir"></span></div>
+  <div class="card-body stack">
+    <p class="small muted" style="margin:0">Backups are created by the <code>backup</code> job or <code>python -m librowise backup</code> and are never downloadable through the web interface. Restore with <code>python -m librowise restore FILE --yes</code>.</p>
+    <div id="sys-backups"><div class="skeleton" style="height:3rem"></div></div>
+  </div>
+</section>
+{% endblock %}

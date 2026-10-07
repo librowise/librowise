@@ -15,7 +15,7 @@ Group=librowise
 EnvironmentFile=/etc/librowise/%i.env
 Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WorkingDirectory=/var/lib/librowise/%i
-ExecStart=/opt/librowise/venv/bin/python -m shelfwise sip2 --host ${LIBROWISE_SIP2_BIND} --port ${LIBROWISE_SIP2_PORT}
+ExecStart=/opt/librowise/venv/bin/python -m librowise sip2 --host ${LIBROWISE_SIP2_BIND} --port ${LIBROWISE_SIP2_PORT}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

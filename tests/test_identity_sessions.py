@@ -10,8 +10,8 @@ from conftest import PASSWORD, login
 from identity_utils import bearer, password_login, reset_identity_state
 from sqlalchemy import select
 
-from shelfwise.models import ApiToken, AuditLog, AuthToken, LoginEvent, Notification, Patron, UserSession, utcnow
-from shelfwise.security import create_session_token
+from librowise.models import ApiToken, AuditLog, AuthToken, LoginEvent, Notification, Patron, UserSession, utcnow
+from librowise.security import create_session_token
 
 
 @pytest.fixture(autouse=True)

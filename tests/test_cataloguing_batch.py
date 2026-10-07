@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from conftest import login
 
-from shelfwise.errors import DomainError
-from shelfwise.models import AuditLog, ItemStatus
-from shelfwise.services import batch_items as svc
-from shelfwise.services import circulation
+from librowise.errors import DomainError
+from librowise.models import AuditLog, ItemStatus
+from librowise.services import batch_items as svc
+from librowise.services import circulation
 
 
 @pytest.fixture()

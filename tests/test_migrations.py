@@ -7,8 +7,8 @@ from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect
 
-from shelfwise import db as dbmod
-from shelfwise import migrations
+from librowise import db as dbmod
+from librowise import migrations
 
 
 @pytest.fixture()
@@ -55,6 +55,6 @@ def test_prepare_schema_production_never_auto_creates(fresh_db):
 
 
 def test_models_have_no_unmigrated_changes(fresh_db):
-    """Fails when a model changed without a new migration: run `python -m shelfwise makemigration`."""
+    """Fails when a model changed without a new migration: run `python -m librowise makemigration`."""
     migrations.upgrade()
     assert _schema_diff(fresh_db) == []

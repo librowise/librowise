@@ -1,12 +1,12 @@
 # Interoperability: SIP2, SRU, OAI-PMH, copy cataloguing and schema.org
 
-Shelfwise speaks the standard library protocols that self-check machines, security gates,
+Librowise speaks the standard library protocols that self-check machines, security gates,
 union catalogues, harvesters and search engines expect. This document covers each one:
 what it does, how to configure it and what it supports.
 
 | Protocol | Where | Who uses it |
 |---|---|---|
-| SIP2 (3M SIP 2.00) | TCP, `python -m shelfwise sip2` (default port 6001) | Self-check kiosks, security gates, sorters (AMH), e-book platforms |
+| SIP2 (3M SIP 2.00) | TCP, `python -m librowise sip2` (default port 6001) | Self-check kiosks, security gates, sorters (AMH), e-book platforms |
 | SRU 1.1 / 1.2 / 2.0 + CQL | `GET/POST /sru` | Other libraries' copy cataloguing, discovery layers, reference managers |
 | OAI-PMH 2.0 | `GET/POST /oai` | Union catalogues, aggregators, discovery services |
 | SRU client (copy cataloguing) | Staff → *Copy cataloguing* | Cataloguers importing records from the Library of Congress etc. |
@@ -22,10 +22,10 @@ targets, under **Staff → Interoperability** (`/staff/interop`).
 ### Running the server
 
 The SIP2 server runs as its own process next to the web server and uses the same database
-(`SHELFWISE_DATABASE_URL`):
+(`LIBROWISE_DATABASE_URL`):
 
 ```bash
-python -m shelfwise sip2 --host 0.0.0.0 --port 6001
+python -m librowise sip2 --host 0.0.0.0 --port 6001
 ```
 
 | Option | Default | Meaning |
@@ -44,7 +44,7 @@ restrict each account to its terminals' addresses (*Allowed networks*), or use T
 with `--certfile`, or with stunnel in front).
 
 Run it under your process manager like the web server, e.g. a systemd unit with
-`ExecStart=/opt/shelfwise/.venv/bin/python -m shelfwise sip2 --host 0.0.0.0 --port 6001`,
+`ExecStart=/opt/librowise/.venv/bin/python -m librowise sip2 --host 0.0.0.0 --port 6001`,
 or an extra service in `docker-compose.yml` using the same image with that command.
 
 ### SIP accounts
@@ -97,19 +97,19 @@ Every transaction runs in its own database transaction through the same circulat
 the staff desk (same rules, limits, fines and holds routing). The audit log entries written by
 those services are tagged `via=sip2`, `sip_account`, `terminal` and the terminal's IP; logins,
 failed logins, blocks and enables are audited too. Dates are sent in the library's time zone
-(`SHELFWISE_TIMEZONE`, default `Asia/Kolkata`) in the SIP `YYYYMMDDZZZZHHMMSS` format.
+(`LIBROWISE_TIMEZONE`, default `Asia/Kolkata`) in the SIP `YYYYMMDDZZZZHHMMSS` format.
 
 ### Sample self-check configuration
 
 Most kiosks (3M/Bibliotheca, Envisionware, P-Series, …) ask for the same values:
 
 ```
-ACS / LMS host ........ sip.library.example   (the machine running `python -m shelfwise sip2`)
+ACS / LMS host ........ sip.library.example   (the machine running `python -m librowise sip2`)
 Port .................. 6001
 Login (CN) ............ kiosk-ground-floor     (a SIP account created in Staff → Interoperability)
 Password (CO) ......... ••••••••••••
 Location code (CP) .... MAIN                   (shown back in 98 as AN)
-Institution ID (AO) ... SHELFWISE              (must match the SIP account)
+Institution ID (AO) ... LIBROWISE              (must match the SIP account)
 Field delimiter ....... |
 Message terminator .... CR (0x0D)
 Error detection ....... on  (AY sequence + AZ checksum)  — tick "Require checksums" on the account
@@ -124,17 +124,17 @@ A minimal session, for testing with `nc` or the bundled client:
 → 9300CNkiosk-ground-floor|COsecret|CPMAIN|AY0AZEFCE
 ← 941AY0AZFDFD
 → 9900802.00AY1AZFCA0
-← 98YYYYNY100003...2.00AOSHELFWISE|AMShelfwise Public Library|BXYYYYYYYYYYYNYYYY|ANMAIN|...
+← 98YYYYNY100003...2.00AOLIBROWISE|AMLibrowise Public Library|BXYYYYYYYYYYYNYYYY|ANMAIN|...
 ```
 
 ```python
-from shelfwise.sip2.client import SipClient
+from librowise.sip2.client import SipClient
 c = SipClient("127.0.0.1", 6001, error_detection=True)
 c.login("kiosk-ground-floor", "secret", "MAIN")
-print(c.request("63", ["001", c.now(), "  Y       "], [("AO", "SHELFWISE"), ("AA", "1000000001")]).fields)
+print(c.request("63", ["001", c.now(), "  Y       "], [("AO", "LIBROWISE"), ("AA", "1000000001")]).fields)
 ```
 
-The demo data (`python -m shelfwise seed`) creates the SIP account `selfcheck` /
+The demo data (`python -m librowise seed`) creates the SIP account `selfcheck` /
 `SelfCheck#Demo2026` at the Central Library — for local development only.
 
 ---
@@ -197,13 +197,13 @@ All six verbs over `GET` or `POST`: `Identify`, `ListMetadataFormats`, `ListSets
 
 * **Formats:** `oai_dc` (simple Dublin Core) and `marc21` (MARCXML — the preserved original
   record when one was imported).
-* **Identifiers:** `oai:<repository-id>:<record number>`, e.g. `oai:shelfwise.local:42`.
+* **Identifiers:** `oai:<repository-id>:<record number>`, e.g. `oai:librowise.local:42`.
 * **Sets:** one per material type (`book`, `ebook`, `audiobook`, `dvd`, `serial`, `comic`).
 * **Datestamps:** the record's last modification, UTC, granularity `YYYY-MM-DDThh:mm:ssZ`
   (`from`/`until` also accept `YYYY-MM-DD`; both bounds inclusive).
 * **Deleted records:** `deletedRecord=persistent` — soft-deleted records are listed with
   `<header status="deleted">` and no metadata.
-* **Paging:** opaque, signed (HMAC with `SHELFWISE_SECRET_KEY`) resumption tokens with
+* **Paging:** opaque, signed (HMAC with `LIBROWISE_SECRET_KEY`) resumption tokens with
   `cursor`, `completeListSize` and a 24-hour `expirationDate`. Paging is keyset-based on
   (datestamp, id), so records changed during a harvest are never skipped.
 * **Errors:** `badVerb`, `badArgument` (unknown/missing/repeated arguments, bad dates, mixed
@@ -212,10 +212,10 @@ All six verbs over `GET` or `POST`: `Identify`, `ListMetadataFormats`, `ListSets
 
 | Environment variable | Default | Meaning |
 |---|---|---|
-| `SHELFWISE_OAI_REPOSITORY_ID` | `shelfwise.local` | Repository identifier used in OAI identifiers (use your domain name) |
-| `SHELFWISE_OAI_ADMIN_EMAIL` | first branch e-mail | `adminEmail` in Identify |
-| `SHELFWISE_OAI_PAGE_SIZE` | `100` | Records per response |
-| `SHELFWISE_PROTOCOL_REQUESTS_PER_MINUTE` | `300` | Per-IP limit for `/sru` and `/oai` (HTTP 503 + `Retry-After`) |
+| `LIBROWISE_OAI_REPOSITORY_ID` | `librowise.local` | Repository identifier used in OAI identifiers (use your domain name) |
+| `LIBROWISE_OAI_ADMIN_EMAIL` | first branch e-mail | `adminEmail` in Identify |
+| `LIBROWISE_OAI_PAGE_SIZE` | `100` | Records per response |
+| `LIBROWISE_PROTOCOL_REQUESTS_PER_MINUTE` | `300` | Per-IP limit for `/sru` and `/oai` (HTTP 503 + `Retry-After`) |
 
 ---
 

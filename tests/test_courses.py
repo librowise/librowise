@@ -7,10 +7,10 @@ import pytest
 from conftest import login
 from sqlalchemy import select
 
-from shelfwise.errors import Conflict
-from shelfwise.models import CourseItem, CourseReserve, Item
-from shelfwise.services import circulation
-from shelfwise.services import courses as svc
+from librowise.errors import Conflict
+from librowise.models import CourseItem, CourseReserve, Item
+from librowise.services import circulation
+from librowise.services import courses as svc
 
 
 @pytest.fixture()

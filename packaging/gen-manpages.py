@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-PY_MODULE = "shelfwise"  # renamed together with the project
+PY_MODULE = "librowise"  # renamed together with the project
 PROG = "librowise"
 TITLE = "Librowise"
 

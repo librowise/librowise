@@ -10,7 +10,7 @@
 # Only standard tools are used: python3 -m venv, pip, dpkg-deb, gzip.
 set -Eeuo pipefail
 
-PY_MODULE="shelfwise"   # Python package (renamed together with the project)
+PY_MODULE="librowise"   # Python package (renamed together with the project)
 PKG="librowise"
 PREFIX="/opt/$PKG"
 VENV="$PREFIX/venv"

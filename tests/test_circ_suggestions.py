@@ -2,7 +2,7 @@
 
 from conftest import login
 
-from shelfwise.models import Budget, Notification, OrderStatus, PurchaseOrder, Vendor
+from librowise.models import Budget, Notification, OrderStatus, PurchaseOrder, Vendor
 
 
 def _suggest(client, h, **kw):

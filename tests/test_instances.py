@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -16,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from shelfwise.instances import render
-from shelfwise.instances.common import (
+from librowise.instances import render
+from librowise.instances.common import (
     PRODUCT,
     PY_MODULE,
     InstanceError,
@@ -27,8 +28,8 @@ from shelfwise.instances.common import (
     parse_env,
     validate_name,
 )
-from shelfwise.instances.manager import PACKAGED_MARKER, CreateOptions, Manager
-from shelfwise.instances.system import System
+from librowise.instances.manager import PACKAGED_MARKER, CreateOptions, Manager
+from librowise.instances.system import System
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOTS = Path(__file__).parent / "snapshots" / "instances"
@@ -71,7 +72,8 @@ class FakeSystem(System):
         return name in self.users
 
     def environ(self):
-        return {"PATH": "/usr/bin", "SHELFWISE_DATABASE_URL": "sqlite:///leak.db", "HOME": "/root"}
+        return {"PATH": "/usr/bin", "LIBROWISE_DATABASE_URL": "sqlite:///leak.db", "HOME": "/root",
+                "SHELFWISE_EMAIL_BACKEND": "smtp"}
 
     def chown(self, path, owner, group, quiet=False):
         self.chowns.append((Path(path).name, owner, group))
@@ -112,7 +114,8 @@ class FakeSystem(System):
         self.commands.append(cmd)
         self.inputs.append(input)
         if env is not None:
-            assert "SHELFWISE_DATABASE_URL" not in env or env["SHELFWISE_DATABASE_URL"] != "sqlite:///leak.db"
+            assert env.get("LIBROWISE_DATABASE_URL") != "sqlite:///leak.db"  # caller settings never leak
+            assert "SHELFWISE_EMAIL_BACKEND" not in env  # nor legacy-prefixed ones
         return subprocess.CompletedProcess(cmd, 0, self._respond(cmd, input or ""), "")
 
     def symlink(self, target, link):
@@ -207,7 +210,7 @@ def test_env_quoting_round_trip():
 def test_librowise_console_entry_point_declared():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
     assert project["scripts"]["librowise"] == f"{PY_MODULE}.__main__:main"
-    assert project["scripts"]["shelfwise"] == "shelfwise.__main__:main"  # kept for compatibility
+    assert "shelfwise" not in project["scripts"]  # renamed in 1.1; no duplicate entry point
 
 
 def test_instance_command_is_registered():
@@ -261,23 +264,23 @@ def test_create_system_postgres_caddy(system_layout):
     env = parse_env(env_path.read_text(encoding="utf-8"))
     assert env["LIBROWISE_INSTANCE"] == "central"
     assert env["LIBROWISE_PORT"] == "8100" and env["LIBROWISE_BIND"] == "127.0.0.1"
-    assert env["SHELFWISE_ENVIRONMENT"] == "production"
-    assert len(env["SHELFWISE_SECRET_KEY"]) >= 64
-    assert env["SHELFWISE_DATABASE_URL"].startswith(f"postgresql+psycopg://{ident}:")
-    assert env["SHELFWISE_DATABASE_URL"].endswith(f"@localhost:5433/{ident}")  # port read from the server
-    assert env["SHELFWISE_PUBLIC_URL"] == "https://catalogue.example.org"
-    assert json.loads(env["SHELFWISE_ALLOWED_HOSTS"])[0] == "catalogue.example.org"
-    assert env["SHELFWISE_COOKIE_SECURE"] == "true"
-    assert env["SHELFWISE_TIMEZONE"] == "Europe/London"
-    assert json.loads(env["SHELFWISE_SCHEDULES"])["backup"] == "15 1 * * *"
-    assert Path(env["SHELFWISE_BACKUP_DIR"]) == L.backup_dir("central")
+    assert env["LIBROWISE_ENVIRONMENT"] == "production"
+    assert len(env["LIBROWISE_SECRET_KEY"]) >= 64
+    assert env["LIBROWISE_DATABASE_URL"].startswith(f"postgresql+psycopg://{ident}:")
+    assert env["LIBROWISE_DATABASE_URL"].endswith(f"@localhost:5433/{ident}")  # port read from the server
+    assert env["LIBROWISE_PUBLIC_URL"] == "https://catalogue.example.org"
+    assert json.loads(env["LIBROWISE_ALLOWED_HOSTS"])[0] == "catalogue.example.org"
+    assert env["LIBROWISE_COOKIE_SECURE"] == "true"
+    assert env["LIBROWISE_TIMEZONE"] == "Europe/London"
+    assert json.loads(env["LIBROWISE_SCHEDULES"])["backup"] == "15 1 * * *"
+    assert Path(env["LIBROWISE_BACKUP_DIR"]) == L.backup_dir("central")
     assert any(a.startswith(f"write {env_path} (0640 root:librowise; secrets") for a in fake.actions)
     assert any("central.env" in n and (o, g) == ("root", "librowise") for n, o, g in fake.chowns)
 
     # secrets never appear in output, action log or command lines (only in stdin to psql)
-    password = env["SHELFWISE_DATABASE_URL"].split(":")[2].split("@")[0]
+    password = env["LIBROWISE_DATABASE_URL"].split(":")[2].split("@")[0]
     text = _all_text(fake)
-    assert password not in text and env["SHELFWISE_SECRET_KEY"] not in text
+    assert password not in text and env["LIBROWISE_SECRET_KEY"] not in text
     assert any(password in (i or "") for i in fake.inputs)
 
     # schema, admin, units, proxy, logrotate, services
@@ -328,13 +331,29 @@ def test_create_keeps_operator_edits_and_adds_new_keys(system_layout):
     m, fake = make(L)
     m.create(CreateOptions("central", domain="catalogue.example.org"))
     path = L.env_file("central")
-    text = path.read_text(encoding="utf-8").replace("SHELFWISE_BACKUP_KEEP=14", "SHELFWISE_BACKUP_KEEP=30")
-    text = "\n".join(ln for ln in text.splitlines() if not ln.startswith("SHELFWISE_CACHE_DIR"))
-    path.write_text(text + "\nSHELFWISE_EMAIL_BACKEND=smtp\n", encoding="utf-8")
+    text = path.read_text(encoding="utf-8").replace("LIBROWISE_BACKUP_KEEP=14", "LIBROWISE_BACKUP_KEEP=30")
+    text = "\n".join(ln for ln in text.splitlines() if not ln.startswith("LIBROWISE_CACHE_DIR"))
+    path.write_text(text + "\nLIBROWISE_EMAIL_BACKEND=smtp\n", encoding="utf-8")
     m.create(CreateOptions("central"))
     env = parse_env(path.read_text(encoding="utf-8"))
-    assert env["SHELFWISE_BACKUP_KEEP"] == "30" and env["SHELFWISE_EMAIL_BACKEND"] == "smtp"
-    assert env["SHELFWISE_CACHE_DIR"]  # restored
+    assert env["LIBROWISE_BACKUP_KEEP"] == "30" and env["LIBROWISE_EMAIL_BACKEND"] == "smtp"
+    assert env["LIBROWISE_CACHE_DIR"]  # restored
+
+
+def test_pre_rename_env_file_keeps_its_secrets(system_layout):
+    L = system_layout
+    m, fake = make(L)
+    m.create(CreateOptions("central", domain="catalogue.example.org"))
+    path = L.env_file("central")
+    legacy = re.sub(r"^LIBROWISE_(?!INSTANCE|BIND|PORT|WEB_WORKERS|WORKER_CONCURRENCY|SIP2_)", "SHELFWISE_",
+                    path.read_text(encoding="utf-8"), flags=re.M)
+    path.write_text(legacy, encoding="utf-8")
+    before = parse_env(legacy)
+    m.create(CreateOptions("central"))
+    after = parse_env(path.read_text(encoding="utf-8"))
+    assert "LIBROWISE_SECRET_KEY" not in after and after["SHELFWISE_SECRET_KEY"] == before["SHELFWISE_SECRET_KEY"]
+    assert "LIBROWISE_DATABASE_URL" not in after
+    assert m.env_values("central")["LIBROWISE_DATABASE_URL"] == before["SHELFWISE_DATABASE_URL"]
 
 
 def test_create_rerun_with_conflicting_options_fails(system_layout):
@@ -363,8 +382,8 @@ def test_create_sqlite_no_proxy_without_systemd_uses_processes(system_layout):
     m, fake = make(L, systemd=False)
     m.create(CreateOptions("demo", db="sqlite", proxy="none", port=8800))
     env = parse_env(L.env_file("demo").read_text(encoding="utf-8"))
-    assert env["SHELFWISE_DATABASE_URL"] == f"sqlite:///{(L.data_dir('demo') / 'librowise.db').as_posix()}"
-    assert env["SHELFWISE_COOKIE_SECURE"] == "false" and env["SHELFWISE_PUBLIC_URL"] == "http://127.0.0.1:8800"
+    assert env["LIBROWISE_DATABASE_URL"] == f"sqlite:///{(L.data_dir('demo') / 'librowise.db').as_posix()}"
+    assert env["LIBROWISE_COOKIE_SECURE"] == "false" and env["LIBROWISE_PUBLIC_URL"] == "http://127.0.0.1:8800"
     assert not fake.ran("psql") and not fake.ran("caddy") and not fake.ran("systemctl")
     web, worker = fake.spawned
     assert web[:4] == ["runuser", "-u", PRODUCT, "--"]
@@ -384,7 +403,7 @@ def test_create_with_nginx_never_overwrites_certbot_edits(system_layout):
     assert "server_name catalogue.example.org;" in avail.read_text(encoding="utf-8")
     assert enabled.is_symlink() or enabled.exists()
     env = parse_env(L.env_file("central").read_text(encoding="utf-8"))
-    assert env["SHELFWISE_COOKIE_SECURE"] == "false"  # plain HTTP until certbot runs
+    assert env["LIBROWISE_COOKIE_SECURE"] == "false"  # plain HTTP until certbot runs
     avail.write_text(avail.read_text(encoding="utf-8") + "# managed by Certbot\n", encoding="utf-8")
     edited = avail.read_text(encoding="utf-8")
     m.create(CreateOptions("central"))
@@ -446,21 +465,21 @@ def test_remove_keeps_data_by_default(system_layout):
     assert db_identifier("central") in fake.pg_dbs
     assert "central" not in json.loads(L.registry.read_text(encoding="utf-8"))["instances"]
     # re-adopted from the kept env file, with the same secrets
-    key = parse_env(L.env_file("central").read_text(encoding="utf-8"))["SHELFWISE_SECRET_KEY"]
+    key = parse_env(L.env_file("central").read_text(encoding="utf-8"))["LIBROWISE_SECRET_KEY"]
     m.create(CreateOptions("central", domain="catalogue.example.org"))
-    assert parse_env(L.env_file("central").read_text(encoding="utf-8"))["SHELFWISE_SECRET_KEY"] == key
+    assert parse_env(L.env_file("central").read_text(encoding="utf-8"))["LIBROWISE_SECRET_KEY"] == key
 
 
 def test_remove_purge_drops_database_and_files_but_keeps_backups(system_layout):
     L = system_layout
     m, fake = make(L)
     m.create(CreateOptions("central", domain="catalogue.example.org"))
-    (L.backup_dir("central") / "shelfwise-20260101.dump").write_text("x", encoding="utf-8")
+    (L.backup_dir("central") / "librowise-20260101.dump").write_text("x", encoding="utf-8")
     m.remove("central", purge_data=True)
     assert db_identifier("central") not in fake.pg_dbs and db_identifier("central") not in fake.pg_roles
     assert not L.data_dir("central").exists() and not L.log_dir("central").exists()
     assert not L.env_file("central").exists()
-    assert (L.backup_dir("central") / "shelfwise-20260101.dump").exists()
+    assert (L.backup_dir("central") / "librowise-20260101.dump").exists()
     assert L.data.is_dir() and L.etc.is_dir()  # shared roots survive
 
 
@@ -513,7 +532,7 @@ def test_windows_user_mode(tmp_path):
     assert not fake.ran("runuser") and not fake.ran("useradd") and not fake.chowns
     assert any(a.startswith(f"write {L.env_file('demo')} (0600; secrets") for a in fake.actions)
     env = parse_env(L.env_file("demo").read_text(encoding="utf-8"))
-    assert env["SHELFWISE_DATABASE_URL"].startswith("sqlite:///") and env["LIBROWISE_WEB_WORKERS"] == "1"
+    assert env["LIBROWISE_DATABASE_URL"].startswith("sqlite:///") and env["LIBROWISE_WEB_WORKERS"] == "1"
     assert fake.spawned[0][fake.spawned[0].index("--host") + 1] == "127.0.0.33"
 
 
@@ -549,9 +568,11 @@ def test_upgrade_backs_up_migrates_and_restarts(system_layout):
     fake.commands.clear()
     m.upgrade(m.names(None, True), version="v1.2.0")
     pip = fake.ran("pip", "install")[0]
-    assert pip[-1] == "shelfwise[postgres] @ git+https://github.com/librowise/librowise@v1.2.0"
-    order = [c[c.index(PY_MODULE) + 1] if PY_MODULE in c else c[1] for c in fake.commands
-             if PY_MODULE in c or c[0] == "systemctl"]
+    assert pip[-1] == "librowise[postgres] @ git+https://github.com/librowise/librowise@v1.2.0"
+    def action(c):  # `... python -m librowise ACTION` or `systemctl ACTION`
+        return c[c.index("-m") + 2] if "-m" in c and c[c.index("-m") + 1] == PY_MODULE else c[1]
+
+    order = [action(c) for c in fake.commands if c[0] == "systemctl" or ("-m" in c and PY_MODULE in c)]
     assert order.index("backup") < order.index("migrate") < order.index("restart")
 
 
@@ -582,8 +603,8 @@ def test_doctor_reports(system_layout):
 
 
 def test_cli_list_and_errors(tmp_path, monkeypatch, capsys):
-    import shelfwise.instances as cli
-    from shelfwise.__main__ import main
+    import librowise.instances as cli
+    from librowise.__main__ import main
 
     m, fake = make(Layout.for_user(tmp_path / "u"), root=False, systemd=False, platform="win32")
     monkeypatch.setattr(cli, "make_manager", lambda dry_run=False: m)
@@ -632,6 +653,19 @@ def test_render_snapshots(key):
     assert path.read_text(encoding="utf-8") == text
 
 
+def test_env_file_lists_each_key_once():
+    text = _rendered()["env/central.env"]
+    keys = [ln.split("=", 1)[0] for ln in text.splitlines() if ln and not ln.startswith("#")]
+    assert len(keys) == len(set(keys))
+    assert keys.index("LIBROWISE_SIP2_PORT") < keys.index("LIBROWISE_ENVIRONMENT")
+
+
+def test_caddy_uses_internal_ca_for_intranet_names():
+    assert "tls internal" in render.render_caddy_site("x", "catalogue.localhost", 8100, "a@example.org")
+    assert "tls internal" in render.render_caddy_site("x", "library.internal", 8100)
+    assert "tls a@example.org" in render.render_caddy_site("x", "catalogue.example.org", 8100, "a@example.org")
+
+
 def test_units_reference_instance_paths():
     units = render.render_units(PY, Layout.for_system("/"))
     web = units["librowise-web@.service"]
@@ -646,8 +680,8 @@ def test_units_reference_instance_paths():
 
 
 def test_bootstrap_admin_and_probe(db):
-    from shelfwise.instances.bootstrap import bootstrap_admin, generate_password, probe
-    from shelfwise.security import password_problems, verify_password
+    from librowise.instances.bootstrap import bootstrap_admin, generate_password, probe
+    from librowise.security import password_problems, verify_password
 
     for _ in range(20):
         assert not password_problems(generate_password())
@@ -655,7 +689,7 @@ def test_bootstrap_admin_and_probe(db):
     assert out["created"] and out["emailed"] is False and len(out["password"]) == 20
     from sqlalchemy import select
 
-    from shelfwise.models import Patron, Role
+    from librowise.models import Patron, Role
 
     db.expire_all()
     user = db.scalar(select(Patron).where(Patron.card_number == "admin"))

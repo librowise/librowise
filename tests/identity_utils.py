@@ -7,7 +7,7 @@ import time
 import pytest
 from conftest import PASSWORD
 
-from shelfwise.services import totp
+from librowise.services import totp
 
 
 class FakeClock:
@@ -30,8 +30,8 @@ def install_clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
 
 
 def reset_identity_state() -> None:
-    from shelfwise.security import reset_limiters
-    from shelfwise.services import oidc
+    from librowise.security import reset_limiters
+    from librowise.services import oidc
 
     reset_limiters()
     oidc.clear_cache()

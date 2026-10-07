@@ -6,9 +6,9 @@ import pytest
 from conftest import login
 from identity_utils import reset_identity_state
 
-from shelfwise.models import Patron, Role, StaffRole
-from shelfwise.permissions import BUILTIN_ROLE_PERMISSIONS, CATALOGUE, PERMISSION_CODES
-from shelfwise.security import ROLE_PERMISSIONS, effective_permissions, has_permission
+from librowise.models import Patron, Role, StaffRole
+from librowise.permissions import BUILTIN_ROLE_PERMISSIONS, CATALOGUE, PERMISSION_CODES
+from librowise.security import ROLE_PERMISSIONS, effective_permissions, has_permission
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +63,7 @@ def test_custom_role_grants_union(client, lib, desk, db):
 
 
 def test_new_permissions_enforced(client, lib, desk, staff, admin, make_book, db):
-    from shelfwise.services import circulation
+    from librowise.services import circulation
 
     b, (item,) = make_book("Guarded", copies=1)
     pid = lib["patron2"].id

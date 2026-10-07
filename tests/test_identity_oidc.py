@@ -17,11 +17,11 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from identity_utils import bearer, code_for, enable_mfa, install_clock, reset_identity_state
 from sqlalchemy import select
 
-from shelfwise.models import Patron, UserIdentity, utcnow
-from shelfwise.services import oidc
+from librowise.models import Patron, UserIdentity, utcnow
+from librowise.services import oidc
 
 ISSUER = "https://idp.example"
-CLIENT_ID = "shelfwise-client"
+CLIENT_ID = "librowise-client"
 
 
 def _jwk(public_key, kid):
@@ -136,7 +136,7 @@ def test_provider_admin_masks_secret(client, lib, admin, idp, db):
     client.put("/api/v1/admin/sso/providers/testidp", headers=admin, json={"label": "Test IdP", "issuer": ISSUER, "client_id": CLIENT_ID, "client_secret": "s3cret"})
     listed = client.get("/api/v1/admin/sso/providers", headers=admin).json()["results"][0]
     assert listed["client_secret_set"] is True and "s3cret" not in json.dumps(listed)
-    from shelfwise.models import Setting
+    from librowise.models import Setting
 
     assert "s3cret" not in json.dumps(db.get(Setting, "oidc_providers").value)  # encrypted at rest
     # keeping the secret when it's omitted

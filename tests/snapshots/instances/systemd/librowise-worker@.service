@@ -15,7 +15,7 @@ Group=librowise
 EnvironmentFile=/etc/librowise/%i.env
 Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WorkingDirectory=/var/lib/librowise/%i
-ExecStart=/opt/librowise/venv/bin/python -m shelfwise worker --concurrency ${LIBROWISE_WORKER_CONCURRENCY}
+ExecStart=/opt/librowise/venv/bin/python -m librowise worker --concurrency ${LIBROWISE_WORKER_CONCURRENCY}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=120

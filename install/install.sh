@@ -10,9 +10,9 @@
 set -Eeuo pipefail
 
 # ---------------------------------------------------------------- constants
-LIBROWISE_VERSION="v1.0.0"   # release installed by default (--version overrides)
-PY_MODULE="shelfwise"        # Python package run with `python -m` (renamed together with the project)
-DIST_NAME="shelfwise"        # pip distribution name
+LIBROWISE_VERSION="v1.1.0"   # release installed by default (--version overrides)
+PY_MODULE="librowise"        # Python package run with `python -m` (renamed together with the project)
+DIST_NAME="librowise"        # pip distribution name
 REPO_URL="https://github.com/librowise/librowise"
 PREFIX="/opt/librowise"
 VENV="$PREFIX/venv"

@@ -2,9 +2,9 @@ from datetime import timedelta
 
 import pytest
 
-from shelfwise.errors import Conflict, PolicyBlocked
-from shelfwise.models import HoldStatus, ItemStatus, LedgerKind, Patron, utcnow
-from shelfwise.services import circulation
+from librowise.errors import Conflict, PolicyBlocked
+from librowise.models import HoldStatus, ItemStatus, LedgerKind, Patron, utcnow
+from librowise.services import circulation
 
 
 def test_checkout_and_checkin_on_time(db, lib, make_book):

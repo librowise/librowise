@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from conftest import login
 
-from shelfwise.errors import DomainError
-from shelfwise.services import marc_editor as ed
+from librowise.errors import DomainError
+from librowise.services import marc_editor as ed
 
 GRID = {
     "leader": "00000nam a2200000 i 4500",
@@ -102,7 +102,7 @@ def test_generated_record_save_rederives_fields_and_keeps_items(db, lib, make_bo
     assert b.title == "New title" and b.language == "hi" and b.audience == "adult" and b.pub_year == 1999
     assert len([i for i in b.items if i.deleted_at is None]) == 2
     assert "IGNORED" not in b.marc_xml and "<controlfield tag=\"005\">" in b.marc_xml
-    from shelfwise.services import catalog
+    from librowise.services import catalog
     assert b.id in catalog.search(db, "sequel").ids  # re-indexed
     again = ed.editor_payload(b)
     assert again["origin"] == "stored"

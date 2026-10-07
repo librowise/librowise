@@ -41,7 +41,7 @@
 [CmdletBinding()]
 param(
     [string]$Instance = "demo",
-    [string]$Version = "v1.0.0",
+    [string]$Version = "v1.1.0",
     [string]$Source = "",
     [int]$Port = 0,
     [string]$Bind = "127.0.0.1",
@@ -58,8 +58,8 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
 # Names that change with the project rename live here.
-$PyModule = "shelfwise"     # Python package (python -m ...)
-$DistName = "shelfwise"     # pip distribution
+$PyModule = "librowise"     # Python package (python -m ...)
+$DistName = "librowise"     # pip distribution
 $RepoUrl = "https://github.com/librowise/librowise"
 
 if (-not $InstallDir) { $InstallDir = Join-Path $env:LOCALAPPDATA "Librowise" }

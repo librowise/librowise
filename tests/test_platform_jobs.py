@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import func, select
 
-from shelfwise import jobs
-from shelfwise.config import get_settings
-from shelfwise.models import AuditLog, Job, ScheduleRun, WorkerHeartbeat, utcnow
+from librowise import jobs
+from librowise.config import get_settings
+from librowise.models import AuditLog, Job, ScheduleRun, WorkerHeartbeat, utcnow
 
 CALLS: list[dict] = []
 
@@ -138,7 +138,7 @@ def test_result_discarded_when_lock_was_lost(db):
 
 @jobs.register_job("test_hijack", max_attempts=1)
 def _hijack(db, payload):
-    from shelfwise.db import SessionLocal
+    from librowise.db import SessionLocal
 
     other = SessionLocal()  # simulates stale-lock recovery + re-claim by another worker mid-run
     try:
@@ -182,8 +182,8 @@ def test_cron_parsing_and_matching():
 
 
 def test_scheduler_fires_each_slot_exactly_once(db, monkeypatch):
-    monkeypatch.setenv("SHELFWISE_SCHEDULES", '{"test_echo": "*/5 * * * *", "nightly": ""}')
-    monkeypatch.setenv("SHELFWISE_TIMEZONE", "UTC")
+    monkeypatch.setenv("LIBROWISE_SCHEDULES", '{"test_echo": "*/5 * * * *", "nightly": ""}')
+    monkeypatch.setenv("LIBROWISE_TIMEZONE", "UTC")
     get_settings.cache_clear()
     now = datetime(2026, 10, 7, 10, 7, 30)
     results: list = []
@@ -210,8 +210,8 @@ def test_scheduler_fires_each_slot_exactly_once(db, monkeypatch):
 
 
 def test_schedule_uses_library_time_zone(db, monkeypatch):
-    monkeypatch.setenv("SHELFWISE_SCHEDULES", '{"test_echo": "0 2 * * *"}')
-    monkeypatch.setenv("SHELFWISE_TIMEZONE", "Asia/Kolkata")
+    monkeypatch.setenv("LIBROWISE_SCHEDULES", '{"test_echo": "0 2 * * *"}')
+    monkeypatch.setenv("LIBROWISE_TIMEZONE", "Asia/Kolkata")
     get_settings.cache_clear()
     # 02:10 IST == 20:40 UTC the previous day
     fired = jobs.scheduler_tick(datetime(2026, 10, 6, 20, 40))
@@ -277,7 +277,7 @@ def test_queue_stats_and_prune(db):
 
 
 def test_cli_jobs_commands(db, capsys):
-    from shelfwise.__main__ import main
+    from librowise.__main__ import main
 
     assert main(["jobs", "enqueue", "test_echo", "--payload", '{"value": 7}']) == 0
     assert main(["jobs", "enqueue", "nope"]) == 2

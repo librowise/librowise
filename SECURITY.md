@@ -14,4 +14,4 @@ Please report vulnerabilities **privately** through GitHub's "Report a vulnerabi
 - AI copilot tools are read-only and never generate SQL
 
 ## Production checklist
-Set `SHELFWISE_SECRET_KEY`, `SHELFWISE_COOKIE_SECURE=true` and `SHELFWISE_ALLOWED_HOSTS`, run behind HTTPS, use PostgreSQL, and remove the demo accounts. Never run `seed` against production.
+Set `LIBROWISE_SECRET_KEY`, `LIBROWISE_COOKIE_SECURE=true` and `LIBROWISE_ALLOWED_HOSTS`, run behind HTTPS, use PostgreSQL, and remove the demo accounts. Never run `seed` against production.

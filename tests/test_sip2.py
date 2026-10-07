@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from conftest import PASSWORD
 
-from shelfwise.sip2 import protocol as p
-from shelfwise.sip2.client import SipClient
+from librowise.sip2 import protocol as p
+from librowise.sip2.client import SipClient
 
 SIP_PASSWORD = "Kiosk#Passw0rd!"
 
@@ -121,9 +121,9 @@ def test_dates_and_amounts():
 
 @pytest.fixture()
 def sip_account(db, lib):
-    from shelfwise.models import SipAccount
-    from shelfwise.security import hash_password
-    from shelfwise.sip2 import handlers
+    from librowise.models import SipAccount
+    from librowise.security import hash_password
+    from librowise.sip2 import handlers
 
     handlers.login_limiter.reset()
     acc = SipAccount(login="kiosk", password_hash=hash_password(SIP_PASSWORD), institution_id="SWTEST",
@@ -136,7 +136,7 @@ def sip_account(db, lib):
 
 class _ServerThread:
     def __init__(self, **cfg):
-        from shelfwise.sip2.server import ServerConfig, Sip2Server
+        from librowise.sip2.server import ServerConfig, Sip2Server
 
         self.loop = asyncio.new_event_loop()
         self.server = Sip2Server(ServerConfig(host="127.0.0.1", port=0, **cfg))
@@ -206,7 +206,7 @@ def test_login_failure_then_success(sip_server, sip_account, db):
     bx = status.get("BX")
     assert len(bx) == 16 and bx[0] == "Y" and bx[11] == "N"  # item status update unsupported
     assert status.get("AO") == "SWTEST" and status.get("AN") == "DESK1"
-    from shelfwise.models import AuditLog
+    from librowise.models import AuditLog
 
     actions = [a.action for a in db.query(AuditLog).all()]
     assert actions.count("sip2_login_failed") == 2 and "sip2_login" in actions
@@ -259,7 +259,7 @@ def test_patron_status_and_password_verification(sip, lib):
 
 
 def test_checkout_checkin_cycle_with_audit_and_item_info(sip, lib, make_book, db):
-    from shelfwise.models import AuditLog, Item, ItemStatus, Loan
+    from librowise.models import AuditLog, Item, ItemStatus, Loan
 
     b, (item,) = make_book("Self Check Story", material_type="book")
     r = checkout(sip, "reader1", item.barcode)
@@ -295,7 +295,7 @@ def test_checkout_checkin_cycle_with_audit_and_item_info(sip, lib, make_book, db
 
 
 def test_checkout_blocked_by_policy_and_unknowns(sip, lib, make_book, db):
-    from shelfwise.models import LedgerEntry, LedgerKind
+    from librowise.models import LedgerEntry, LedgerKind
 
     _, (item,) = make_book("Blocked")
     db.add(LedgerEntry(patron_id=lib["patron"].id, kind=LedgerKind.manual, amount=999999, note="Damage"))
@@ -316,8 +316,8 @@ def test_checkout_blocked_by_policy_and_unknowns(sip, lib, make_book, db):
 
 
 def test_checkin_routes_holds_and_transfers(sip, lib, make_book, db):
-    from shelfwise.models import Hold, HoldStatus
-    from shelfwise.services import circulation
+    from librowise.models import Hold, HoldStatus
+    from librowise.services import circulation
 
     b, (item,) = make_book("Wanted Book")
     assert checkout(sip, "reader1", item.barcode).fixed["ok"] == "1"
@@ -345,7 +345,7 @@ def test_checkin_routes_holds_and_transfers(sip, lib, make_book, db):
 
 
 def test_patron_information_lists_and_ranges(sip, lib, make_book, db):
-    from shelfwise.models import Loan
+    from librowise.models import Loan
 
     barcodes = []
     for i in range(3):
@@ -398,7 +398,7 @@ def test_renew_and_renew_all(sip, lib, make_book, db):
 
 
 def test_block_and_enable_patron(sip, lib, db):
-    from shelfwise.models import Patron, SipPatronBlock
+    from librowise.models import Patron, SipPatronBlock
 
     r = sip.request("01", ["Y", now18()], [("AO", "SWTEST"), ("AL", "Card found in book drop"), ("AA", "reader1")])
     assert r.code == "24" and r.fixed["patron_status"][4] == "Y" and r.get("BL") == "N"
@@ -418,8 +418,8 @@ def test_block_and_enable_patron(sip, lib, db):
 
 
 def test_fee_paid_and_fine_items(sip, lib, db):
-    from shelfwise.models import LedgerEntry, LedgerKind
-    from shelfwise.services import circulation
+    from librowise.models import LedgerEntry, LedgerKind
+    from librowise.services import circulation
 
     db.add(LedgerEntry(patron_id=lib["patron"].id, kind=LedgerKind.overdue, amount=500, note="Late A"))
     db.add(LedgerEntry(patron_id=lib["patron"].id, kind=LedgerKind.overdue, amount=300, note="Late B"))
@@ -439,7 +439,7 @@ def test_fee_paid_and_fine_items(sip, lib, db):
 
 
 def test_holds_via_sip(sip, lib, make_book, db):
-    from shelfwise.models import Hold, HoldStatus
+    from librowise.models import Hold, HoldStatus
 
     b, (item,) = make_book("Holdable")
     assert checkout(sip, "reader2", item.barcode).fixed["ok"] == "1"

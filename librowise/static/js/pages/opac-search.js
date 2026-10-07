@@ -146,6 +146,8 @@ export default async function init() {
     $("#summary").textContent = `${summary}${data.took_ms !== undefined ? ` · ${t("opac.search.took", { ms: data.took_ms })}` : ""}`;
     if (s.q) document.title = `${s.q} · ${document.title.replace(/^.*? · /, "")}`;
     const filtered = FILTER_KEYS.some((k) => s[k]);
+    // Spelling help goes above the results: fetch it first so it doesn't push them down afterwards.
+    await suggestSpelling(s, data.total);
     results.innerHTML = data.results.length ? html`${data.results.map(resultCard)}`
       : emptyState({ art: "search", title: t("ui.search.empty_title"),
         body: s.mode === "smart" ? t("opac.search.empty_smart") : t("opac.search.empty_keyword"),
@@ -154,7 +156,6 @@ export default async function init() {
     facetsBox.innerHTML = facetsPanel(data.facets, s);
     const pages = Math.ceil(data.total / PER_PAGE);
     $("#pager").innerHTML = pages > 1 ? pagination({ page: s.page, perPage: PER_PAGE, total: data.total }) : "";
-    suggestSpelling(s, data.total);
   } catch (e) {
     results.innerHTML = errorState(e);
     toast(e.message, "error");

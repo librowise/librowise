@@ -13,7 +13,7 @@
         <li><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span>{{ t('opac.account.card', card=user.card_number) }}</span></li>
         {% if user.category %}<li><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>{{ user.category.name }}</li>{% endif %}
         {% if user.home_branch %}<li><svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>{{ user.home_branch.name }}</li>{% endif %}
-        {% if user.expires_on %}<li><svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>{{ t('opac.acct.member_until', date=user.expires_on.strftime('%d %b %Y')) }}</li>{% endif %}
+        {% if user.expires_on %}<li><svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>{{ t('opac.acct.member_until', date='<time datetime="' ~ user.expires_on.isoformat() ~ '" data-localize>' ~ user.expires_on.isoformat() ~ '</time>') | safe }}</li>{% endif %}
       </ul>
     </div>
     <div class="acct-actions">

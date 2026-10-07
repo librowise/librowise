@@ -405,7 +405,7 @@ a.you-card:hover { transform: translateY(-2px); border-color: var(--border-stron
 @media (max-width: 980px) { .acct-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .acct-tiles { gap: .6rem; } }
 .acct-tile {
-  display: flex; flex-direction: column; gap: .25rem; padding: 1rem 1.1rem; min-height: 8.25rem; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: .25rem; padding: 1rem 1.1rem; min-height: 8.75rem; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border);
   box-shadow: var(--shadow-sm); text-align: start; font: inherit; color: var(--text); cursor: pointer; position: relative; min-width: 0;
   transition: border-color var(--dur-2), box-shadow var(--dur-2), transform var(--dur-2);
 }
@@ -420,7 +420,7 @@ a.you-card:hover { transform: translateY(-2px); border-color: var(--border-stron
 .acct-tile.tone-warning .at-value { color: var(--warning); }
 .acct-tile.tone-info { border-color: color-mix(in srgb, var(--info) 45%, var(--border)); }
 .acct-tile.tone-info .at-value { color: var(--info); }
-.acct-tiles .skeleton { min-height: 8.25rem; border-radius: var(--radius-lg); }
+.acct-tiles .skeleton { min-height: 8.75rem; border-radius: var(--radius-lg); }
 .acct-nav { display: flex; align-items: center; gap: .75rem; }
 .acct-nav .tablist { flex: 1; min-width: 0; margin-bottom: 0; }
 .acct-nav .tablist [role="tab"] .count.alert { background: var(--danger-soft); color: var(--danger); }
@@ -676,3 +676,13 @@ a.you-card:hover { transform: translateY(-2px); border-color: var(--border-stron
   .acct-tile .at-value { font-size: 1.45rem; }
   .acct-tiles .skeleton { min-height: 7.5rem; }
 }
+/* Layout stability: the footer always starts below the first screen, so content that fills in after load
+   never pushes a visible footer (the main source of layout shift on short, data-driven pages). */
+.opac-app > main { min-height: calc(100dvh - 3.5rem); }
+/* Registration honeypot: invisible and out of the flow without creating horizontal overflow (RTL too). */
+.opac-app .reg-hp { left: auto; inset-inline-start: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.opac-app .reg-group, .opac-app #register-form { position: relative; }
+/* Search results: reserve the summary line and keep the results column tall while it loads. */
+.opac-app .os-bar .os-summary { min-height: 1.55em; }
+.opac-app .os-results[aria-busy="true"] { min-height: 60vh; }
+.opac-app .ra-primary.btn { white-space: normal; text-align: center; }

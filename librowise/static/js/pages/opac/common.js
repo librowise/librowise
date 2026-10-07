@@ -30,7 +30,7 @@ export const skeletonCard = () => html`<div class="book-card" aria-hidden="true"
   <span class="t"><span class="skeleton sk-line" style="display:block;height:.85em;margin:.2em 0;width:92%"></span><span class="skeleton sk-line" style="display:block;height:.85em;margin:.35em 0;width:58%"></span></span>
   <span class="a"><span class="skeleton sk-line" style="display:block;height:.8em;margin:.25em 0;width:46%"></span></span></div>`;
 
-export const skeletonShelf = (n = 8) => html`<section class="shelf" aria-hidden="true"><div class="section-head"><h2><span class="skeleton" style="display:inline-block;height:1.1em;width:11rem;vertical-align:middle"></span></h2></div>
+export const skeletonShelf = (n = 8) => html`<section class="shelf" aria-hidden="true"><div class="section-head"><div><h2><span class="skeleton" style="display:inline-block;height:1.1em;width:11rem;vertical-align:middle"></span></h2><p class="sub"><span class="skeleton" style="display:inline-block;height:1em;width:15rem;vertical-align:middle"></span></p></div></div>
   <div class="shelf-scroller"><div class="shelf-row">${Array.from({ length: n }, skeletonCard)}</div></div></section>`;
 
 let shelfSeq = 0;

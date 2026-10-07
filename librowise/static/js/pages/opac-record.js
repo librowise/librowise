@@ -60,12 +60,11 @@ function actionCard() {
     const ready = hold.status === "ready";
     mineBox = html`<div class="ra-mine">${icon(ready ? "check-circle" : "bookmark")}<div>${ready
       ? t("opac.rec.mine_ready", { branch: hold.pickup_branch.name, date: date(hold.expires_at) })
-      : hold.suspended ? t("opac.rec.mine_paused") : t("opac.rec.mine_hold", { n: hold.queue_position || 1 })}
-      <a href="/account#holds">${t("opac.rec.mine_view")}</a></div></div>`;
+      : hold.suspended ? t("opac.rec.mine_paused") : t("opac.rec.mine_hold", { n: hold.queue_position || 1 })}</div></div>`;
   }
   let primary;
   if (hold) {
-    primary = html`<a class="btn lg ra-primary" href="/account#holds">${icon("check")}${t("opac.rec.on_hold", { n: hold.queue_position || 1 })}</a>`;
+    primary = html`<a class="btn lg ra-primary" href="/account#holds">${icon("bookmark")}${t("opac.rec.mine_view")}</a>`;
   } else if (!holdable.length) {
     primary = html`<button class="btn primary lg ra-primary" type="button" disabled aria-describedby="ra-sub">${icon("bookmark")}${t("opac.record.place_hold")}</button>`;
   } else {

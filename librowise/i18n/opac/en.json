@@ -290,7 +290,16 @@
       "sg_other": "Other",
       "sg_reason": "Why should we buy it?",
       "sg_send": "Send suggestion",
-      "suggestion_thanks": "Thank you! We'll review your suggestion."
+      "suggestion_thanks": "Thank you! We'll review your suggestion.",
+      "n_hold_ready": "Hold ready for pickup",
+      "n_hold_ready_desc": "A title you reserved is waiting on the hold shelf",
+      "n_due_soon": "Due soon",
+      "n_due_soon_desc": "A courtesy reminder the day before an item is due",
+      "n_overdue": "Overdue",
+      "n_overdue_desc": "Sent 1, 7 and 14 days after the due date",
+      "n_suggestion": "Purchase suggestion update",
+      "n_suggestion_desc": "When a title you suggested changes status",
+      "no_lists_body": "Use “Save to list” on any title, or create a list here."
     },
     "pw": {
       "show": "Show password",
@@ -414,7 +423,8 @@
       "done_body": "Thank you! We'll email {email} as soon as staff have approved your card.",
       "done_next": "In the meantime you can browse the catalogue and plan what to borrow.",
       "done_browse": "Browse the catalogue",
-      "done_home": "Home"
+      "done_home": "Home",
+      "website": "Leave this field empty"
     },
     "reset": {
       "title": "Choose a new password",

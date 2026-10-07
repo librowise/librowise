@@ -38,7 +38,7 @@
   <div id="shelves" aria-busy="true">
     <span class="sr-only">{{ t('common.loading') }}</span>
     {% for _ in range(3 if user else 2) %}
-    <section class="shelf" aria-hidden="true"><div class="section-head"><h2><span class="skeleton" style="display:inline-block;height:1.1em;width:11rem;vertical-align:middle"></span></h2></div>
+    <section class="shelf" aria-hidden="true"><div class="section-head"><div><h2><span class="skeleton" style="display:inline-block;height:1.1em;width:11rem;vertical-align:middle"></span></h2><p class="sub"><span class="skeleton" style="display:inline-block;height:1em;width:15rem;vertical-align:middle"></span></p></div></div>
       <div class="shelf-scroller"><div class="shelf-row">{% for _ in range(8) %}<div class="book-card"><div class="cover skeleton"></div><span class="t"><span class="skeleton" style="display:block;height:.85em;margin:.2em 0;width:92%"></span><span class="skeleton" style="display:block;height:.85em;margin:.35em 0;width:58%"></span></span><span class="a"><span class="skeleton" style="display:block;height:.8em;margin:.25em 0;width:46%"></span></span></div>{% endfor %}</div></div></section>
     {% endfor %}
   </div>

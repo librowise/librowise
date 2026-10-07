@@ -17,6 +17,7 @@ let summary;
 let pwCheck = null; // strength check of the settings form's new-password field
 const renewResults = new Map(); // loan id → { ok, text } shown on the row after a renewal attempt
 const TABS = ["loans", "holds", "foryou", "lists", "history", "charges", "suggestions", "settings"];
+const ltr = (v) => html`<span dir="ltr">${v}</span>`; // numbers, emails and codes stay left-to-right in Urdu
 const daysUntil = (d) => Math.ceil((parseDate(d) - Date.now()) / 86400000);
 
 // ------------------------------------------------------------------ overview
@@ -95,7 +96,7 @@ function loansPanel() {
 
 async function renewOne(btn, id) {
   try {
-    const l = await withBusy(btn, () => api(`/opac/me/loans/${id}/renew`, { method: "POST" }));
+    const l = await busy(btn, () => api(`/opac/me/loans/${id}/renew`, { method: "POST" }));
     renewResults.set(id, { ok: true, text: t("opac.account.renewed_until", { date: date(l.due_at) }) });
   } catch (err) {
     renewResults.set(id, { ok: false, text: err.message });
@@ -137,7 +138,7 @@ async function listsPanel() {
   const { results } = await api("/opac/me/lists");
   const head = html`<div class="panel-head"><div><h2>${t("opac.acct.tab_lists")}</h2><p class="sub">${t("opac.acct.lists_sub")}</p></div>
     <button type="button" class="btn primary" data-new-list>${icon("plus")}${t("opac.acct.new_list")}</button></div>`;
-  if (!results.length) return html`${head}${emptyState({ art: "books", title: t("opac.acct.no_lists_title"), body: t("opac.account.no_lists") })}`;
+  if (!results.length) return html`${head}${emptyState({ art: "books", title: t("opac.acct.no_lists_title"), body: t("opac.acct.no_lists_body") })}`;
   return html`${head}${results.map((l) => html`<section class="list-card" aria-labelledby="list-${l.id}">
     <div class="lc-head"><h3 id="list-${l.id}">${l.name} ${l.is_public ? html`<span class="badge info">${icon("globe")}${t("opac.account.public")}</span>` : html`<span class="badge neutral">${t("opac.acct.private")}</span>`}
       <span class="small muted" style="font-weight:var(--fw-regular)">${t("opac.acct.titles_n", { count: l.count })}</span></h3>
@@ -190,8 +191,8 @@ function section(id, ic, title, desc, body) {
 async function settingsPanel() {
   const [me, messaging] = await Promise.all([api("/auth/me"), messagingSection()]);
   const profile = [
-    [t("opac.acct.name"), me.full_name], [t("opac.acct.card_number"), me.card_number], [t("opac.acct.email"), me.email || "—"],
-    [t("opac.acct.phone"), me.phone || "—"], [t("opac.acct.home_branch"), me.home_branch?.name], [t("opac.acct.category"), me.category?.name],
+    [t("opac.acct.name"), me.full_name], [t("opac.acct.card_number"), ltr(me.card_number)], [t("opac.acct.email"), me.email ? ltr(me.email) : "—"],
+    [t("opac.acct.phone"), me.phone ? ltr(me.phone) : "—"], [t("opac.acct.home_branch"), me.home_branch?.name], [t("opac.acct.category"), me.category?.name],
     [t("opac.acct.member_until_label"), me.expires_on ? date(me.expires_on) : t("opac.acct.no_expiry")],
   ];
   const langs = Object.entries(languages);
@@ -278,6 +279,7 @@ async function refresh() {
 
 export default async function init() {
   applyAvatarHues();
+  $$("time[data-localize]").forEach((el) => { el.textContent = date(el.getAttribute("datetime")); });
   const tablist = $("#tabs");
   wireTabs(tablist, $("#panel"));
   tablist.addEventListener("click", (e) => { const x = e.target.closest("[data-tab]"); if (x) show(x.dataset.tab); });

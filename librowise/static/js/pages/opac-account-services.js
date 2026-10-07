@@ -10,6 +10,9 @@ const isoDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDa
 const plusDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
 const day = (s) => { const [y, m, d] = s.split("-").map(Number); return date(new Date(y, m - 1, d)); };
 const FORMATS = ["book", "ebook", "audiobook", "dvd", "serial", "comic", "other"];
+// Notice types a reader can choose a channel for (services/notices.py CODES) → translated name / _desc.
+const NOTICES = { HOLD_READY: "opac.acct.n_hold_ready", DUE_SOON: "opac.acct.n_due_soon", OVERDUE: "opac.acct.n_overdue",
+  PURCHASE_SUGGESTION_UPDATE: "opac.acct.n_suggestion" };
 
 let holdsCache = [];
 
@@ -126,7 +129,7 @@ export async function messagingSection() {
   const missing = [r.email ? "" : t("opac.acct.add_email"), r.phone ? "" : t("opac.acct.add_phone")].filter(Boolean).join(" ");
   return html`<form id="messaging-form" class="stack">
     ${missing ? html`<p class="tip" style="margin:0">${icon("info")}<span>${missing}</span></p>` : ""}
-    <div class="pref-table">${r.results.map((p) => html`<div class="pref-row"><label for="mp-${p.code}">${p.name}<span class="tiny">${p.description}</span></label>
+    <div class="pref-table">${r.results.map((p) => html`<div class="pref-row"><label for="mp-${p.code}">${NOTICES[p.code] ? t(`${NOTICES[p.code]}`) : p.name}<span class="tiny">${NOTICES[p.code] ? t(`${NOTICES[p.code]}_desc`) : p.description}</span></label>
       <select id="mp-${p.code}" name="${p.code}" data-pref>
         <option value="email" ${p.channel === "email" ? "selected" : ""} ${r.email ? "" : "disabled"}>${t("opac.acct.by_email")}</option>
         <option value="sms" ${p.channel === "sms" ? "selected" : ""} ${r.phone ? "" : "disabled"}>${t("opac.acct.by_sms")}</option>

@@ -36,3 +36,9 @@ for module in (
     interop,
 ):
     api_router.include_router(module.router)
+
+# ---- experience: analytics, self-checkout kiosk, discovery
+from . import analytics, discovery, kiosk  # noqa: E402
+
+for module in (analytics, kiosk, discovery):
+    api_router.include_router(module.router)

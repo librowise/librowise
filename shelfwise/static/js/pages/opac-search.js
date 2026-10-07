@@ -1,12 +1,16 @@
 import { $, $$, api, authors, availabilityBadge, cover, empty, html, icon, num, qs, skeleton, toast } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
 import { wireSearchMode } from "/static/js/pages/opac-home.js";
+import { attachSuggest, didYouMean } from "/static/js/suggest.js";
 
-const FACET_LABELS = { material_type: "Format", language: "Language", subject: "Subject", author: "Author", decade: "Decade" };
-const LANG = { en: "English", hi: "Hindi", bn: "Bengali", fr: "French", es: "Spanish", de: "German", ta: "Tamil", ur: "Urdu" };
-const FORMAT = { book: "Book", ebook: "E-book", audiobook: "Audiobook", dvd: "DVD", serial: "Magazine", comic: "Graphic novel" };
+const FACETS = ["material_type", "language", "subject", "author", "decade"];
+const LANGS = ["en", "hi", "bn", "fr", "es", "de", "ta", "ur"];
+const FORMATS = ["book", "ebook", "audiobook", "dvd", "serial", "comic"];
 const FILTER_KEYS = ["material_type", "language", "subject", "author", "audience", "year_from", "year_to", "available_only"];
 
-const label = (facet, v) => facet === "language" ? (LANG[v] || v) : facet === "material_type" ? (FORMAT[v] || v) : v;
+const langName = (v) => (LANGS.includes(v) ? t(`lang.${v}`) : v);
+const formatName = (v) => (FORMATS.includes(v) ? t(`format.${v}`) : v);
+const label = (facet, v) => facet === "language" ? langName(v) : facet === "material_type" ? formatName(v) : v;
 
 function state() {
   const p = new URLSearchParams(location.search);
@@ -17,32 +21,43 @@ function state() {
 const go = (s) => { location.search = qs({ ...s, page: s.page > 1 ? s.page : undefined }); };
 
 function resultRow(b) {
-  return html`<article class="result">
+  const meta = [authors(b.authors) || t("opac.search.unknown_author"), b.pub_year, formatName(b.material_type), b.language !== "en" ? langName(b.language) : null].filter(Boolean).join(" · ");
+  return html`<article class="result" aria-labelledby="r-${b.id}">
     <a href="/record/${b.id}" tabindex="-1" aria-hidden="true">${cover(b)}</a>
     <div class="grow stack tight">
-      <h3><a href="/record/${b.id}">${b.title}</a>${b.subtitle ? html`<span class="muted" style="font-weight:400">: ${b.subtitle}</span>` : ""}</h3>
-      <div class="meta">${authors(b.authors) || "Unknown author"}${b.pub_year ? ` · ${b.pub_year}` : ""} · ${FORMAT[b.material_type] || b.material_type}${b.language !== "en" ? ` · ${LANG[b.language] || b.language}` : ""}</div>
+      <h3 id="r-${b.id}"><a href="/record/${b.id}">${b.title}</a>${b.subtitle ? html`<span class="muted" style="font-weight:400">: ${b.subtitle}</span>` : ""}</h3>
+      <div class="meta">${meta}</div>
       <div class="row tight">${(b.subjects || []).slice(0, 3).map((s) => html`<a class="chip small" href="/search?${qs({ subject: s })}">${s.split(" -- ")[0]}</a>`)}</div>
       <div class="row tight">${availabilityBadge(b.availability)}${b.classification ? html`<span class="badge mono">${b.classification}</span>` : ""}</div>
     </div></article>`;
 }
 
 function facetsPanel(facets, s) {
-  return html`${Object.entries(facets || {}).filter(([, v]) => v.length).map(([key, values]) => {
+  return html`<h2 class="sr-only">${t("opac.search.refine")}</h2>${Object.entries(facets || {}).filter(([, v]) => v.length).map(([key, values]) => {
     const fkey = key === "decade" ? "year_from" : key;
-    return html`<div class="facet"><h4>${FACET_LABELS[key] || key}</h4>${values.slice(0, 8).map(([v, n]) => {
+    const title = FACETS.includes(key) ? t(`opac.search.facet_${key}`) : key;
+    return html`<div class="facet" role="group" aria-label="${title}"><h3 class="facet-title">${title}</h3>${values.slice(0, 8).map(([v, n]) => {
       const val = key === "decade" ? String(parseInt(v, 10)) : v;
       const pressed = s[fkey] === val;
-      return html`<button data-facet="${fkey}" data-value="${val}" data-decade="${key === "decade" ? "1" : ""}" aria-pressed="${pressed}">
-        <span>${label(key, v)}</span><span class="n">${num(n)}</span></button>`;
+      return html`<button type="button" data-facet="${fkey}" data-value="${val}" data-decade="${key === "decade" ? "1" : ""}" aria-pressed="${pressed}">
+        <span>${label(key, v)}</span><span class="n" aria-label="${t("opac.search.results", { count: n })}">${num(n)}</span></button>`;
     })}</div>`;
   })}`;
+}
+
+async function suggestSpelling(s, total) {
+  if (!s.q || s.mode !== "keyword" || total > 3) return;
+  try {
+    const r = await api(`/search/did-you-mean?${qs({ q: s.q })}`);
+    if (r.suggestion) $("#didyoumean").innerHTML = didYouMean(r.suggestion, r.total);
+  } catch { /* optional */ }
 }
 
 export default async function init() {
   const s = state();
   const form = $("#search-form");
   wireSearchMode(form);
+  attachSuggest($("#q"));
   $$("[data-mode]", form).forEach((b) => b.setAttribute("aria-pressed", b.dataset.mode === s.mode));
   $("[name=mode]", form).value = s.mode;
   $("#sort").value = s.sort;
@@ -54,17 +69,19 @@ export default async function init() {
   $("#sort").addEventListener("change", (e) => go({ ...s, sort: e.target.value, page: 1 }));
   $("#available-only").addEventListener("change", (e) => go({ ...s, available_only: e.target.checked ? "true" : undefined, page: 1 }));
 
-  $("#results").innerHTML = `<div style="padding:1rem">${skeleton(6)}</div>`;
+  const results = $("#results");
+  results.setAttribute("aria-busy", "true");
+  results.innerHTML = `<div style="padding:1rem">${skeleton(6)}</div>`;
   try {
     let data;
     if (s.mode === "smart" && s.q) {
       data = await api(`/search/smart?${qs({ q: s.q, page: s.page })}`);
       const p = data.parsed;
       $("#interpretation").innerHTML = html`<div class="interpretation">${icon("sparkle")}
-        <strong>${p.engine === "claude" ? "Claude" : "AI"} understood:</strong>
-        ${p.keywords ? html`<span class="badge ai">topic: ${p.keywords}</span>` : ""}
+        <strong>${p.engine === "claude" ? t("opac.search.claude_understood") : t("opac.search.ai_understood")}</strong>
+        ${p.keywords ? html`<span class="badge ai">${t("opac.search.topic", { topic: p.keywords })}</span>` : ""}
         ${(p.interpretation || []).map((i) => html`<span class="badge ai">${i}</span>`)}
-        <a class="small" style="margin-left:auto" href="/search?${qs({ q: s.q })}">Use keyword search instead</a></div>`;
+        <a class="small" style="margin-inline-start:auto" href="/search?${qs({ q: s.q })}">${t("opac.search.use_keyword")}</a></div>`;
       // Facets in AI mode switch to keyword search carrying the understood filters
       $("#facets").dataset.base = JSON.stringify({ q: p.keywords, material_type: p.material_type, language: p.language,
         audience: p.audience, year_from: p.year_from, year_to: p.year_to, author: p.author, available_only: p.available_only || undefined });
@@ -74,17 +91,22 @@ export default async function init() {
       data = await api(`/search?${qs(params)}`);
     }
     const pages = Math.ceil(data.total / 20);
-    $("#summary").textContent = `${num(data.total)} result${data.total === 1 ? "" : "s"}${s.q ? ` for “${s.q}”` : ""}${data.took_ms !== undefined ? ` · ${data.took_ms} ms` : ""}`;
-    $("#results").innerHTML = data.results.length ? html`${data.results.map(resultRow)}`
-      : empty(s.mode === "smart" ? "Nothing matched that description. Try fewer constraints or keyword search." : "No results. Check the spelling or try AI search.", "search");
+    const summary = s.q ? t("opac.search.results_for", { count: data.total, q: s.q }) : t("opac.search.results", { count: data.total });
+    $("#summary").textContent = `${summary}${data.took_ms !== undefined ? ` · ${t("opac.search.took", { ms: data.took_ms })}` : ""}`;
+    if (s.q) document.title = `${s.q} · ${document.title}`;
+    results.innerHTML = data.results.length ? html`${data.results.map(resultRow)}`
+      : empty(s.mode === "smart" ? t("opac.search.empty_smart") : t("opac.search.empty_keyword"), "search");
     $("#facets").innerHTML = facetsPanel(data.facets, s);
     $("#pager").innerHTML = pages > 1 ? html`
-      <button class="btn sm" data-page="${s.page - 1}" ${s.page <= 1 ? "disabled" : ""}>Previous</button>
-      <span class="muted small">Page ${s.page} of ${pages}</span>
-      <button class="btn sm" data-page="${s.page + 1}" ${s.page >= pages ? "disabled" : ""}>Next</button>` : "";
+      <button type="button" class="btn sm" data-page="${s.page - 1}" ${s.page <= 1 ? "disabled" : ""}>${t("opac.search.previous")}</button>
+      <span class="muted small" aria-current="page">${t("opac.search.page_of", { page: s.page, pages })}</span>
+      <button type="button" class="btn sm" data-page="${s.page + 1}" ${s.page >= pages ? "disabled" : ""}>${t("opac.search.next")}</button>` : "";
+    suggestSpelling(s, data.total);
   } catch (e) {
-    $("#results").innerHTML = empty(e.message, "alert");
+    results.innerHTML = empty(e.message, "alert");
     toast(e.message, "error");
+  } finally {
+    results.removeAttribute("aria-busy");
   }
 
   $("#facets").addEventListener("click", (e) => {

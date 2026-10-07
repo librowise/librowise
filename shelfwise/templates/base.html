@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="en" data-density="comfortable">
+<html lang="{{ lang or 'en' }}" dir="{{ dir or 'ltr' }}" data-density="comfortable">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="{% block meta_description %}{{ library_name }} — search the catalogue, place holds and manage your loans.{% endblock %}">
+  <meta name="description" content="{% block meta_description %}{{ t('meta.description', library=library_name) }}{% endblock %}">
+  <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
   <title>{% block title %}{{ library_name }}{% endblock %}</title>
   {% block head_extra %}{% endblock %}
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon.svg">
   <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
   <script src="/static/js/theme-boot.js?v={{ version }}"></script>
   <script type="application/json" id="boot">{{ {
@@ -16,10 +20,12 @@
     "currency": "INR", "page": page, "version": version, "path_params": path_params or {}, "biblio_id": biblio_id or None,
     "q": q or ""
   } | tojson }}</script>
+  <script type="application/json" id="i18n">{{ (i18n_boot or {}) | tojson }}</script>
   <script type="module" src="/static/js/core.js"></script>
+  <script type="module" src="/static/js/pwa.js"></script>
 </head>
 <body data-page="{{ page }}">
-  <a class="skip-link" href="#main">Skip to content</a>
+  <a class="skip-link" href="#main">{{ t('common.skip_to_content') }}</a>
   {% include "_icons.html" %}
   {% block body %}{% endblock %}
   <div class="toasts" id="toasts" aria-live="polite"></div>

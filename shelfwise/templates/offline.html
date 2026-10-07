@@ -1,0 +1,16 @@
+{% extends "opac_base.html" %}
+{% block title %}{{ t('pwa.offline_title') }} · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap offline-page">
+  <div class="card pad stack" style="max-width:560px;margin:3rem auto;text-align:center;align-items:center">
+    <span class="offline-icon" aria-hidden="true"><svg class="icon"><use href="#i-wifi-off"></use></svg></span>
+    <h1>{{ t('pwa.offline_title') }}</h1>
+    <p class="muted">{{ t('pwa.offline_lead') }}</p>
+    <div class="row tight" style="justify-content:center">
+      <button type="button" class="btn primary" data-retry><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>{{ t('pwa.retry') }}</button>
+      <a class="btn" href="/">{{ t('pwa.home') }}</a>
+    </div>
+    <p class="small muted">{{ t('pwa.offline_hint') }}</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,25 +1,25 @@
 {% extends "opac_base.html" %}
-{% block title %}My account · {{ library_name }}{% endblock %}
+{% block title %}{{ t('opac.account.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
 <div class="wrap">
   <div class="page-head">
     <div class="row">
-      <div class="avatar lg">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
-      <div><h1>Hello, {{ user.first_name }}</h1><div class="sub">Card {{ user.card_number }} · {{ user.category.name }} · {{ user.home_branch.name }}{% if user.expires_on %} · member until {{ user.expires_on.strftime('%d %b %Y') }}{% endif %}</div></div>
+      <div class="avatar lg" aria-hidden="true">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
+      <div><h1>{{ t('opac.account.hello', name=user.first_name) }}</h1><div class="sub">{{ t('opac.account.card', card=user.card_number) }} · {{ user.category.name }} · {{ user.home_branch.name }}{% if user.expires_on %} · {{ t('opac.account.member_until', date=user.expires_on.strftime('%d %b %Y')) }}{% endif %}</div></div>
     </div>
   </div>
   <div id="blocks"></div>
   <div class="grid cols-4" id="stats" style="margin-bottom:1.25rem"></div>
-  <div class="tabs" role="tablist" id="tabs">
-    <button role="tab" data-tab="loans" aria-selected="true">Loans</button>
-    <button role="tab" data-tab="holds" aria-selected="false">Holds</button>
-    <button role="tab" data-tab="foryou" aria-selected="false">For you</button>
-    <button role="tab" data-tab="lists" aria-selected="false">Reading lists</button>
-    <button role="tab" data-tab="history" aria-selected="false">History</button>
-    <button role="tab" data-tab="charges" aria-selected="false">Charges</button>
-    <button role="tab" data-tab="suggestions" aria-selected="false">Suggest a purchase</button>
-    <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+  <div class="tabs" role="tablist" id="tabs" aria-label="{{ t('opac.account.sections') }}">
+    <button role="tab" id="tab-loans" aria-controls="panel" data-tab="loans" aria-selected="true">{{ t('opac.account.tab_loans') }}</button>
+    <button role="tab" id="tab-holds" aria-controls="panel" data-tab="holds" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_holds') }}</button>
+    <button role="tab" id="tab-foryou" aria-controls="panel" data-tab="foryou" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_foryou') }}</button>
+    <button role="tab" id="tab-lists" aria-controls="panel" data-tab="lists" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_lists') }}</button>
+    <button role="tab" id="tab-history" aria-controls="panel" data-tab="history" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_history') }}</button>
+    <button role="tab" id="tab-charges" aria-controls="panel" data-tab="charges" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_charges') }}</button>
+    <button role="tab" id="tab-suggestions" aria-controls="panel" data-tab="suggestions" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_suggestions') }}</button>
+    <button role="tab" id="tab-settings" aria-controls="panel" data-tab="settings" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_settings') }}</button>
   </div>
-  <div id="panel" role="tabpanel"></div>
+  <div id="panel" role="tabpanel" tabindex="0" aria-labelledby="tab-loans"></div>
 </div>
 {% endblock %}

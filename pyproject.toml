@@ -47,7 +47,7 @@ shelfwise = "shelfwise.__main__:main"
 include = ["shelfwise*"]
 
 [tool.setuptools.package-data]
-shelfwise = ["templates/**/*", "static/**/*"]
+shelfwise = ["templates/**/*", "static/**/*", "i18n/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

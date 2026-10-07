@@ -1,22 +1,63 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Good to see you, {{ user.first_name }}</h1><div class="sub" id="today"></div></div>
-  <div class="row tight">
-    <a class="btn" href="/staff/circulation#checkin"><svg class="icon"><use href="#i-arrow-down"></use></svg>Check in</a>
-    <a class="btn primary" href="/staff/circulation#checkout"><svg class="icon"><use href="#i-arrow-up"></use></svg>Check out</a>
+<div class="page-head dash-head">
+  <div>
+    <h1>{{ t('dash.greeting', name=user.first_name) }}</h1>
+    <div class="sub"><span id="today"></span> · <span id="dash-updated" aria-live="polite"></span></div>
+  </div>
+  <div class="row tight dash-controls">
+    <label class="sr-only" for="dash-branch">{{ t('common.branch') }}</label>
+    <div class="select-with-icon"><svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+      <select id="dash-branch"><option value="">{{ t('common.all_branches') }}</option></select></div>
+    <button class="btn ghost sm" type="button" id="dash-auto" aria-pressed="true" title="{{ t('dash.auto_refresh_hint') }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg><span data-label>{{ t('dash.auto_refresh_on') }}</span></button>
   </div>
 </div>
-<div class="grid cols-4" id="stats">{% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:3.2rem"></div></div>{% endfor %}</div>
-<div class="grid dash" style="margin-top:1rem" id="row2">
-  <div class="card"><div class="card-head"><h3>Checkouts · last 30 days</h3><span class="muted small" id="trend-total"></span></div><div class="card-body" id="trend"></div></div>
-  <div class="card"><div class="card-head"><h3>By branch</h3></div><div class="card-body" id="by-branch"></div></div>
-  <div class="card"><div class="card-head"><h3>Collection</h3></div><div class="card-body" id="by-material"></div></div>
+
+<nav class="quick-actions" aria-label="{{ t('dash.quick_actions') }}">
+  <a class="qa primary" href="/staff/circulation#checkout"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>{{ t('dash.qa_checkout') }}<kbd>F2</kbd></a>
+  <a class="qa" href="/staff/circulation#checkin"><svg class="icon" aria-hidden="true"><use href="#i-arrow-down"></use></svg>{{ t('dash.qa_checkin') }}<kbd>F3</kbd></a>
+  <a class="qa" href="/staff/patrons#new"><svg class="icon" aria-hidden="true"><use href="#i-user-plus"></use></svg>{{ t('dash.qa_register') }}</a>
+  <a class="qa" href="/staff/holds"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg>{{ t('dash.qa_holds') }}</a>
+  <a class="qa" href="/staff/catalog/new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('dash.qa_new_record') }}</a>
+  <a class="qa" href="/staff/analytics"><svg class="icon" aria-hidden="true"><use href="#i-trend"></use></svg>{{ t('dash.qa_analytics') }}</a>
+</nav>
+
+<section class="grid kpi-grid compact" id="kpis" aria-label="{{ t('dash.key_figures') }}" aria-busy="true">
+  {% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:4.4rem"></div></div>{% endfor %}
+</section>
+
+<div class="dash-grid">
+  <section class="card desk-card" aria-labelledby="desk-h">
+    <div class="card-head"><h2 id="desk-h"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg> {{ t('dash.desk_title') }}</h2><a class="small" href="/staff/circulation">{{ t('dash.open_desk') }}</a></div>
+    <div class="card-body" id="desk"><div class="skeleton" style="height:10rem"></div></div>
+  </section>
+  <section class="card" aria-labelledby="alerts-h">
+    <div class="card-head"><h2 id="alerts-h"><svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg> {{ t('dash.alerts_title') }}</h2><span class="badge" id="alerts-count"></span></div>
+    <div class="card-body" id="alerts" aria-live="polite"><div class="skeleton" style="height:6rem"></div></div>
+  </section>
 </div>
-<div class="grid cols-2" style="margin-top:1rem">
-  <div class="card panel-ai"><div class="card-head"><h3><svg class="icon" style="color:var(--ai)"><use href="#i-sparkle"></use></svg> Late-return risk</h3><a class="small" href="/staff/insights">All insights →</a></div><div class="card-body" id="risk"></div></div>
-  <div class="card"><div class="card-head"><h3>Most borrowed this month</h3></div><div class="card-body" id="top"></div></div>
+
+<div class="dash-grid">
+  <section class="card" aria-labelledby="hourly-h">
+    <div class="card-head"><h2 id="hourly-h">{{ t('dash.hourly_title') }}</h2><span class="small muted" id="hourly-total"></span></div>
+    <div class="card-body" id="hourly"></div>
+  </section>
+  <section class="card" aria-labelledby="top-h">
+    <div class="card-head"><h2 id="top-h">{{ t('dash.top_title') }}</h2><a class="small" href="/staff/analytics">{{ t('dash.more_analytics') }}</a></div>
+    <div class="card-body" id="top"></div>
+  </section>
 </div>
-<div class="card" style="margin-top:1rem"><div class="card-head"><h3>Recent circulation</h3><a class="small" href="/staff/circulation">Open desk →</a></div><div class="card-body" id="recent"></div></div>
+
+<div class="dash-grid">
+  <section class="card" aria-labelledby="recent-h">
+    <div class="card-head"><h2 id="recent-h">{{ t('dash.recent_title') }}</h2><a class="small" href="/staff/circulation">{{ t('dash.open_desk') }}</a></div>
+    <div class="card-body" id="recent"></div>
+  </section>
+  <section class="card panel-ai" aria-labelledby="risk-h">
+    <div class="card-head"><h2 id="risk-h"><svg class="icon" style="color:var(--ai)" aria-hidden="true"><use href="#i-sparkle"></use></svg> {{ t('dash.risk_title') }}</h2><a class="small" href="/staff/insights">{{ t('dash.all_insights') }}</a></div>
+    <div class="card-body" id="risk"></div>
+  </section>
+</div>
 {% endblock %}

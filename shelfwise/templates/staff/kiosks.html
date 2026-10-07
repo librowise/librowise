@@ -1,0 +1,29 @@
+{% extends "staff_base.html" %}
+{% block page_title %}{{ t('nav.kiosks', 'Kiosks') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Self-checkout kiosks</h1>
+    <div class="sub">Provision touch-screen stations where patrons borrow and renew on their own. Each kiosk has its own secret token and works for one branch.</div>
+  </div>
+  <div class="row tight">
+    <a class="btn" href="/kiosk" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>Open kiosk screen</a>
+    <button class="btn primary" type="button" id="kiosk-new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New kiosk</button>
+  </div>
+</div>
+<div class="grid split">
+  <section class="card flush" aria-labelledby="kiosk-list-h">
+    <div class="card-head" style="padding-bottom:var(--pad)"><h2 id="kiosk-list-h">Devices</h2><span class="small muted" id="kiosk-count"></span></div>
+    <div id="kiosk-list" aria-live="polite"></div>
+  </section>
+  <aside class="card pad stack" aria-labelledby="kiosk-help-h">
+    <h2 id="kiosk-help-h">How it works</h2>
+    <ol class="stack tight small" style="padding-inline-start:1.2rem;margin:0">
+      <li>Create a kiosk for the branch where the station stands. Copy its token — it is shown only once.</li>
+      <li>On the station, open <code>/kiosk</code> and paste the token, or use <strong>Set up this device</strong> when you are working on the station itself (your staff session is signed out automatically).</li>
+      <li>Patrons sign in with their card number and password. Normal loan rules apply with no overrides, and items reserved for other readers cannot be borrowed.</li>
+      <li>Sessions end after a short period of inactivity, with a countdown. Lost or stolen station? Deactivate it or rotate its token.</li>
+    </ol>
+  </aside>
+</div>
+{% endblock %}

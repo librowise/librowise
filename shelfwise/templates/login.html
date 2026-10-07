@@ -1,25 +1,25 @@
 {% extends "opac_base.html" %}
-{% block title %}Sign in · {{ library_name }}{% endblock %}
+{% block title %}{{ t('login.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
 <div class="wrap" style="max-width:440px;padding-top:3rem">
   <div class="card pad stack">
     <div>
-      <h1 style="font-size:1.5rem" id="login-title">Welcome back</h1>
-      <p class="muted" id="login-sub">Sign in with your library card number or email.</p>
+      <h1 style="font-size:1.5rem">{{ t('login.heading') }}</h1>
+      <p class="muted">{{ t('login.lead') }}</p>
     </div>
     <div id="login-error" class="alert bad hidden" role="alert"></div>
     <div id="login-info" class="alert info hidden" role="status"></div>
 
     <form id="login-form" class="stack" novalidate>
       <div class="field">
-        <label for="username">Card number or email</label>
-        <input id="username" name="username" autocomplete="username" required autofocus>
+        <label for="username">{{ t('login.username') }}</label>
+        <input id="username" name="username" autocomplete="username" required autofocus aria-describedby="login-error">
       </div>
       <div class="field">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <label for="password">{{ t('login.password') }}</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-error">
       </div>
-      <button class="btn primary lg" type="submit">Sign in</button>
+      <button class="btn primary lg" type="submit">{{ t('common.sign_in') }}</button>
       <button class="btn ghost sm" type="button" data-view="forgot" style="align-self:flex-start">Forgot password?</button>
     </form>
     <p class="small muted" style="margin:0" id="register-hint">New to the library? <a href="/register">Register for a library card</a></p>
@@ -54,12 +54,12 @@
     </form>
 
     <details class="small muted" id="demo-accounts">
-      <summary>Demo accounts</summary>
+      <summary>{{ t('login.demo') }}</summary>
       <div class="stack tight" style="margin-top:.5rem">
-        <button type="button" class="chip" data-demo="admin">Administrator</button>
-        <button type="button" class="chip" data-demo="librarian">Librarian</button>
-        <button type="button" class="chip" data-demo="patron">Patron (Ananya)</button>
-        <span class="tiny">Demo credentials are defined in <code>shelfwise/seed.py</code> and only exist in seeded demo databases.</span>
+        <button type="button" class="chip" data-demo="admin">{{ t('login.demo_admin') }}</button>
+        <button type="button" class="chip" data-demo="librarian">{{ t('login.demo_librarian') }}</button>
+        <button type="button" class="chip" data-demo="patron">{{ t('login.demo_patron') }}</button>
+        <span class="tiny">{{ t('login.demo_note') }}</span>
       </div>
     </details>
   </div>

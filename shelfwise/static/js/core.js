@@ -1,5 +1,7 @@
 // Shelfwise UI core: API client, rendering helpers, theming, command palette, AI copilot.
 // Pages are ES modules in /static/js/pages/<page>.js exporting a default init function.
+import { locale as I18N_LOCALE, t, wireLanguageSwitchers } from "/static/js/i18n.js";
+export { t };
 
 // ------------------------------------------------------------------ utilities
 
@@ -28,7 +30,7 @@ export const BOOT = (() => {
   try { return JSON.parse(document.getElementById("boot").textContent); } catch { return {}; }
 })();
 
-const LOCALE = navigator.language || "en-IN";
+const LOCALE = I18N_LOCALE || navigator.language || "en-IN";
 const CURRENCY = BOOT.currency || "INR";
 const moneyFmt = new Intl.NumberFormat(LOCALE, { style: "currency", currency: CURRENCY });
 export const money = (v) => moneyFmt.format(Number(v || 0));
@@ -47,7 +49,7 @@ export function relative(v) {
 }
 export const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 export const initials = (name) => (name || "?").split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-export const statusLabel = (s) => ({ available: "Available", on_loan: "On loan", on_hold_shelf: "On hold shelf", in_transit: "In transit",
+export const statusLabel = (s) => t(`status.${s}`, {}, { available: "Available", on_loan: "On loan", on_hold_shelf: "On hold shelf", in_transit: "In transit",
   processing: "Processing", lost: "Lost", damaged: "Damaged", withdrawn: "Withdrawn", queued: "Queued", ready: "Ready for pickup",
   fulfilled: "Fulfilled", cancelled: "Cancelled", expired: "Expired" }[s] || s);
 export const badge = (s, label) => raw(`<span class="badge ${esc(s)}">${esc(label || statusLabel(s))}</span>`);
@@ -123,16 +125,22 @@ export function toast(message, type = "info", ms = 4200) {
 export const skeleton = (rows = 3) => Array.from({ length: rows }, () => `<div class="skeleton" style="height:1.1rem;margin:.6rem 0"></div>`).join("");
 export const empty = (msg, ic = "inbox") => html`<div class="empty">${icon(ic)}<div>${msg}</div></div>`;
 
+let dialogSeq = 0;
 /** Simple modal built on <dialog>. Resolves with the submitted FormData or null. */
-export function modal({ title, body, submit = "Save", wide = false, danger = false }) {
+export function modal({ title, body, submit = t("common.save", {}, "Save"), wide = false, danger = false }) {
   return new Promise((resolve) => {
+    const opener = document.activeElement;
     const d = document.createElement("dialog");
     if (wide) d.classList.add("wide");
+    const titleId = `dlg-${++dialogSeq}`;
+    d.setAttribute("aria-labelledby", titleId);
     d.innerHTML = html`<form method="dialog" novalidate>
-      <div class="dialog-head"><h2>${title}</h2><button type="button" class="btn ghost icon-only" data-dismiss aria-label="Close">${icon("x")}</button></div>
+      <div class="dialog-head"><h2 id="${titleId}">${title}</h2><button type="button" class="btn ghost icon-only" data-dismiss aria-label="${t("common.close", {}, "Close")}">${icon("x")}</button></div>
       <div class="dialog-body">${raw(body)}</div>
-      <div class="dialog-foot"><button type="button" class="btn" data-dismiss>Cancel</button>
+      <div class="dialog-foot"><button type="button" class="btn" data-dismiss>${t("common.cancel", {}, "Cancel")}</button>
       <button class="btn ${danger ? "danger" : "primary"}" value="ok">${submit}</button></div></form>`;
+    // Return focus to whatever opened the dialog (WCAG 2.4.3).
+    d.addEventListener("close", () => { if (opener?.isConnected) opener.focus?.(); });
     document.body.append(d);
     const form = $("form", d);
     // Only the primary button submits, so Enter in a field confirms instead of cancelling.
@@ -175,8 +183,9 @@ document.addEventListener("error", (e) => { if (e.target.tagName === "IMG" && e.
 export const authors = (list) => (list || []).map((a) => a.split(",").reverse().join(" ").trim()).join(", ");
 export const availabilityBadge = (a) => {
   if (!a) return raw("");
-  if (!a.total) return badge("withdrawn", "No copies");
-  return a.available ? badge("available", `${a.available} of ${a.total} available`) : badge("on_loan", "All copies out");
+  if (!a.total) return badge("withdrawn", t("availability.none", {}, "No copies"));
+  return a.available ? badge("available", t("availability.some", { available: a.available, total: a.total, count: a.total }, `${a.available} of ${a.total} available`))
+    : badge("on_loan", t("availability.all_out", {}, "All copies out"));
 };
 
 // ------------------------------------------------------------------ charts
@@ -277,8 +286,10 @@ const COMMANDS = [
     { group: "Go to", label: "Holds", hint: "Alt+5", run: () => (location.href = "/staff/holds"), icon: "bookmark" },
     { group: "Go to", label: "Acquisitions", hint: "Alt+6", run: () => (location.href = "/staff/acquisitions"), icon: "cart" },
     { group: "Go to", label: "Reports", hint: "Alt+7", run: () => (location.href = "/staff/reports"), icon: "chart" },
-    { group: "Go to", label: "AI insights", hint: "Alt+8", run: () => (location.href = "/staff/insights"), icon: "sparkle" },
-    { group: "Go to", label: "Administration", hint: "Alt+9", run: () => (location.href = "/staff/admin"), icon: "settings" },
+    { group: "Go to", label: "Analytics", hint: "Alt+8", run: () => (location.href = "/staff/analytics"), icon: "trend" },
+    { group: "Go to", label: "AI insights", hint: "Alt+9", run: () => (location.href = "/staff/insights"), icon: "sparkle" },
+    { group: "Go to", label: "Self-checkout kiosks", run: () => (location.href = "/staff/kiosks"), icon: "monitor" },
+    { group: "Go to", label: "Administration", run: () => (location.href = "/staff/admin"), icon: "settings" },
     { group: "Actions", label: "New catalogue record", run: () => (location.href = "/staff/catalog/new"), icon: "plus" },
     { group: "Actions", label: "Check out items", run: () => (location.href = "/staff/circulation#checkout"), icon: "arrow-up" },
     { group: "Actions", label: "Check in items", run: () => (location.href = "/staff/circulation#checkin"), icon: "arrow-down" },
@@ -405,6 +416,7 @@ function initCopilot() {
 // ------------------------------------------------------------------ global wiring
 
 function initShell() {
+  wireLanguageSwitchers();
   $$("[data-open-palette]").forEach((b) => b.addEventListener("click", openPalette));
   $$("[data-appearance]").forEach((b) => b.addEventListener("click", appearanceDialog));
   $$("[data-logout]").forEach((b) => b.addEventListener("click", async () => {

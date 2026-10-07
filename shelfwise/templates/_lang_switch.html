@@ -1,0 +1,9 @@
+{% if languages and languages|length > 1 %}
+<label class="lang-switch" title="{{ t('common.language') }}">
+  <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+  <span class="sr-only">{{ t('common.language') }}</span>
+  <select data-lang-switch>
+    {% for code, name in languages.items() %}<option value="{{ code }}" lang="{{ code }}"{% if code == lang %} selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select>
+</label>
+{% endif %}

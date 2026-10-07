@@ -919,3 +919,40 @@ class CopyCatTarget(TimestampMixin, Base):
     timeout_seconds: Mapped[int] = mapped_column(Integer, default=10)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
+
+# ---- experience ----------------------------------------------------------------------
+# Self-checkout kiosks: provisioned devices and short-lived patron sessions on them.
+
+
+class KioskDevice(TimestampMixin, Base):
+    """A self-checkout station. Authenticates with a random token; only its SHA-256 is stored."""
+
+    __tablename__ = "kiosk_devices"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    token_hint: Mapped[str] = mapped_column(String(12))  # first characters, to tell tokens apart
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_ip: Mapped[str | None] = mapped_column(String(64))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="SET NULL"))
+
+    branch: Mapped[Branch] = relationship(lazy="joined")
+
+
+class KioskSession(Base):
+    """A patron signed in at a kiosk. Short-lived (sliding idle timeout + absolute cap)."""
+
+    __tablename__ = "kiosk_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("kiosk_devices.id", ondelete="CASCADE"), index=True)
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_active_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime)
+    activity: Mapped[list] = mapped_column(JSON, default=list)  # receipt lines: [{kind, loan_id, at}]
+
+    device: Mapped[KioskDevice] = relationship(lazy="joined")
+    patron: Mapped[Patron] = relationship(lazy="joined")

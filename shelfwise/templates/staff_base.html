@@ -1,35 +1,37 @@
 {% extends "base.html" %}
-{% block title %}{% block page_title %}Staff{% endblock %} · {{ library_name }}{% endblock %}
+{% block title %}{% block page_title %}{{ t('nav.staff') }}{% endblock %} · {{ library_name }}{% endblock %}
 {% block body %}
 <div class="shell">
-  <aside class="sidebar" aria-label="Staff navigation">
-    <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon"><use href="#i-book"></use></svg></span>Shelfwise</a>
+  <aside class="sidebar" aria-label="{{ t('nav.staff_navigation') }}">
+    <a class="brand" href="/staff"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>Shelfwise</a>
     {% for key, href, label, ic in staff_nav %}
       {% if (key != 'admin' or user.role.value == 'admin') and (key != 'roles' or can(user, 'patrons:manage_staff')) %}
       <a class="nav-link" href="{{ href }}" {% if page == 'staff-' ~ key or (key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
-        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ label }}{% if loop.index <= 9 %}<span class="kbd-hint">Alt+{{ loop.index }}</span>{% endif %}
+        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ t('nav.' ~ key, label) }}{% if loop.index <= 9 %}<span class="kbd-hint">Alt+{{ loop.index }}</span>{% endif %}
       </a>
       {% endif %}
     {% endfor %}
     <div class="spacer"></div>
-    <a class="nav-link" href="/"><svg class="icon"><use href="#i-globe"></use></svg>Public catalogue</a>
-    <a class="nav-link" href="/api/docs" target="_blank" rel="noopener"><svg class="icon"><use href="#i-code"></use></svg>API docs</a>
+    <a class="nav-link" href="/"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>{{ t('nav.public_catalogue') }}</a>
+    <a class="nav-link" href="/kiosk"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>{{ t('nav.self_checkout') }}</a>
+    <a class="nav-link" href="/api/docs" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg>{{ t('nav.api_docs') }}</a>
     <div class="sidebar-footer">v{{ version }} · {{ user.home_branch.name }}</div>
   </aside>
   <div class="main">
     <header class="topbar">
-      <button class="btn ghost icon-only menu-toggle" aria-label="Menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
-      <button class="search-trigger" data-open-palette aria-label="Open command palette">
-        <svg class="icon"><use href="#i-search"></use></svg><span>Search or run a command…</span><kbd>Ctrl K</kbd>
+      <button class="btn ghost icon-only menu-toggle" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
+      <button class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('staff.search_or_command') }}</span><kbd>Ctrl K</kbd>
       </button>
       <div class="row tight" style="margin-left:auto">
-        <button class="btn ai sm" data-open-copilot title="AI copilot (Ctrl+J)"><svg class="icon"><use href="#i-sparkle"></use></svg><span>Copilot</span></button>
-        <button class="btn ghost icon-only" data-appearance aria-label="Appearance settings" title="Appearance"><svg class="icon"><use href="#i-palette"></use></svg></button>
+        <button class="btn ai sm" data-open-copilot title="{{ t('staff.copilot_title') }}"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><span>{{ t('staff.copilot') }}</span></button>
+        {% include "_lang_switch.html" %}
+        <button class="btn ghost icon-only" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
         <a class="avatar" href="/staff/security" title="{{ user.full_name }} ({{ user.role.value }}) · My account &amp; security" aria-label="My account and security" style="width:2.1rem;height:2.1rem;font-size:.8rem;text-decoration:none">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</a>
-        <button class="btn ghost icon-only" data-logout aria-label="Sign out" title="Sign out"><svg class="icon"><use href="#i-logout"></use></svg></button>
+        <button class="btn ghost icon-only" data-logout aria-label="{{ t('common.sign_out') }}" title="{{ t('common.sign_out') }}"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg></button>
       </div>
     </header>
-    <main id="main" class="content">
+    <main id="main" class="content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
   </div>

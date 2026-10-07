@@ -1,23 +1,23 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Catalogue{% endblock %}
+{#- LIST PAGE template (see staff/patrons.html): header → views + filters → data table. -#}
+{% block page_title %}{{ t('nav.catalog') }}{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Catalogue</h1><div class="sub">Search, edit and enrich bibliographic records.</div></div>
-  <div class="row tight">
-    <a class="btn" href="/api/v1/cataloging/export?fmt=xml"><svg class="icon"><use href="#i-download"></use></svg>Export MARCXML</a>
-    <a class="btn primary" href="/staff/catalog/new"><svg class="icon"><use href="#i-plus"></use></svg>New record</a>
+<div class="list-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('ui.catalog.title') }}<span class="ph-count" id="c-count" aria-live="polite"></span></h1>
+      <p class="ph-sub">{{ t('ui.catalog.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <a class="btn" href="/api/v1/cataloging/export?fmt=xml"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>{{ t('ui.catalog.export_all') }}</a>
+      <a class="btn primary" href="/staff/catalog/new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('ui.catalog.new') }}</a>
+    </div>
+  </header>
+  <div class="filter-bar" id="c-filters" aria-label="{{ t('ui.filters.label') }}" role="region">
+    <div id="c-views"></div>
+    <div class="filter-row" id="c-filter-row"></div>
+    <div id="c-chips"></div>
   </div>
+  <div id="c-table"></div>
 </div>
-<form id="cat-search" class="card pad row" role="search">
-  <div class="field grow" style="min-width:240px"><label for="cq">Search</label>
-    <input id="cq" name="q" type="search" placeholder="Title, author, subject, ISBN…" data-search-focus autocomplete="off"></div>
-  <div class="field"><label for="cmt">Format</label><select id="cmt" name="material_type"><option value="">Any</option></select></div>
-  <div class="field"><label for="cbr">Branch</label><select id="cbr" name="branch_id"><option value="">Any</option></select></div>
-  <div class="field"><label for="csort">Sort</label><select id="csort" name="sort"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="title">Title</option><option value="year_desc">Year ↓</option></select></div>
-  <div class="field"><label>&nbsp;</label><label class="checkbox"><input type="checkbox" name="available_only"> Available only</label></div>
-  <div class="field"><label>&nbsp;</label><button class="btn primary">Search</button></div>
-</form>
-<div class="row between" style="margin:1rem 0 .5rem"><span id="cat-summary" class="muted small"></span></div>
-<div class="card flush"><div class="table-wrap" id="cat-results"></div></div>
-<div class="pager" id="cat-pager"></div>
 {% endblock %}

@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -45,20 +46,51 @@ def new_card_number(db: Session) -> str:
             return card
 
 
+PATRON_SORTS = {
+    "name": (Patron.last_name, Patron.first_name), "-name": (Patron.last_name.desc(), Patron.first_name.desc()),
+    "card": (Patron.card_number,), "-card": (Patron.card_number.desc(),),
+    "expires": (Patron.expires_on, Patron.last_name), "-expires": (Patron.expires_on.desc(), Patron.last_name),
+    "created": (Patron.created_at, Patron.id), "-created": (Patron.created_at.desc(), Patron.id.desc()),
+}
+
+
 @router.get("")
-def list_patrons(q: str | None = Query(default=None, max_length=120), role: str | None = None,
+def list_patrons(q: str | None = Query(default=None, max_length=120), role: str | None = Query(default=None, pattern="^(patron|librarian|admin|staff)$"),
+                 category_id: int | None = Query(default=None, ge=1), branch_id: int | None = Query(default=None, ge=1),
+                 status: str | None = Query(default=None, pattern="^(active|inactive|expired|expiring|owing)$"),
+                 sort: str = Query(default="name", pattern="^-?(name|card|expires|created)$"),
                  page: int = Query(default=1, ge=1), per_page: int = Query(default=25, ge=1, le=200),
                  db: Session = Depends(get_db), _: Patron = Depends(require("patrons:read"))):
+    """Search patrons. Filters: role (``staff`` = librarians + admins), category, home branch and status
+    (``expiring`` = membership ends within 30 days, ``owing`` = positive balance)."""
     stmt = select(Patron).where(Patron.deleted_at.is_(None))
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(Patron.card_number == q.strip(), Patron.last_name.ilike(like),
                               Patron.first_name.ilike(like), Patron.email.ilike(like),
                               (Patron.first_name + " " + Patron.last_name).ilike(like)))
-    if role:
+    if role == "staff":
+        stmt = stmt.where(Patron.role.in_((Role.librarian, Role.admin)))
+    elif role:
         stmt = stmt.where(Patron.role == Role(role))
+    if category_id:
+        stmt = stmt.where(Patron.category_id == category_id)
+    if branch_id:
+        stmt = stmt.where(Patron.home_branch_id == branch_id)
+    today = utcnow().date()
+    if status == "active":
+        stmt = stmt.where(Patron.is_active.is_(True), or_(Patron.expires_on.is_(None), Patron.expires_on >= today))
+    elif status == "inactive":
+        stmt = stmt.where(Patron.is_active.is_(False))
+    elif status == "expired":
+        stmt = stmt.where(Patron.expires_on < today)
+    elif status == "expiring":
+        stmt = stmt.where(Patron.expires_on >= today, Patron.expires_on <= today + timedelta(days=30))
+    elif status == "owing":
+        owing = select(LedgerEntry.patron_id).group_by(LedgerEntry.patron_id).having(func.sum(LedgerEntry.amount) > 0)
+        stmt = stmt.where(Patron.id.in_(owing))
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
-    rows = db.scalars(stmt.order_by(Patron.last_name, Patron.first_name)
+    rows = db.scalars(stmt.order_by(*PATRON_SORTS[sort])
                       .offset((page - 1) * per_page).limit(per_page)).all()
     ids = [p.id for p in rows]
     loans = dict(db.execute(select(Loan.patron_id, func.count()).where(
@@ -102,6 +134,32 @@ def create_patron(body: PatronIn, request: Request, db: Session = Depends(get_db
         notices.queue(db, p, "WELCOME")
     db.commit()
     return patron_out(p)
+
+
+class RenewIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+@router.post("/renew")
+def renew_memberships(body: RenewIn, request: Request, db: Session = Depends(get_db),
+                      actor: Patron = Depends(require("patrons:write"))):
+    """Bulk-renew memberships: each patron's expiry moves forward by their category's enrolment period,
+    counted from today or from the current expiry date, whichever is later. Staff accounts the caller may
+    not manage are skipped and reported."""
+    today = utcnow().date()
+    renewed, skipped = [], []
+    for p in db.scalars(select(Patron).where(Patron.id.in_(set(body.ids)), Patron.deleted_at.is_(None))):
+        if p.is_staff and not can_manage_account(actor, p):
+            skipped.append({"id": p.id, "reason": "staff account"})
+            continue
+        start = max(today, p.expires_on or today)
+        previous = p.expires_on
+        p.expires_on = start + timedelta(days=30 * (p.category.enrollment_months or 12))
+        audit.record(db, "renew_membership", "patron", p.id, actor=actor, ip=client_ip(request),
+                     previous=previous.isoformat() if previous else None, expires_on=p.expires_on.isoformat())
+        renewed.append({"id": p.id, "expires_on": p.expires_on})
+    db.commit()
+    return {"renewed": renewed, "skipped": skipped}
 
 
 @router.get("/by-card/{card}")

@@ -1,16 +1,23 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Patrons{% endblock %}
+{#- Reference implementation of the LIST PAGE template (docs/DESIGN_SYSTEM.md §Page templates):
+    page header → saved views + filter bar → data table. All state lives in the URL. -#}
+{% block page_title %}{{ t('nav.patrons') }}{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Patrons</h1><div class="sub">Search members, register new ones, and manage accounts.</div></div>
-  <button class="btn primary" id="new-patron"><svg class="icon"><use href="#i-user-plus"></use></svg>Register patron</button>
+<div class="list-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('ui.patrons.title') }}<span class="ph-count" id="p-count" aria-live="polite"></span></h1>
+      <p class="ph-sub">{{ t('ui.patrons.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn primary" id="new-patron"><svg class="icon" aria-hidden="true"><use href="#i-user-plus"></use></svg>{{ t('ui.patrons.register') }}</button>
+    </div>
+  </header>
+  <div class="filter-bar" id="p-filters" aria-label="{{ t('ui.filters.label') }}" role="region">
+    <div id="p-views"></div>
+    <div class="filter-row" id="p-filter-row"></div>
+    <div id="p-chips"></div>
+  </div>
+  <div id="p-table"></div>
 </div>
-<form id="p-search" class="card pad row" role="search">
-  <div class="field grow"><label for="pq">Name, card number or email</label><input id="pq" name="q" type="search" data-search-focus autocomplete="off"></div>
-  <div class="field"><label for="prole">Role</label><select id="prole" name="role"><option value="">All</option><option value="patron">Patrons</option><option value="librarian">Librarians</option><option value="admin">Admins</option></select></div>
-  <div class="field"><label>&nbsp;</label><button class="btn primary">Search</button></div>
-</form>
-<div class="row between" style="margin:1rem 0 .5rem"><span id="p-summary" class="muted small"></span></div>
-<div class="card flush"><div class="table-wrap" id="p-results"></div></div>
-<div class="pager" id="p-pager"></div>
 {% endblock %}

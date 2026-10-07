@@ -7,7 +7,7 @@
     {% for key, href, label, ic in staff_nav %}
       {% if key != 'admin' or user.role.value == 'admin' %}
       <a class="nav-link" href="{{ href }}" {% if page == 'staff-' ~ key or (key == 'catalog' and page in ['staff-record', 'staff-record-edit']) or (key == 'patrons' and page == 'staff-patron') %}aria-current="page"{% endif %}>
-        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ label }}<span class="kbd-hint">Alt+{{ loop.index }}</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ label }}{% if loop.index <= 9 %}<span class="kbd-hint">Alt+{{ loop.index }}</span>{% endif %}
       </a>
       {% endif %}
     {% endfor %}

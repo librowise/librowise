@@ -203,3 +203,21 @@ accept (optionally creating a **draft** purchase order against a vendor/budget) 
 Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registration_category`, `allow_purchase_suggestions`,
 `notice_max_attempts`. Permissions: `calendar:manage`, `notices:outbox`, `patrons:approve`, `suggestions:manage`
 (librarians) and `notices:manage` (template editing — administrators).
+
+## Serials & course reserves
+
+**Serials control** (staff → *Serials*, API `/api/v1/serials`, permissions `serials:read` / `serials:write`):
+
+- *Subscriptions* link a serial record (`material_type = "serial"`) to a vendor, optional budget and receiving branch, with start/end dates and status (active / expired / cancelled).
+- *Prediction*: frequencies daily, weekly, fortnightly, monthly, bimonthly (every 2 months), quarterly, semiannual, annual, irregular, or every N days / weeks / months; day-based frequencies can skip weekdays. Numbering patterns such as `Vol. {X}, No. {Y}` use up to three odometer levels (start, increment, "rollover after", reset value, optional yearly restart, optional labels such as seasons) plus `{YEAR}`, `{MONTH}`, `{MON}`, `{DAY}`. The subscription form shows a live preview of the next six issues. Regeneration is safe: received, claimed, missing, not-published and manually added issues are never changed.
+- *Issue lifecycle*: expected → arrived (optionally creating an item whose call number ends with the enumeration) / late (expected date + grace period passed) / missing / claimed / not published; bulk receive; undo a receipt while the item has never been loaned. Irregular serials get issues added by hand (numbering continues automatically).
+- *Claims*: late-issues report grouped by vendor, claim recording (count + last claimed date + audit) and printable per-vendor claim letters (`/staff/serials/claims/{batch}`, with a mailto link), claim history, and renewal alerts for subscriptions ending soon.
+- *Nightly job*: `python -m shelfwise nightly` (and the admin nightly endpoint) now also runs hooks listed in `services/circulation.py` `NIGHTLY_HOOKS`; the serials hook expires ended subscriptions, keeps ~180 days of predictions and flags late issues (`serials.mark_late_issues`). Each hook runs in a savepoint, so a failing hook cannot break circulation jobs.
+- OPAC record pages for serials show *Latest issues* (public endpoint `/api/v1/serials/public/biblios/{id}/issues`).
+
+**Course reserves** (staff → *Course reserves*, OPAC `/courses`, API `/api/v1/courses`, permissions `courses:read` / `courses:write`):
+
+- Courses have a code, optional section, name, department, term, instructors (patrons), active flag and public/staff notes.
+- Reserve items by barcode scan or catalogue search, or reserve a whole title. While any active course reserves an item, it can switch to a short-loan item type (the demo data seeds `RES`: 1-day loans, no renewals) and/or a reserve shelf location; the original values are remembered and restored when the last active course releases the item (reserve removed, course deactivated or deleted). Values staff changed by hand in the meantime are left alone. An item can be on reserve for several courses.
+- *End of term*: bulk-deactivate every course in a term (or selected courses) in one step; reactivating re-applies the reserve settings.
+- The OPAC lists active courses (search by code, name, department or instructor) and each course's readings with live availability.

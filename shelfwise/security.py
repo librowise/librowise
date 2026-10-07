@@ -140,6 +140,11 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
         "notices:outbox",
         "patrons:approve",
         "suggestions:manage",
+
+        "serials:read",
+        "serials:write",
+        "courses:read",
+        "courses:write",
     },
     Role.admin: {ALL},
 }

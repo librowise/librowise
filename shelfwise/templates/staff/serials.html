@@ -1,0 +1,25 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Serials{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Serials</h1>
+    <div class="sub">Subscriptions, predicted issues, check-in, late issues and vendor claims.</div>
+  </div>
+  <div class="row tight">
+    <button class="btn" id="ser-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+    <button class="btn primary" id="new-sub"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New subscription</button>
+  </div>
+</div>
+
+<div class="grid cols-4" id="ser-stats" style="margin-bottom:1.25rem"></div>
+<div id="ser-renewal-alert" aria-live="polite"></div>
+
+<div class="tabs" role="tablist" aria-label="Serials views" id="ser-tabs">
+  <button role="tab" id="tab-subs" data-tab="subs" aria-selected="true" aria-controls="ser-panel">Subscriptions</button>
+  <button role="tab" id="tab-late" data-tab="late" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Late issues &amp; claims <span class="badge warn hidden" id="count-late"></span></button>
+  <button role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Claim history</button>
+  <button role="tab" id="tab-renewals" data-tab="renewals" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Renewals <span class="badge hidden" id="count-renewals"></span></button>
+</div>
+<section id="ser-panel" role="tabpanel" aria-labelledby="tab-subs" aria-live="polite"></section>
+{% endblock %}

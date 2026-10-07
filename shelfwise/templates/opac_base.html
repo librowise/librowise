@@ -6,6 +6,7 @@
     <a class="brand" href="/" style="padding:0"><span class="brand-mark"><svg class="icon"><use href="#i-book"></use></svg></span><span>{{ library_name }}</span></a>
     <nav aria-label="Main">
       <a href="/search">Browse</a>
+      <a href="/courses">Courses</a>
       {% if user %}
         <a href="/account">My account</a>
         {% if user.is_staff %}<a href="/staff">Staff</a>{% endif %}

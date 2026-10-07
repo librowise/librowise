@@ -607,4 +607,30 @@ def run_nightly(db: Session, *, now: datetime | None = None) -> dict:
             loan.patron_id = None
             stats["anonymized"] += 1
     db.flush()
+    stats.update(run_nightly_hooks(db, now))
+    return stats
+
+
+# Nightly jobs contributed by other modules, as "module:function" paths resolved lazily (no import-time
+# coupling). Each hook is called as ``fn(db, now) -> dict`` inside a SAVEPOINT; a failing hook is logged
+# and rolled back without aborting the rest of the nightly run. Append new hooks here.
+NIGHTLY_HOOKS: list[str] = [
+    "shelfwise.services.serials:nightly",  # serials: expire subscriptions, top up predictions, flag late issues
+]
+
+
+def run_nightly_hooks(db: Session, now: datetime) -> dict:
+    import importlib
+    import logging
+
+    stats: dict = {}
+    for path in NIGHTLY_HOOKS:
+        module_name, _, func_name = path.partition(":")
+        try:
+            fn = getattr(importlib.import_module(module_name), func_name)
+            with db.begin_nested():
+                stats.update(fn(db, now) or {})
+        except Exception:  # one broken hook must not stop the circulation jobs
+            logging.getLogger("shelfwise.nightly").exception("Nightly hook %s failed", path)
+            stats[f"failed:{path}"] = 1
     return stats

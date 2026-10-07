@@ -53,6 +53,10 @@ export default async function init() {
 
   form.elements.title.addEventListener("input", debounce(() => checkDuplicates(form), 500));
 
+  // Barcode scanners send Enter after the ISBN: fetch metadata instead of submitting the whole form.
+  form.elements.isbn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("#isbn-lookup").click(); }
+  });
   $("#isbn-lookup").addEventListener("click", async (e) => {
     const isbn = form.elements.isbn.value.trim();
     if (!isbn) { toast("Enter an ISBN first", "error"); return; }

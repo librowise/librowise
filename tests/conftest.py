@@ -19,13 +19,26 @@ from shelfwise.security import ai_limiter, hash_password, login_limiter  # noqa:
 PASSWORD = "Test#Passw0rd!"
 
 
+# Set SHELFWISE_TEST_DATABASE_URL (e.g. postgresql+psycopg://user:pw@localhost:55432/shelfwise_test)
+# to run the whole suite against PostgreSQL. The schema is rebuilt once per session and every
+# table is truncated before each test.
+TEST_DATABASE_URL = os.environ.get("SHELFWISE_TEST_DATABASE_URL", "")
+_schema_ready: set[str] = set()
+
+
 @pytest.fixture()
 def engine(tmp_path):
     get_settings.cache_clear()
-    url = f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
+    url = TEST_DATABASE_URL or f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
     os.environ["SHELFWISE_DATABASE_URL"] = url
     eng = dbmod.init_engine(url)
-    dbmod.create_all()
+    if TEST_DATABASE_URL and url in _schema_ready:
+        dbmod.truncate_all()
+    else:
+        if TEST_DATABASE_URL:
+            dbmod.drop_all()
+            _schema_ready.add(url)
+        dbmod.create_all()
     login_limiter.reset()
     ai_limiter.reset()
     from shelfwise.ai import semantic

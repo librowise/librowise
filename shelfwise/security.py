@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import logging
 import secrets
 import threading
 import time
@@ -232,15 +233,27 @@ def unseal(sealed: str, purpose: str) -> str | None:
 
 
 class SlidingWindowLimiter:
-    """Small in-process sliding-window limiter (swap for Redis in multi-process deployments)."""
+    """Sliding-window rate limiter with a pluggable store (see :mod:`shelfwise.ratelimit`).
 
-    def __init__(self, limit: int, window_seconds: float = 60.0) -> None:
+    ``SHELFWISE_RATE_LIMIT_BACKEND=memory`` (default) keeps exact windows in this process;
+    ``database`` shares counters between all processes/hosts. ``name`` namespaces the shared
+    counters and must be stable across processes."""
+
+    def __init__(self, limit: int, window_seconds: float = 60.0, name: str | None = None) -> None:
         self.limit = limit
         self.window = window_seconds
+        self.name = name or f"rl{limit}x{int(window_seconds)}"
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
+        from . import ratelimit
+
+        if ratelimit.backend() == "database":
+            try:
+                return ratelimit.db_allow(f"{self.name}:{key}", self.limit, self.window)
+            except Exception:  # degrade to the per-process limiter rather than failing open
+                logging.getLogger("shelfwise.ratelimit").exception("database rate limiter unavailable")
         now = time.monotonic()
         with self._lock:
             q = self._hits[key]
@@ -254,12 +267,19 @@ class SlidingWindowLimiter:
     def reset(self) -> None:
         with self._lock:
             self._hits.clear()
+        from . import ratelimit
+
+        if ratelimit.backend() == "database":
+            try:
+                ratelimit.db_reset(f"{self.name}:")
+            except Exception:  # pragma: no cover - table may not exist yet
+                pass
 
 
-login_limiter = SlidingWindowLimiter(get_settings().login_attempts_per_minute)
-ai_limiter = SlidingWindowLimiter(30)
-mfa_limiter = SlidingWindowLimiter(20)  # second-factor attempts per IP per minute
-reset_limiter = SlidingWindowLimiter(5, 15 * 60)  # password-reset requests per IP / per identifier
+login_limiter = SlidingWindowLimiter(get_settings().login_attempts_per_minute, name="login")
+ai_limiter = SlidingWindowLimiter(30, name="ai")
+mfa_limiter = SlidingWindowLimiter(20, name="mfa")  # second-factor attempts per IP per minute
+reset_limiter = SlidingWindowLimiter(5, 15 * 60, name="password_reset")  # reset requests per IP / identifier
 
 
 def reset_limiters() -> None:

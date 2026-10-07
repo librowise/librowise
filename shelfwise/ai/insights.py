@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from collections import defaultdict
 from datetime import timedelta
 
@@ -11,24 +12,42 @@ from rapidfuzz import fuzz
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..models import Biblio, Hold, HoldStatus, Item, ItemStatus, Loan, utcnow
 
 # ------------------------------------------------------------------ overdue risk
 
 
+_LATE_STATS_TTL = 300.0  # seconds; history changes slowly, the dashboard asks often
+_late_stats_cache: dict[str, tuple[float, dict[int, tuple[int, int]]]] = {}
+
+
 def _patron_late_stats(db: Session, patron_ids: set[int]) -> dict[int, tuple[int, int]]:
     if not patron_ids:
         return {}
+    large = len(patron_ids) > 500
+    key = db.get_bind().url.render_as_string(hide_password=True)
+    if large and get_settings().environment != "test":
+        hit = _late_stats_cache.get(key)
+        if hit and time.monotonic() - hit[0] < _LATE_STATS_TTL:
+            return {p: s for p, s in hit[1].items() if p in patron_ids}
+    # Large sets use a semi-join on "patrons with open loans" instead of a huge IN (...) list;
+    # the aggregate is an index-only scan of loans(patron_id, returned_at, due_at).
+    who = (Loan.patron_id.in_(select(Loan.patron_id).where(Loan.returned_at.is_(None))) if large else
+           Loan.patron_id.in_(patron_ids))
     rows = db.execute(
         select(
             Loan.patron_id,
             func.count(Loan.id),
             func.sum(case((Loan.returned_at > Loan.due_at, 1), else_=0)),
         )
-        .where(Loan.patron_id.in_(patron_ids), Loan.returned_at.is_not(None))
+        .where(who, Loan.returned_at.is_not(None))
         .group_by(Loan.patron_id)
     ).all()
-    return {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows}
+    stats = {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows}
+    if large:
+        _late_stats_cache[key] = (time.monotonic(), stats)
+    return {p: s for p, s in stats.items() if p in patron_ids}
 
 
 def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
@@ -36,15 +55,17 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
 
     A transparent logistic model over: the patron's historical late-return rate (with a
     Bayesian prior), renewals already used, days remaining and current overdue loans.
+    Scoring runs over light tuples; full loan objects are loaded only for the top ``limit``.
     """
     now = utcnow()
-    loans = list(db.scalars(select(Loan).where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))))
+    loans = [r for r in db.execute(select(Loan.id, Loan.patron_id, Loan.due_at, Loan.renewals)
+                                   .where(Loan.returned_at.is_(None))).all() if r.patron_id is not None]
     stats = _patron_late_stats(db, {l.patron_id for l in loans if l.patron_id})
     overdue_now: dict[int, int] = defaultdict(int)
     for l in loans:
         if l.due_at < now:
             overdue_now[l.patron_id] += 1
-    out = []
+    scored = []
     for l in loans:
         if l.due_at < now:
             continue
@@ -53,13 +74,19 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
         days_left = (l.due_at - now).days
         z = (-2.2 + 4.0 * late_rate + 0.6 * l.renewals + 0.9 * min(overdue_now[l.patron_id], 3)
              - 0.05 * days_left)
-        p = 1 / (1 + math.exp(-z))
+        scored.append((1 / (1 + math.exp(-z)), l, late_rate, days_left))
+    scored.sort(key=lambda r: -r[0])
+    top = scored[:limit]
+    full = {l.id: l for l in db.scalars(select(Loan).where(Loan.id.in_([r[1].id for r in top])))} if top else {}
+    out = []
+    for p, l, late_rate, days_left in top:
+        loan = full[l.id]
         out.append({
             "loan_id": l.id,
-            "patron": l.patron.full_name if l.patron else None,
+            "patron": loan.patron.full_name if loan.patron else None,
             "patron_id": l.patron_id,
-            "title": l.item.biblio.title,
-            "barcode": l.item.barcode,
+            "title": loan.item.biblio.title,
+            "barcode": loan.item.barcode,
             "due_at": l.due_at,
             "risk": round(p, 3),
             "level": "high" if p >= 0.5 else "medium" if p >= 0.25 else "low",
@@ -70,8 +97,7 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
                 "days_left": days_left,
             },
         })
-    out.sort(key=lambda r: -r["risk"])
-    return out[:limit]
+    return out
 
 
 # ------------------------------------------------------------------ acquisitions & weeding

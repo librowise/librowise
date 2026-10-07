@@ -287,3 +287,34 @@ Message catalogs live in `shelfwise/i18n/<lang>.json`. English, Hindi (`hi`) and
 * **Templates:** `{{ t("opac.home.title") }}`, `{{ t("opac.account.hello", name=user.first_name) }}` or `{{ "key" | t }}`. A default can be passed as the second argument, for example `t('nav.' ~ key, label)`.
 * **JavaScript:** `import { t, formatNumber, formatDate } from "/static/js/i18n.js"`, then `t("opac.search.results", { count: n, q })`. The negotiated catalog, merged over English, is embedded in each page, so lookups are synchronous and work offline. `core.js` formats dates, numbers and money in the active locale.
 * **Translating another page:** replace its literals with `t()` calls, add the keys to `en.json` and every other catalog, and run `pytest tests/test_experience_i18n.py`. That test fails when a catalog is missing a key, has extra keys, or has mismatched placeholders, and when a template or module uses a key that is not in `en.json`. The OPAC, base layouts, staff navigation, dashboard and kiosk are fully translated. The other staff pages are still in English.
+
+## Production & operations
+
+Shelfwise runs on SQLite out of the box and on **PostgreSQL 17** in production (weighted
+`tsvector` search with a GIN index, `SKIP LOCKED` job claiming, `pg_dump` backups). The full
+guide is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); measured numbers at 100k titles / 300k
+loans are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
+```bash
+docker compose up -d                                   # PostgreSQL + migrate + app + worker
+python -m shelfwise worker --concurrency 2             # background jobs + cron scheduler (SIGTERM = graceful)
+python -m shelfwise jobs enqueue nightly               # also: jobs list | retry ID | retry --all-dead | cancel ID | schedules | types
+python -m shelfwise backup --keep 14                   # SQLite online backup / pg_dump, verified, retention
+python -m shelfwise restore FILE --yes                 # checksum-verified restore (safety copy first)
+python -m shelfwise generate --biblios 100000 --patrons 20000 --loans 300000   # synthetic load-test data
+python scripts/bench.py --database-url sqlite:///shelfwise.db                  # p50/p95 benchmark
+```
+
+* **Background jobs** (`shelfwise/jobs.py`): database-backed queue with priorities, exponential
+  backoff, dead-lettering, stale-lock recovery and heartbeats. Modules register work with
+  `@register_job("name")`. Built-in: `nightly`, `deliver_notices`, `reindex`, `ai_warmup`,
+  `backup`, `maintenance`. Cron schedules (`SHELFWISE_SCHEDULES`, library time zone) fire
+  exactly once per slot however many workers run.
+* **Observability**: JSON logs (`SHELFWISE_LOG_FORMAT=json`) carrying request id, user id, route,
+  status and duration; Prometheus metrics at `/metrics` (bearer `SHELFWISE_METRICS_TOKEN` or an
+  admin session); `/readyz` checks the database and worker heartbeat.
+* **Rate limiting** shared by all processes with `SHELFWISE_RATE_LIMIT_BACKEND=database`.
+* **System page** (`/staff/system`, administrators): health, job queue with retry/cancel,
+  schedules and next runs, workers, request latency, database size and the backup list.
+* **Tests on PostgreSQL**: `SHELFWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost:5432/shelfwise_test pytest`
+  (the schema is created once and every table truncated between tests; CI runs both databases).

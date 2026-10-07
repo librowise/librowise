@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from datetime import timedelta
 
 from sqlalchemy import func, select
@@ -23,16 +23,38 @@ def _loan_pairs(db: Session, since_days: int = 730) -> list[tuple[int, int]]:
     )
 
 
-def also_borrowed(db: Session, biblio_id: int, limit: int = 10) -> list[tuple[int, float]]:
-    pairs = _loan_pairs(db)
-    readers = {p for p, b in pairs if b == biblio_id}
+MAX_READERS = 400  # most recent readers considered for co-borrowing (bounds the work for bestsellers)
+MAX_CANDIDATES = 500  # co-borrowed titles re-scored by lift
+
+
+def also_borrowed(db: Session, biblio_id: int, limit: int = 10, since_days: int = 730) -> list[tuple[int, float]]:
+    """"Readers who borrowed this also borrowed…", computed in SQL over the loans index:
+    co-borrow counts among this title's readers, normalised by popularity (lift) so bestsellers
+    don't dominate every list. Cost is bounded by MAX_READERS × their loans, not the loan table."""
+    since = utcnow() - timedelta(days=since_days)
+    readers = list(db.scalars(
+        select(Loan.patron_id).join(Item, Item.id == Loan.item_id)
+        .where(Item.biblio_id == biblio_id, Loan.issued_at >= since)
+        .group_by(Loan.patron_id).order_by(func.max(Loan.issued_at).desc()).limit(MAX_READERS + 1)
+    ))
+    readers = [r for r in readers if r is not None][:MAX_READERS]
     if not readers:
         return []
-    popularity = Counter(b for _, b in pairs)
-    co = Counter(b for p, b in pairs if p in readers and b != biblio_id)
-    co = Counter({b: c for b, c in co.items() if c >= 2 or len(readers) < 3})  # minimum support
-    # Normalise by popularity (lift) so bestsellers don't dominate every list
-    scored = {b: c / (popularity[b] ** 0.5) for b, c in co.items()}
+    n = func.count().label("n")
+    co_q = (select(Item.biblio_id, n).join(Loan, Loan.item_id == Item.id)
+            .where(Loan.patron_id.in_(readers), Loan.issued_at >= since, Item.biblio_id != biblio_id)
+            .group_by(Item.biblio_id))
+    if len(readers) >= 3:
+        co_q = co_q.having(func.count() >= 2)  # minimum support
+    co = dict(db.execute(co_q.order_by(n.desc(), Item.biblio_id).limit(MAX_CANDIDATES)).all())
+    if not co:
+        return []
+    popularity = dict(db.execute(
+        select(Item.biblio_id, func.count(Loan.patron_id)).join(Loan, Loan.item_id == Item.id)
+        .where(Item.biblio_id.in_(list(co)), Loan.issued_at >= since)
+        .group_by(Item.biblio_id)
+    ).all())
+    scored = {b: c / (popularity.get(b, c) ** 0.5) for b, c in co.items()}
     return sorted(scored.items(), key=lambda kv: -kv[1])[:limit]
 
 
@@ -45,15 +67,16 @@ def for_biblio(db: Session, biblio_id: int, limit: int = 8) -> dict:
 
 def trending(db: Session, days: int = 90, limit: int = 10) -> list[tuple[int, int]]:
     since = utcnow() - timedelta(days=days)
+    # Aggregate recent loans per item first (index-only range scan on loans(issued_at, item_id)),
+    # then fold items into titles — instead of probing the loans index once per item.
+    per_item = (select(Loan.item_id, func.count().label("n")).where(Loan.issued_at >= since)
+                .group_by(Loan.item_id).subquery())
+    total = func.sum(per_item.c.n)
     rows = db.execute(
-        select(Item.biblio_id, func.count(Loan.id))
-        .join(Loan, Loan.item_id == Item.id)
-        .where(Loan.issued_at >= since)
-        .group_by(Item.biblio_id)
-        .order_by(func.count(Loan.id).desc())
-        .limit(limit)
+        select(Item.biblio_id, total).join(per_item, per_item.c.item_id == Item.id)
+        .group_by(Item.biblio_id).order_by(total.desc(), Item.biblio_id).limit(limit)
     ).all()
-    return [(b, n) for b, n in rows]
+    return [(b, int(n)) for b, n in rows]
 
 
 def for_patron(db: Session, patron_id: int, limit: int = 12) -> dict:

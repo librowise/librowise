@@ -78,9 +78,52 @@ class Settings(BaseSettings):
     # Self-registration: submissions allowed per client IP per hour
     registrations_per_hour: int = 5
 
+    # ---- platform & operations ----
+    # Database pool (ignored for SQLite)
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    db_pool_recycle: int = 1800
+    db_pool_timeout: int = 30
+    db_statement_timeout_ms: int = 0  # 0 = no server-side statement timeout (PostgreSQL)
+    # PostgreSQL text-search configuration used for the catalogue tsvector (e.g. english, simple)
+    pg_search_config: str = "english"
+    # Logging: "text" or "json"; level name
+    log_format: str = "text"
+    log_level: str = "INFO"
+    access_log: bool = True
+    # /metrics: bearer token for Prometheus (admins can always read it with their session)
+    metrics_token: str = ""
+    # Rate limiting backend: "memory" (per process) or "database" (shared by all processes)
+    rate_limit_backend: str = "memory"
+    # Background jobs
+    job_poll_interval: float = 2.0  # seconds between queue polls when idle
+    job_stale_after: int = 300  # a running job without heartbeat for this long is recovered
+    job_heartbeat_interval: float = 15.0
+    job_retry_base_seconds: float = 30.0
+    job_retry_max_seconds: float = 3600.0
+    job_keep_days: int = 30  # finished jobs are pruned after this many days
+    # Cron-like schedules ("min hour dom month dow", library time zone). Empty string disables one.
+    schedules: dict[str, str] = {
+        "nightly": "0 2 * * *",
+        "deliver_notices": "*/5 * * * *",
+        "maintenance": "30 3 * * *",
+    }
+    schedule_misfire_grace: int = 3600  # run a missed slot if the scheduler sees it within this many seconds
+    require_worker: bool = False  # /readyz fails when no worker heartbeat is fresh
+    # Backups
+    backup_dir: str = str(BASE_DIR.parent / "backups")
+    backup_keep: int = 14
+    # Local semantic index snapshot (shared by web processes; built by the ai_warmup job)
+    cache_dir: str = str(BASE_DIR.parent / "var")
+    semantic_sync_build_limit: int = 20000  # larger catalogues are (re)built in the background
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.database_url.startswith("postgresql")
 
 
 @lru_cache

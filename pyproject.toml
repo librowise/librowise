@@ -34,6 +34,7 @@ dependencies = [
   "anthropic>=1.0",
   "pyjwt[crypto]>=2.8",  # OpenID Connect ID-token verification; cryptography also encrypts TOTP secrets
   "segno>=1.6",  # pure-Python QR codes for 2FA enrolment
+  "tzdata>=2024.1",  # IANA zones for cron schedules on systems without /usr/share/zoneinfo (Windows, slim images)
 ]
 
 [project.optional-dependencies]

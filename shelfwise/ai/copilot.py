@@ -67,13 +67,14 @@ def tool_overdue_loans(db: Session, branch_code: str | None = None, limit: int =
     q = select(Loan).where(Loan.returned_at.is_(None), Loan.due_at < now).order_by(Loan.due_at)
     if branch_code:
         q = q.join(Branch, Branch.id == Loan.branch_id).where(Branch.code == branch_code.upper())
-    loans = list(db.scalars(q))
+    count = db.scalar(select(func.count()).select_from(q.order_by(None).subquery()))
+    loans = list(db.scalars(q.limit(limit)))
     return {
-        "count": len(loans),
+        "count": count,
         "loans": [{"title": l.item.biblio.title, "barcode": l.item.barcode,
                    "patron": l.patron.full_name if l.patron else "(anonymised)",
                    "card": l.patron.card_number if l.patron else None,
-                   "days_overdue": (now - l.due_at).days} for l in loans[:limit]],
+                   "days_overdue": (now - l.due_at).days} for l in loans],
     }
 
 

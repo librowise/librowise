@@ -38,7 +38,14 @@ def main(argv: list[str] | None = None) -> int:
     p_sip.add_argument("--certfile", help="PEM certificate to serve SIP2 over TLS")
     p_sip.add_argument("--keyfile", help="PEM private key for --certfile")
     p_sip.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+
+    from .cli_ops import add_parsers as add_ops_parsers
+    from .cli_ops import dispatch as ops_dispatch
+
+    add_ops_parsers(sub)  # worker, jobs, backup, restore, generate
     args = parser.parse_args(argv)
+    if (rc := ops_dispatch(args)) is not None:
+        return rc
 
     from .db import create_all, drop_all, session_scope
 

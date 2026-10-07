@@ -42,3 +42,8 @@ from . import analytics, discovery, kiosk  # noqa: E402
 
 for module in (analytics, kiosk, discovery):
     api_router.include_router(module.router)
+
+# ---- platform & operations ----
+from . import system  # noqa: E402
+
+api_router.include_router(system.router)

@@ -18,6 +18,39 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest
+
+  postgres:
+    # The full suite against PostgreSQL 17 (tsvector search, SKIP LOCKED job claiming, pg_dump backups).
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: shelfwise
+          POSTGRES_PASSWORD: shelfwise
+          POSTGRES_DB: shelfwise_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U shelfwise -d shelfwise_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      SHELFWISE_TEST_DATABASE_URL: postgresql+psycopg://shelfwise:shelfwise@localhost:5432/shelfwise_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: PostgreSQL 17 client tools (pg_dump for backup tests)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update && sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - run: pip install -e ".[dev,postgres]"
+      - run: pytest
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -30,3 +63,18 @@ jobs:
           for f in shelfwise/static/js/core.js shelfwise/static/js/pages/*.js; do
             cp "$f" /tmp/check.mjs && node --check /tmp/check.mjs || { echo "::error file=$f::syntax error"; exit 1; }
           done
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t shelfwise:ci .
+      - name: Smoke test (non-root, health endpoint, worker CLI)
+        run: |
+          test "$(docker run --rm shelfwise:ci id -u)" = "10001"
+          docker run -d --name sw -e SHELFWISE_DATABASE_URL=sqlite:////home/shelfwise/sw.db -e SHELFWISE_SECRET_KEY=ci -p 8000:8000 shelfwise:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/readyz && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8000/healthz
+          docker exec sw python -m shelfwise jobs types
+          docker rm -f sw

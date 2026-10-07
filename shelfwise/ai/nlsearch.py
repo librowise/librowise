@@ -145,17 +145,18 @@ def smart_search(db: Session, q: str, *, page: int = 1, per_page: int = 20) -> d
         available_only=bool(pq.available_only),
     )
     keywords = pq.keywords.strip()
-    # All matches that satisfy the structured filters (unranked if there are no keywords)
-    filtered = catalog.search(db, None, filters, page=1, per_page=100000, sort="newest")
-    allowed = set(filtered.ids)
-    if keywords:
-        bm25 = [i for i in (catalog._candidate_ids(db, keywords) or []) if i in allowed]
-        # BM25 requires every term; also try any-term matches for long queries
-        sem = [i for i, _ in semantic.index.search(db, keywords, limit=300) if i in allowed]
-        ranked = semantic.reciprocal_rank_fusion(bm25, sem)
-    else:
-        ranked = filtered.ids
     start = (page - 1) * per_page
+    if not keywords:
+        # Structured filters only: newest first, paginated and faceted in SQL.
+        filtered = catalog.search(db, None, filters, page=page, per_page=per_page, sort="newest")
+        return {"parsed": asdict(pq), "total": filtered.total, "ids": filtered.ids, "facets": filtered.facets}
+    # Facets/totals for the structured filters (one row page; counting happens in SQL).
+    filtered = catalog.search(db, None, filters, page=1, per_page=1, sort="newest")
+    bm25 = catalog._candidate_ids(db, keywords) or []
+    # BM25 requires every term; semantic matching also catches any-term and concept matches
+    sem = [i for i, _ in semantic.index.search(db, keywords, limit=300)]
+    allowed = catalog.filter_ids(db, filters, [*bm25, *sem])  # bounded: ≤ 5,300 candidate ids
+    ranked = semantic.reciprocal_rank_fusion([i for i in bm25 if i in allowed], [i for i in sem if i in allowed])
     return {
         "parsed": asdict(pq),
         "total": len(ranked),

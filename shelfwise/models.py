@@ -956,3 +956,104 @@ class KioskSession(Base):
 
     device: Mapped[KioskDevice] = relationship(lazy="joined")
     patron: Mapped[Patron] = relationship(lazy="joined")
+
+# ---- platform & operations ----
+from sqlalchemy import func as _sa_func  # noqa: E402  (kept local to this section)
+
+# Background jobs, scheduler bookkeeping, worker heartbeats, shared rate-limit counters and
+# extra indexes that keep catalogue/circulation queries fast at 100k+ records.
+
+
+class Job(Base):
+    """A unit of background work. Claimed by workers with SKIP LOCKED (PostgreSQL) or an atomic
+    compare-and-set UPDATE (SQLite); retried with exponential backoff until ``max_attempts``."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (Index("ix_jobs_claim", "status", "run_at", "priority"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str] = mapped_column(String(64), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    # queued | running | succeeded | failed (will retry) | dead (gave up) | cancelled
+    status: Mapped[str] = mapped_column(String(16), default="queued")
+    priority: Mapped[int] = mapped_column(Integer, default=0)  # higher runs first
+    run_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[dict | None] = mapped_column(JSON)
+    locked_by: Mapped[str | None] = mapped_column(String(128))
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    schedule: Mapped[str | None] = mapped_column(String(64))  # schedule that enqueued it, if any
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class ScheduleRun(Base):
+    """One row per (schedule, slot): the unique key makes each cron slot fire exactly once, no
+    matter how many workers run the scheduler."""
+
+    __tablename__ = "schedule_runs"
+    __table_args__ = (UniqueConstraint("name", "slot_at", name="uq_schedule_slot"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))
+    slot_at: Mapped[datetime] = mapped_column(DateTime)  # UTC
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class WorkerHeartbeat(Base):
+    __tablename__ = "worker_heartbeats"
+    worker_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    hostname: Mapped[str] = mapped_column(String(255))
+    pid: Mapped[int] = mapped_column(Integer)
+    concurrency: Mapped[int] = mapped_column(Integer, default=1)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    jobs_succeeded: Mapped[int] = mapped_column(Integer, default=0)
+    jobs_failed: Mapped[int] = mapped_column(Integer, default=0)
+    current_jobs: Mapped[list] = mapped_column(JSON, default=list)
+    stopping: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class RateLimitCounter(Base):
+    """Fixed-window hit counters shared by every process (database rate-limit backend)."""
+
+    __tablename__ = "rate_limit_counters"
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    window_start: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)  # unix seconds
+    hits: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class BiblioFacet(Base):
+    """Subjects and authors of live records, one row per value (maintained with the full-text
+    index by ``services.catalog.index_biblio``). Turns subject/author filters into index
+    lookups and facet counts into a single GROUP BY instead of parsing JSON per record."""
+
+    __tablename__ = "biblio_facets"
+    __table_args__ = (
+        Index("ix_biblio_facets_lookup", "kind", "value_norm", "biblio_id"),
+        Index("ix_biblio_facets_biblio", "biblio_id", "kind", "value"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    biblio_id: Mapped[int] = mapped_column(ForeignKey("biblios.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(1))  # "s" subject | "a" author
+    value: Mapped[str] = mapped_column(Text)
+    value_norm: Mapped[str] = mapped_column(Text)  # lower-cased for case-insensitive filters
+
+
+# Indexes for large catalogues and circulation histories. Covering indexes let the hot
+# aggregate queries (trending, co-borrowing, late-return statistics, overdue lists) run as
+# index-only scans.
+Index("ix_biblios_created_at", Biblio.created_at)
+Index("ix_biblios_updated_at", Biblio.updated_at)
+Index("ix_biblios_title_lower", _sa_func.lower(Biblio.title))
+Index("ix_items_biblio_status", Item.biblio_id, Item.status, Item.deleted_at, Item.branch_id)
+Index("ix_loans_item_activity", Loan.item_id, Loan.issued_at, Loan.patron_id)
+Index("ix_loans_issued_cover", Loan.issued_at, Loan.item_id, Loan.branch_id)
+Index("ix_loans_patron_activity", Loan.patron_id, Loan.issued_at, Loan.item_id)
+Index("ix_loans_patron_returns", Loan.patron_id, Loan.returned_at, Loan.due_at)
+Index("ix_loans_due_open", Loan.due_at, sqlite_where=text("returned_at IS NULL"),
+      postgresql_where=text("returned_at IS NULL"))
+Index("ix_loans_updated_at", Loan.updated_at)

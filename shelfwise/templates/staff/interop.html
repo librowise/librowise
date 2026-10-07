@@ -1,0 +1,17 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Interoperability{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Interoperability</h1>
+    <div class="sub">SIP2 self-service terminals, copy-cataloguing targets and the standard protocol endpoints (SRU, OAI-PMH, schema.org).</div>
+  </div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Interoperability sections" id="io-tabs">
+  <button role="tab" id="tab-sip" data-tab="sip" aria-selected="true" aria-controls="io-panel">SIP2 accounts</button>
+  <button role="tab" id="tab-targets" data-tab="targets" aria-selected="false" aria-controls="io-panel" tabindex="-1">Copy-cataloguing targets</button>
+  <button role="tab" id="tab-endpoints" data-tab="endpoints" aria-selected="false" aria-controls="io-panel" tabindex="-1">Protocol endpoints</button>
+</div>
+<section id="io-panel" role="tabpanel" aria-labelledby="tab-sip"></section>
+{% endblock %}

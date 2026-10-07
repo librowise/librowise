@@ -852,3 +852,70 @@ class UserIdentity(Base):
     email: Mapped[str | None] = mapped_column(String(160))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+# ---- interoperability (SIP2, SRU, OAI-PMH, copy cataloguing) ----
+
+
+class SipAccount(TimestampMixin, Base):
+    """A SIP2 login used by a self-check kiosk, security gate, AMH sorter or e-book platform."""
+
+    __tablename__ = "sip_accounts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    login: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(120))  # human label, e.g. "Kiosk 1, ground floor"
+    institution_id: Mapped[str] = mapped_column(String(64), default="SHELFWISE")
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Transport options (applied after a successful login)
+    delimiter: Mapped[str] = mapped_column(String(1), default="|")
+    encoding: Mapped[str] = mapped_column(String(16), default="utf-8")
+    error_detection: Mapped[bool] = mapped_column(Boolean, default=False)  # require AY/AZ checksums
+    idle_timeout: Mapped[int] = mapped_column(Integer, default=600)  # seconds
+    allowed_networks: Mapped[str | None] = mapped_column(String(500))  # comma-separated CIDRs; empty = any
+    # Behaviour flags
+    allow_checkout: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_checkin: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_renew: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_patron_info: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_holds: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_fee_paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_block_patron: Mapped[bool] = mapped_column(Boolean, default=True)
+    require_patron_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    checked_in_ok: Mapped[bool] = mapped_column(Boolean, default=True)  # ok=1 when the item was not on loan
+    sort_bins: Mapped[dict] = mapped_column(JSON, default=dict)  # {"hold": "1", "transfer": "2", "default": "3"}
+    notes: Mapped[str | None] = mapped_column(Text)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_login_ip: Mapped[str | None] = mapped_column(String(64))
+
+    branch: Mapped[Branch] = relationship(lazy="joined")
+
+
+class SipPatronBlock(Base):
+    """A block placed by a SIP2 terminal (message 01). Cleared by Patron Enable (25)."""
+
+    __tablename__ = "sip_patron_blocks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patron_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    sip_account_id: Mapped[int | None] = mapped_column(ForeignKey("sip_accounts.id", ondelete="SET NULL"))
+    card_retained: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class CopyCatTarget(TimestampMixin, Base):
+    """A remote SRU server used for copy cataloguing (e.g. the Library of Congress)."""
+
+    __tablename__ = "copycat_targets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    url: Mapped[str] = mapped_column(String(500))
+    sru_version: Mapped[str] = mapped_column(String(8), default="1.1")
+    record_schema: Mapped[str] = mapped_column(String(64), default="marcxml")
+    title_index: Mapped[str] = mapped_column(String(40), default="dc.title")
+    author_index: Mapped[str] = mapped_column(String(40), default="dc.creator")
+    isbn_index: Mapped[str] = mapped_column(String(40), default="bath.isbn")
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=10)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)

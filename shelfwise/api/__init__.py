@@ -9,6 +9,7 @@ from . import (
     catalog,
     circulation,
     hold_actions,
+    interop,
     notices,
     opac,
     patrons,
@@ -31,5 +32,7 @@ for module in (
     serials_api, courses_api,
     # identity & access
     account_security, roles, sso,
+    # interoperability
+    interop,
 ):
     api_router.include_router(module.router)

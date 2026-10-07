@@ -521,3 +521,18 @@ dialog.sc-xwide { width: min(1180px, calc(100vw - 2rem)); }
 .ok-icon { color: var(--success); }
 .user-pick { justify-content: flex-start; text-align: left; }
 @media (max-width: 640px) { .mfa-setup { grid-template-columns: 1fr; } .mfa-setup .qr { margin: 0 auto; } .recovery-codes { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- interoperability (copy cataloguing, SIP2, endpoints) */
+.cc-title { font-size: 1.05rem; margin: 0; }
+.cc-actions { flex: none; }
+.cc-details { margin-top: .75rem; }
+.cc-details > summary { cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--text-2); }
+.cc-marc, .io-code { font-family: var(--mono); font-size: .8rem; line-height: 1.55; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .75rem .9rem; margin: .5rem 0 0; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.io-code { white-space: pre; margin: 0; }
+.cc-tag { color: var(--primary); font-weight: 700; }
+.cc-ind { color: var(--muted); }
+.io-fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .6rem .9rem .9rem; margin: 0; min-width: 0; }
+.io-fieldset legend { font-weight: 650; font-size: .85rem; padding: 0 .35rem; }
+.io-links { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .2rem; }
+@media (max-width: 900px) { .io-endpoints.grid.cols-2 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .cc-result > .row { flex-direction: column; } .io-fieldset .grid.cols-2, .io-fieldset .grid.cols-3 { grid-template-columns: 1fr; } }

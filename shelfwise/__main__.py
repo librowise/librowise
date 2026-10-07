@@ -28,6 +28,16 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--reload", action="store_true")
     p_notices = sub.add_parser("send-notices", help="Deliver pending notices from the outbox (email/SMS)")
     p_notices.add_argument("--limit", type=int, default=200, help="Maximum notices to process")
+    p_sip = sub.add_parser("sip2", help="Start the SIP2 server for self-check kiosks and gates")
+    p_sip.add_argument("--host", default="127.0.0.1", help="Interface to bind (0.0.0.0 for all)")
+    p_sip.add_argument("--port", type=int, default=6001)
+    p_sip.add_argument("--delimiter", default="|", help="Field delimiter used before login")
+    p_sip.add_argument("--encoding", default="utf-8", help="Character set used before login")
+    p_sip.add_argument("--login-timeout", type=float, default=60.0, help="Seconds allowed before login")
+    p_sip.add_argument("--max-connections", type=int, default=256)
+    p_sip.add_argument("--certfile", help="PEM certificate to serve SIP2 over TLS")
+    p_sip.add_argument("--keyfile", help="PEM private key for --certfile")
+    p_sip.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     args = parser.parse_args(argv)
 
     from .db import create_all, drop_all, session_scope
@@ -102,6 +112,16 @@ def main(argv: list[str] | None = None) -> int:
         create_all()
         with session_scope() as db:
             print(json.dumps(deliver_pending(db, args.limit)))
+
+    elif args.cmd == "sip2":
+        import logging
+
+        from .sip2.server import ServerConfig, run
+
+        logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+        run(ServerConfig(host=args.host, port=args.port, delimiter=args.delimiter, encoding=args.encoding,
+                         login_timeout=args.login_timeout, max_connections=args.max_connections,
+                         certfile=args.certfile, keyfile=args.keyfile))
     return 0
 
 

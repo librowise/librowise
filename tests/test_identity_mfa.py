@@ -9,8 +9,8 @@ from conftest import PASSWORD, login
 from identity_utils import bearer, code_for, enable_mfa, install_clock, password_login, reset_identity_state
 from sqlalchemy import select
 
-from shelfwise.models import AuthToken, MfaRecoveryCode, MfaTotp, Notification, utcnow
-from shelfwise.services import totp
+from librowise.models import AuthToken, MfaRecoveryCode, MfaTotp, Notification, utcnow
+from librowise.services import totp
 
 
 @pytest.fixture(autouse=True)
@@ -203,7 +203,7 @@ def test_admin_reset_mfa(client, lib, admin, staff, clock):
 
 
 def test_cli_break_glass_reset(client, lib, clock, db):
-    from shelfwise.__main__ import main
+    from librowise.__main__ import main
 
     enable_mfa(client, login(client, "admin"), clock)
     assert main(["reset-2fa", "--username", "admin"]) == 0

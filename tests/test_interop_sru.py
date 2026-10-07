@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from shelfwise.interop import cql
+from librowise.interop import cql
 
 SRW = "{http://www.loc.gov/zing/srw/}"
 SRU2 = "{http://docs.oasis-open.org/ns/search-ws/sruResponse}"
@@ -18,14 +18,14 @@ ZR = "{http://explain.z3950.org/dtd/2.0/}"
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
-    from shelfwise.interop.ratelimit import limiter
+    from librowise.interop.ratelimit import limiter
 
     limiter.reset()
 
 
 @pytest.fixture()
 def books(make_book, db):
-    from shelfwise.services import catalog
+    from librowise.services import catalog
 
     hobbit, _ = make_book("The Hobbit", authors=["Tolkien, J. R. R."], isbn="0-261-10334-2", pub_year=1937,
                           subjects=["Fantasy", "Dragons"], publisher="Allen & Unwin", subtitle="There and back again")
@@ -256,8 +256,8 @@ def test_injection_attempts_are_harmless(client, books):
 
 
 def test_rate_limit(client, lib, monkeypatch):
-    from shelfwise.interop import ratelimit
-    from shelfwise.security import SlidingWindowLimiter
+    from librowise.interop import ratelimit
+    from librowise.security import SlidingWindowLimiter
 
     monkeypatch.setattr(ratelimit, "limiter", SlidingWindowLimiter(2))
     assert client.get("/sru").status_code == 200

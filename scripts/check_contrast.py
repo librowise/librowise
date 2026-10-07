@@ -1,6 +1,6 @@
-"""WCAG 2.2 contrast check for the Shelfwise design tokens.
+"""WCAG 2.2 contrast check for the Librowise design tokens.
 
-Parses ``shelfwise/static/css/tokens.css``, resolves the semantic tokens of every theme (light, dark,
+Parses ``librowise/static/css/tokens.css``, resolves the semantic tokens of every theme (light, dark,
 sepia, high contrast) and checks each foreground/background pair the components actually use:
 
 * 4.5:1 — body text, small text, links, badge/pill text, button labels (WCAG 1.4.3)
@@ -21,7 +21,7 @@ import re
 import sys
 from pathlib import Path
 
-TOKENS = Path(__file__).resolve().parent.parent / "shelfwise" / "static" / "css" / "tokens.css"
+TOKENS = Path(__file__).resolve().parent.parent / "librowise" / "static" / "css" / "tokens.css"
 THEMES = ("light", "dark", "sepia", "contrast")
 
 TEXT, UI = 4.5, 3.0

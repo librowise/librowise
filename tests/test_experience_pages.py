@@ -34,7 +34,7 @@ def test_manifest(client, lib):
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/manifest+json")
     m = r.json()
     assert m["start_url"].startswith("/") and m["scope"] == "/" and m["display"] == "standalone"
-    assert m["name"] == "Shelfwise Public Library" and len(m["short_name"]) <= 12
+    assert m["name"] == "Librowise Public Library" and len(m["short_name"]) <= 12
     assert {i["purpose"] for i in m["icons"]} == {"any", "maskable"}
     assert all(i["type"] == "image/svg+xml" and client.get(i["src"]).status_code == 200 for i in m["icons"])
     assert m["lang"] == "hi" and m["shortcuts"][0]["name"] == "सूची में खोजें"

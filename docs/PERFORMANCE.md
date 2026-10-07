@@ -1,14 +1,14 @@
 # Performance at catalogue scale
 
-This document records how Shelfwise behaves with a realistically large library — **100,000 titles,
+This document records how Librowise behaves with a realistically large library — **100,000 titles,
 ~152,000 items, 20,000 patrons and 300,000 loans** — and what was changed to get there.
 
 ## Reproduce
 
 ```bash
 # 1. Synthetic library (≈1 min on SQLite, ≈3 min on PostgreSQL in Docker)
-SHELFWISE_DATABASE_URL=sqlite:///var/bench.db \
-  python -m shelfwise generate --biblios 100000 --patrons 20000 --loans 300000
+LIBROWISE_DATABASE_URL=sqlite:///var/bench.db \
+  python -m librowise generate --biblios 100000 --patrons 20000 --loans 300000
 
 # 2. Benchmark: the real ASGI app in-process (no network noise), p50/p95 per operation
 python scripts/bench.py --database-url sqlite:///var/bench.db --runs 20 --json out.json
@@ -107,8 +107,8 @@ Indexes added (all created idempotently by `init-db`/start-up on existing databa
   the best 2,000 matches (exact whenever a search matches ≤ 2,000 records).
 * **PostgreSQL stop words**: with the default `english` text-search configuration, words such as
   "the" are not indexed, so a query consisting only of stop words matches nothing (SQLite FTS5
-  indexes every word). Use `SHELFWISE_PG_SEARCH_CONFIG=simple` for multilingual collections and
-  run `python -m shelfwise reindex`.
+  indexes every word). Use `LIBROWISE_PG_SEARCH_CONFIG=simple` for multilingual collections and
+  run `python -m librowise reindex`.
 * **Semantic search** reads at most 4,000 postings per query term (impact-ordered), so for
   very common terms only the strongest matches contribute — exact for typical vocabularies.
 * **Caches are per process** (facet/total cache, late-return statistics, semantic index). Each

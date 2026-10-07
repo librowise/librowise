@@ -11,7 +11,7 @@ import httpx
 import pytest
 from conftest import login
 
-from shelfwise.interop import copycat
+from librowise.interop import copycat
 
 LOC_RESPONSE = b"""<?xml version="1.0" encoding="UTF-8"?>
 <zs:searchRetrieveResponse xmlns:zs="http://www.loc.gov/zing/srw/">
@@ -84,7 +84,7 @@ def test_build_query_escapes_terms():
     assert copycat.build_query(t, "title", 'say "hi"') == 'dc.title="say \\"hi\\""'
     assert copycat.build_query(t, "isbn", "978-0-261-10334-4") == "bath.isbn=9780261103344"
     assert copycat.build_query(t, "author", "Tolkien") == 'dc.creator="Tolkien"'
-    from shelfwise.errors import DomainError
+    from librowise.errors import DomainError
 
     with pytest.raises(DomainError):
         copycat.build_query(t, "isbn", "123")
@@ -130,7 +130,7 @@ def test_remote_errors(client, staff, lib, remote):
 
 
 def test_import_dedupes_and_preserves_marc(client, staff, lib, remote, db):
-    from shelfwise.models import AuditLog, Biblio
+    from librowise.models import AuditLog, Biblio
 
     rec = client.get("/api/v1/copycat/search", params={"q": "hobbit"}, headers=staff).json()["results"][0]
     assert rec["existing_biblio_id"] is None
@@ -187,8 +187,8 @@ def test_copycat_permissions_and_targets(client, staff, admin, lib, remote):
 
 
 def test_sip_account_crud(client, admin, staff, lib, db):
-    from shelfwise.models import AuditLog, SipAccount
-    from shelfwise.security import verify_password
+    from librowise.models import AuditLog, SipAccount
+    from librowise.security import verify_password
 
     main = lib["branches"]["MAIN"].id
     body = {"login": "kiosk-1", "password": "Kiosk#Passw0rd", "branch_id": main, "name": "Kiosk 1",
@@ -232,7 +232,7 @@ def _jsonld(page: str) -> dict:
 
 
 def test_record_page_has_jsonld_and_open_graph(client, staff, lib, make_book, db):
-    from shelfwise.services import catalog, circulation
+    from librowise.services import catalog, circulation
 
     b, items = make_book("The Hobbit", authors=["Tolkien, J. R. R."], isbn="9780261103344", pub_year=1937,
                          language="en", publisher="Allen & Unwin", subjects=["Fantasy"], copies=2,
@@ -305,9 +305,9 @@ def test_staff_pages_render(client, staff, admin, lib):
 
 
 def test_seed_interop_is_idempotent(db, lib):
-    from shelfwise.models import CopyCatTarget, SipAccount
-    from shelfwise.security import verify_password
-    from shelfwise.seed import DEMO_SIP_ACCOUNT, seed_interop
+    from librowise.models import CopyCatTarget, SipAccount
+    from librowise.security import verify_password
+    from librowise.seed import DEMO_SIP_ACCOUNT, seed_interop
 
     seed_interop(db)
     seed_interop(db)
@@ -319,8 +319,8 @@ def test_seed_interop_is_idempotent(db, lib):
 
 
 def test_sip2_cli_command(monkeypatch):
-    from shelfwise import __main__ as cli
-    from shelfwise.sip2 import server
+    from librowise import __main__ as cli
+    from librowise.sip2 import server
 
     seen = {}
     monkeypatch.setattr(server, "run", lambda config: seen.setdefault("config", config))

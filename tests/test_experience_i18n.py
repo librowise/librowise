@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from conftest import login
 
-from shelfwise import i18n
+from librowise import i18n
 
 ROOT = Path(i18n.__file__).resolve().parent.parent
 PLACEHOLDER = re.compile(r"\{(\w+)\}")

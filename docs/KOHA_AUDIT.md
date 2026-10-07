@@ -1,6 +1,6 @@
 # Koha ILS: architecture & flaw audit
 
-This audit drove the design of Shelfwise.
+This audit drove the design of Librowise.
 
 - **Audited tree:** `Koha-Community/Koha`, `main` at commit `a6676a63` (October 2026, shallow clone).
 - **Method:** static analysis with grep/find/wc/awk over the source. No runtime testing.
@@ -118,11 +118,11 @@ Koha does have good security foundations: a private disclosure process, TOTP two
 | U3 | Medium | **Accessibility gaps.** 921 `href="#"` pseudo-links, about 1,500 icons without `aria-hidden`, and no automated a11y testing. |
 | O1 | Medium | **Heavy deployment.** Apache, MariaDB, Plack, Zebra or Elasticsearch, an indexer, a worker, optionally RabbitMQ and memcached, SIP and Z39.50 daemons, configured in XML and orchestrated by shell scripts. |
 
-## 4. How Shelfwise responds
+## 4. How Librowise responds
 
-| Koha issue | Shelfwise design |
+| Koha issue | Librowise design |
 |---|---|
-| C4/Koha duplication, god functions (A1, A2) | One typed service layer (`shelfwise/services`). Circulation is small, pure functions over SQLAlchemy sessions. |
+| C4/Koha duplication, god functions (A1, A2) | One typed service layer (`librowise/services`). Circulation is small, pure functions over SQLAlchemy sessions. |
 | Non-atomic returns (A5) | Every endpoint is one transaction. A partial unique index makes double checkout impossible at the database level. |
 | Regex-guarded SQL reports (S2) | Only vetted, parameterised reports, with CSV export and formula-injection neutralisation. No user SQL ever reaches the database. |
 | CSRF by convention (S3) | Double-submit CSRF token enforced by middleware on **every** unsafe cookie-authenticated request. |
@@ -135,6 +135,6 @@ Koha does have good security foundations: a private disclosure process, TOTP two
 | No modern discovery (Q2) | Hybrid BM25 + semantic retrieval fused with RRF, natural-language query understanding, recommendations, cataloguing AI, and a staff copilot. Claude is used when configured, with local models otherwise. |
 | Partial REST API (P1) | API-first: every UI action goes through the same OpenAPI 3.1 JSON API, including check-in, reports, holds and admin. |
 | Hybrid jQuery/Vue UI, a11y gaps (U1, U3) | One design system. Light, dark, sepia and high-contrast themes, density and text-size controls, keyboard-first command palette, labelled controls, skip links, reduced-motion support. |
-| Heavy deployment (O1) | One process (`python -m shelfwise run`), 12-factor environment config, Dockerfile, and health/readiness probes. |
-| Cron sprawl (F2) | One idempotent nightly job (`python -m shelfwise nightly`), also triggerable from the admin UI. |
+| Heavy deployment (O1) | One process (`python -m librowise run`), 12-factor environment config, Dockerfile, and health/readiness probes. |
+| Cron sprawl (F2) | One idempotent nightly job (`python -m librowise nightly`), also triggerable from the admin UI. |
 | Koha migration | MARC21/MARCXML import understands Koha `952` holdings, and patron CSV import accepts Koha borrower column names. |

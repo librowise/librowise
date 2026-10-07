@@ -5,11 +5,11 @@
   </picture>
 </p>
 
-# Shelfwise ILS
+# Librowise
 
 **A modern, AI-assisted integrated library system, written in Python. It reimagines [Koha](https://koha-community.org) for the 2020s.**
 
-Shelfwise covers the core of an ILS:
+Librowise covers the core of an ILS:
 
 - cataloguing, including MARC21/MARCXML
 - circulation, holds and fines
@@ -61,7 +61,7 @@ It runs as one fast Python process with a secure-by-default design and a polishe
   - audit log, nightly jobs and reindexing
 
 ### Under the hood
-| | Koha | Shelfwise |
+| | Koha | Librowise |
 |---|---|---|
 | Stack | Perl CGI + Plack + Mojolicious, TT + jQuery + Vue | FastAPI (OpenAPI 3.1) + SQLAlchemy 2 + vanilla ES modules |
 | Search | Zebra **or** Elasticsearch (plus indexer daemons) | SQLite FTS5 BM25 + semantic index, hybrid RRF |
@@ -78,19 +78,19 @@ It runs as one fast Python process with a secure-by-default design and a polishe
 ## Quick start
 
 ```bash
-git clone https://github.com/<org>/shelfwise.git && cd shelfwise
+git clone https://github.com/<org>/librowise.git && cd librowise
 python -m venv .venv && . .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m shelfwise seed       # creates shelfwise.db with demo data
-python -m shelfwise run        # http://127.0.0.1:8000
+python -m librowise seed       # creates librowise.db with demo data
+python -m librowise run        # http://127.0.0.1:8000
 ```
 
-**Demo accounts** (seeded databases only; defined in `shelfwise/seed.py`):
+**Demo accounts** (seeded databases only; defined in `librowise/seed.py`):
 
 | Role | Login | Password |
 |---|---|---|
-| Administrator | `admin` | `Shelfwise#Admin2026` |
-| Librarian | `librarian` | `Shelfwise#Staff2026` |
+| Administrator | `admin` | `Librowise#Admin2026` |
+| Librarian | `librarian` | `Librowise#Staff2026` |
 | Patron | `1000000001` | `Reader#Demo2026` |
 
 The login page also has one-click demo buttons. The interactive API docs are at `/api/docs`.
@@ -102,34 +102,34 @@ The AI features already work offline. To use Claude (`claude-opus-5-5`) for quer
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Requests use structured outputs for JSON and strict tool schemas, with server-side refusal fallbacks enabled. If credentials are missing, rejected or rate-limited, Shelfwise switches to the local engine automatically and backs off before trying Claude again. The copilot's tools are read-only.
+Requests use structured outputs for JSON and strict tool schemas, with server-side refusal fallbacks enabled. If credentials are missing, rejected or rate-limited, Librowise switches to the local engine automatically and backs off before trying Claude again. The copilot's tools are read-only.
 
 ### Docker
 ```bash
 docker compose up --build      # app + PostgreSQL, http://localhost:8000
-docker compose exec app python -m shelfwise seed
+docker compose exec app python -m librowise seed
 ```
 
 ### Configuration (environment variables)
 | Variable | Default | Notes |
 |---|---|---|
-| `SHELFWISE_DATABASE_URL` | `sqlite:///<project>/shelfwise.db` | e.g. `postgresql+psycopg://user:pass@host/db` |
-| `SHELFWISE_SECRET_KEY` | generated in `.shelfwise_secret` | **set this in production** |
-| `SHELFWISE_COOKIE_SECURE` | `false` | set `true` behind HTTPS |
-| `SHELFWISE_ALLOWED_HOSTS` | `["*"]` | JSON list |
-| `SHELFWISE_AI_ENABLED` | `true` | turn off all LLM calls |
-| `SHELFWISE_AI_MODEL` | `claude-opus-5-5` | |
-| `SHELFWISE_METADATA_LOOKUP_ENABLED` | `true` | Open Library ISBN lookups |
+| `LIBROWISE_DATABASE_URL` | `sqlite:///<project>/librowise.db` | e.g. `postgresql+psycopg://user:pass@host/db` |
+| `LIBROWISE_SECRET_KEY` | generated in `.librowise_secret` | **set this in production** |
+| `LIBROWISE_COOKIE_SECURE` | `false` | set `true` behind HTTPS |
+| `LIBROWISE_ALLOWED_HOSTS` | `["*"]` | JSON list |
+| `LIBROWISE_AI_ENABLED` | `true` | turn off all LLM calls |
+| `LIBROWISE_AI_MODEL` | `claude-opus-5-5` | |
+| `LIBROWISE_METADATA_LOOKUP_ENABLED` | `true` | Open Library ISBN lookups |
 | `ANTHROPIC_API_KEY` | – | enables Claude |
 
 ### CLI
 ```
-python -m shelfwise init-db        # create tables + search index
-python -m shelfwise seed           # demo data
-python -m shelfwise create-admin --username jdoe --email jdoe@library.org
-python -m shelfwise nightly        # notices, hold expiry, anonymisation (run from cron)
-python -m shelfwise reindex        # rebuild the full-text index
-python -m shelfwise run --host 0.0.0.0 --port 8000
+python -m librowise init-db        # create tables + search index
+python -m librowise seed           # demo data
+python -m librowise create-admin --username jdoe --email jdoe@library.org
+python -m librowise nightly        # notices, hold expiry, anonymisation (run from cron)
+python -m librowise reindex        # rebuild the full-text index
+python -m librowise run --host 0.0.0.0 --port 8000
 ```
 
 ### Migrating from Koha
@@ -142,7 +142,7 @@ python -m shelfwise run --host 0.0.0.0 --port 8000
 ## Architecture
 
 ```
-shelfwise/
+librowise/
   app.py            ASGI factory: security headers, CSP, CSRF, timing, error mapping, health probes
   config.py         typed settings (env / .env)
   models.py         SQLAlchemy 2 models (one biblio table, soft deletes, integer money)
@@ -160,7 +160,7 @@ tests/              pytest suite: security, circulation, catalogue, AI, API, pag
 
 ## Koha parity at a glance
 
-| Area | Shelfwise |
+| Area | Librowise |
 |---|---|
 | Cataloguing | Records, items, MARC21/MARCXML import & export, **MARC editor**, **authority control**, copy cataloguing (SRU, Library of Congress), AI enrichment, duplicate detection |
 | Circulation | Checkout/check-in/renew, rule matrix, **library calendar**, fines ledger, holds (item-level, suspend, expiry), transfers, lost items, **SIP2** self-check, **self-checkout kiosk** |
@@ -176,16 +176,16 @@ tests/              pytest suite: security, circulation, catalogue, AI, API, pag
 
 ## Database migrations
 
-Schema changes are versioned with Alembic (`shelfwise/migrations`).
+Schema changes are versioned with Alembic (`librowise/migrations`).
 
 ```bash
-python -m shelfwise migrate                       # create or upgrade the database (also: init-db)
-python -m shelfwise makemigration -m "add field"  # developers: autogenerate a revision, then review it
+python -m librowise migrate                       # create or upgrade the database (also: init-db)
+python -m librowise makemigration -m "add field"  # developers: autogenerate a revision, then review it
 ```
 
 Development databases are created and stamped automatically on first start; databases created by
 earlier versions (before migrations existed) are adopted on the first `migrate`. In production
-(`SHELFWISE_ENVIRONMENT=production`) the app never auto-creates tables — run `migrate` as part of
+(`LIBROWISE_ENVIRONMENT=production`) the app never auto-creates tables — run `migrate` as part of
 each deployment (the Docker Compose `migrate` service does this). A test fails if a model changes
 without a matching migration.
 
@@ -208,17 +208,17 @@ immutable Jinja2 **sandbox** from plain dicts, with a live preview. Patrons choo
 last error, exponential backoff):
 
 ```bash
-python -m shelfwise send-notices --limit 200   # or call services.notices.deliver_pending(db, limit) from a worker
+python -m librowise send-notices --limit 200   # or call services.notices.deliver_pending(db, limit) from a worker
 ```
 
 | Setting (env) | Default | Purpose |
 | --- | --- | --- |
-| `SHELFWISE_EMAIL_BACKEND` | `console` | `console` (log) or `smtp` |
-| `SHELFWISE_SMTP_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `_FROM` | `localhost` / `587` / – / – / `Shelfwise Library <no-reply@…>` | SMTP relay |
-| `SHELFWISE_SMTP_STARTTLS` / `SHELFWISE_SMTP_SSL` | `true` / `false` | STARTTLS or implicit TLS |
-| `SHELFWISE_SMS_BACKEND` | `console` | `console` or `webhook` |
-| `SHELFWISE_SMS_WEBHOOK_URL` / `_TOKEN` | – | POST `{"to","body","notice_id","code"}` with optional bearer token |
-| `SHELFWISE_REGISTRATIONS_PER_HOUR` | `5` | self-registrations per client IP |
+| `LIBROWISE_EMAIL_BACKEND` | `console` | `console` (log) or `smtp` |
+| `LIBROWISE_SMTP_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `_FROM` | `localhost` / `587` / – / – / `Librowise Library <no-reply@…>` | SMTP relay |
+| `LIBROWISE_SMTP_STARTTLS` / `LIBROWISE_SMTP_SSL` | `true` / `false` | STARTTLS or implicit TLS |
+| `LIBROWISE_SMS_BACKEND` | `console` | `console` or `webhook` |
+| `LIBROWISE_SMS_WEBHOOK_URL` / `_TOKEN` | – | POST `{"to","body","notice_id","code"}` with optional bearer token |
+| `LIBROWISE_REGISTRATIONS_PER_HOUR` | `5` | self-registrations per client IP |
 
 **Self-registration** (`/register`): rate-limited, honeypot-protected, password policy; creates an inactive account with
 `registration_status = pending`. Staff approve/reject in *Staff → Patron requests*; the applicant receives
@@ -240,7 +240,7 @@ Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registratio
 - *Prediction*: frequencies daily, weekly, fortnightly, monthly, bimonthly (every 2 months), quarterly, semiannual, annual, irregular, or every N days / weeks / months; day-based frequencies can skip weekdays. Numbering patterns such as `Vol. {X}, No. {Y}` use up to three odometer levels (start, increment, "rollover after", reset value, optional yearly restart, optional labels such as seasons) plus `{YEAR}`, `{MONTH}`, `{MON}`, `{DAY}`. The subscription form shows a live preview of the next six issues. Regeneration is safe: received, claimed, missing, not-published and manually added issues are never changed.
 - *Issue lifecycle*: expected → arrived (optionally creating an item whose call number ends with the enumeration) / late (expected date + grace period passed) / missing / claimed / not published; bulk receive; undo a receipt while the item has never been loaned. Irregular serials get issues added by hand (numbering continues automatically).
 - *Claims*: late-issues report grouped by vendor, claim recording (count + last claimed date + audit) and printable per-vendor claim letters (`/staff/serials/claims/{batch}`, with a mailto link), claim history, and renewal alerts for subscriptions ending soon.
-- *Nightly job*: `python -m shelfwise nightly` (and the admin nightly endpoint) now also runs hooks listed in `services/circulation.py` `NIGHTLY_HOOKS`; the serials hook expires ended subscriptions, keeps ~180 days of predictions and flags late issues (`serials.mark_late_issues`). Each hook runs in a savepoint, so a failing hook cannot break circulation jobs.
+- *Nightly job*: `python -m librowise nightly` (and the admin nightly endpoint) now also runs hooks listed in `services/circulation.py` `NIGHTLY_HOOKS`; the serials hook expires ended subscriptions, keeps ~180 days of predictions and flags late issues (`serials.mark_late_issues`). Each hook runs in a savepoint, so a failing hook cannot break circulation jobs.
 - OPAC record pages for serials show *Latest issues* (public endpoint `/api/v1/serials/public/biblios/{id}/issues`).
 
 **Course reserves** (staff → *Course reserves*, OPAC `/courses`, API `/api/v1/courses`, permissions `courses:read` / `courses:write`):
@@ -252,7 +252,7 @@ Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registratio
 
 ## Identity & access
 
-* **Fine-grained permissions & custom roles** — a catalogue of permission strings (`shelfwise/permissions.py`,
+* **Fine-grained permissions & custom roles** — a catalogue of permission strings (`librowise/permissions.py`,
   `GET /api/v1/admin/permissions`) grouped by area. Built-in roles keep their sets (librarians gain
   `circulation:override`, `fines:waive/charge`, `patrons:delete`, `catalog:delete`, `reports:export` …; administrators
   keep `*`). Administrators create **custom staff roles** (Staff → *Roles & permissions*) whose permissions are *added*
@@ -262,7 +262,7 @@ Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registratio
   (`settings:manage`), audit log (`audit:read`) and jobs (`jobs:manage`).
 * **Two-factor authentication** — RFC 6238 TOTP (stdlib, ±1 step, replay-protected) with QR enrolment, 10 hashed
   single-use recovery codes, step-up (password + code) to disable/regenerate, admin reset and a break-glass CLI
-  (`python -m shelfwise reset-2fa --username …`). Sign-in becomes two-step: `POST /auth/login` returns
+  (`python -m librowise reset-2fa --username …`). Sign-in becomes two-step: `POST /auth/login` returns
   `{mfa_required, mfa_token}` (signed, 5-minute, single-use, 5 attempts) and `POST /auth/mfa` completes it.
   Policy `require_2fa_for_staff` forces staff to enrol before using staff features.
 * **Sessions & API tokens** — every sign-in is a server-side session (list, revoke, “sign out everywhere”, idle
@@ -277,16 +277,16 @@ Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registratio
   (PyJWT), configured under *Roles & permissions → Single sign-on* (secrets encrypted at rest). Users are matched by
   linked identity, then verified e-mail; optional domain allow-list, staff/patron restriction and patron
   auto-creation. Users can link/unlink identities from their security settings. Register
-  `<SHELFWISE_PUBLIC_URL>/api/v1/auth/sso/<id>/callback` at the IdP.
+  `<LIBROWISE_PUBLIC_URL>/api/v1/auth/sso/<id>/callback` at the IdP.
 
-Set `SHELFWISE_PUBLIC_URL` in production so e-mailed links and SSO redirects never depend on the `Host` header.
-TOTP seeds and SSO client secrets are encrypted with a key derived from `SHELFWISE_SECRET_KEY`; rotating that key
+Set `LIBROWISE_PUBLIC_URL` in production so e-mailed links and SSO redirects never depend on the `Host` header.
+TOTP seeds and SSO client secrets are encrypted with a key derived from `LIBROWISE_SECRET_KEY`; rotating that key
 requires users to re-enrol their authenticators.
 
 ## Interoperability (SIP2, SRU, OAI-PMH, copy cataloguing)
-Shelfwise speaks the standard library protocols, so existing hardware and partner systems keep working:
+Librowise speaks the standard library protocols, so existing hardware and partner systems keep working:
 
-- **SIP2** for self-check kiosks, security gates, sorters and e-book platforms: `python -m shelfwise sip2 --host 0.0.0.0 --port 6001`. Each terminal logs in with its own SIP account (Staff → Interoperability). Demo account after `seed`: `selfcheck` / `SelfCheck#Demo2026`.
+- **SIP2** for self-check kiosks, security gates, sorters and e-book platforms: `python -m librowise sip2 --host 0.0.0.0 --port 6001`. Each terminal logs in with its own SIP account (Staff → Interoperability). Demo account after `seed`: `selfcheck` / `SelfCheck#Demo2026`.
 - **SRU 1.2/2.0** with CQL at `/sru` (MARCXML and Dublin Core) and an **OAI-PMH 2.0** provider at `/oai` (`oai_dc`, `marc21`, sets, deleted records, resumption tokens).
 - **Copy cataloguing** from the Library of Congress or any SRU target (Staff → Copy cataloguing), with ISBN de-duplication.
 - **schema.org JSON-LD** and Open Graph tags on every public record page.
@@ -296,7 +296,7 @@ Configuration, supported messages and a sample self-check setup are in [docs/INT
 
 ## Interfaces & dashboards
 
-**Analytics** (`/staff/analytics`, permission `analytics:read`). Date-range presets (7/30/90 days, 12 months, year to date, custom), branch filter and day/week/month grouping, all kept in the URL so views can be bookmarked and shared. Panels: checkouts over time against the previous period, returns and renewals, a weekday × hour heatmap, collection turnover by item type and subject, collection age and never-borrowed share, holds placed vs filled with the median wait, active vs registered patrons by category, fines charged/paid/waived, most-borrowed titles/authors/subjects, and a branch comparison. Each panel has a CSV export (`GET /api/v1/analytics/{panel}?start=&end=&branch_id=&granularity=&fmt=csv`) and a "View data table" toggle. Aggregation happens in SQL that runs on both SQLite and PostgreSQL, and date ranges are calendar days in `SHELFWISE_TIMEZONE`.
+**Analytics** (`/staff/analytics`, permission `analytics:read`). Date-range presets (7/30/90 days, 12 months, year to date, custom), branch filter and day/week/month grouping, all kept in the URL so views can be bookmarked and shared. Panels: checkouts over time against the previous period, returns and renewals, a weekday × hour heatmap, collection turnover by item type and subject, collection age and never-borrowed share, holds placed vs filled with the median wait, active vs registered patrons by category, fines charged/paid/waived, most-borrowed titles/authors/subjects, and a branch comparison. Each panel has a CSV export (`GET /api/v1/analytics/{panel}?start=&end=&branch_id=&granularity=&fmt=csv`) and a "View data table" toggle. Aggregation happens in SQL that runs on both SQLite and PostgreSQL, and date ranges are calendar days in `LIBROWISE_TIMEZONE`.
 
 **Staff dashboard** (`/staff`) uses `GET /api/v1/analytics/dashboard?branch_id=`. It shows KPI tiles with sparklines and week-on-week deltas, a "Today at the desk" panel (checkouts and check-ins, holds to pull, hold-shelf pickups about to expire, items in transit for more than 7 days), alerts (a spike in late returns, budgets over 90 % committed, long hold queues, failed notices) and quick actions. It refreshes every 60 s and pauses while the tab is hidden.
 
@@ -310,7 +310,7 @@ Configuration, supported messages and a sample self-check setup are in [docs/INT
 
 ### Internationalisation
 
-Message catalogs live in `shelfwise/i18n/<lang>.json`. English, Hindi (`hi`) and Urdu (`ur`, right-to-left) ship today, and any new file is picked up automatically. Keys are nested JSON. A value can be a plural object (`{"one": …, "other": …}`, chosen by CLDR rules), and `{placeholders}` are filled at runtime. The UI language is resolved in this order: `?lang=` (also remembered in a cookie), the signed-in user's `preferences.language`, the `sw_lang` cookie, `Accept-Language`, then English. `<html lang dir>` is set to match. Language switchers sit in the OPAC header, the staff top bar and the kiosk.
+Message catalogs live in `librowise/i18n/<lang>.json`. English, Hindi (`hi`) and Urdu (`ur`, right-to-left) ship today, and any new file is picked up automatically. Keys are nested JSON. A value can be a plural object (`{"one": …, "other": …}`, chosen by CLDR rules), and `{placeholders}` are filled at runtime. The UI language is resolved in this order: `?lang=` (also remembered in a cookie), the signed-in user's `preferences.language`, the `sw_lang` cookie, `Accept-Language`, then English. `<html lang dir>` is set to match. Language switchers sit in the OPAC header, the staff top bar and the kiosk.
 
 * **Templates:** `{{ t("opac.home.title") }}`, `{{ t("opac.account.hello", name=user.first_name) }}` or `{{ "key" | t }}`. A default can be passed as the second argument, for example `t('nav.' ~ key, label)`.
 * **JavaScript:** `import { t, formatNumber, formatDate } from "/static/js/i18n.js"`, then `t("opac.search.results", { count: n, q })`. The negotiated catalog, merged over English, is embedded in each page, so lookups are synchronous and work offline. `core.js` formats dates, numbers and money in the active locale.
@@ -318,33 +318,33 @@ Message catalogs live in `shelfwise/i18n/<lang>.json`. English, Hindi (`hi`) and
 
 ## Production & operations
 
-Shelfwise runs on SQLite out of the box and on **PostgreSQL 17** in production (weighted
+Librowise runs on SQLite out of the box and on **PostgreSQL 17** in production (weighted
 `tsvector` search with a GIN index, `SKIP LOCKED` job claiming, `pg_dump` backups). The full
 guide is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); measured numbers at 100k titles / 300k
 loans are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ```bash
 docker compose up -d                                   # PostgreSQL + migrate + app + worker
-python -m shelfwise worker --concurrency 2             # background jobs + cron scheduler (SIGTERM = graceful)
-python -m shelfwise jobs enqueue nightly               # also: jobs list | retry ID | retry --all-dead | cancel ID | schedules | types
-python -m shelfwise backup --keep 14                   # SQLite online backup / pg_dump, verified, retention
-python -m shelfwise restore FILE --yes                 # checksum-verified restore (safety copy first)
-python -m shelfwise generate --biblios 100000 --patrons 20000 --loans 300000   # synthetic load-test data
-python scripts/bench.py --database-url sqlite:///shelfwise.db                  # p50/p95 benchmark
+python -m librowise worker --concurrency 2             # background jobs + cron scheduler (SIGTERM = graceful)
+python -m librowise jobs enqueue nightly               # also: jobs list | retry ID | retry --all-dead | cancel ID | schedules | types
+python -m librowise backup --keep 14                   # SQLite online backup / pg_dump, verified, retention
+python -m librowise restore FILE --yes                 # checksum-verified restore (safety copy first)
+python -m librowise generate --biblios 100000 --patrons 20000 --loans 300000   # synthetic load-test data
+python scripts/bench.py --database-url sqlite:///librowise.db                  # p50/p95 benchmark
 ```
 
-* **Background jobs** (`shelfwise/jobs.py`): database-backed queue with priorities, exponential
+* **Background jobs** (`librowise/jobs.py`): database-backed queue with priorities, exponential
   backoff, dead-lettering, stale-lock recovery and heartbeats. Modules register work with
   `@register_job("name")`. Built-in: `nightly`, `deliver_notices`, `reindex`, `ai_warmup`,
-  `backup`, `maintenance`. Cron schedules (`SHELFWISE_SCHEDULES`, library time zone) fire
+  `backup`, `maintenance`. Cron schedules (`LIBROWISE_SCHEDULES`, library time zone) fire
   exactly once per slot however many workers run.
-* **Observability**: JSON logs (`SHELFWISE_LOG_FORMAT=json`) carrying request id, user id, route,
-  status and duration; Prometheus metrics at `/metrics` (bearer `SHELFWISE_METRICS_TOKEN` or an
+* **Observability**: JSON logs (`LIBROWISE_LOG_FORMAT=json`) carrying request id, user id, route,
+  status and duration; Prometheus metrics at `/metrics` (bearer `LIBROWISE_METRICS_TOKEN` or an
   admin session); `/readyz` checks the database and worker heartbeat.
-* **Rate limiting** shared by all processes with `SHELFWISE_RATE_LIMIT_BACKEND=database`.
+* **Rate limiting** shared by all processes with `LIBROWISE_RATE_LIMIT_BACKEND=database`.
 * **System page** (`/staff/system`, administrators): health, job queue with retry/cancel,
   schedules and next runs, workers, request latency, database size and the backup list.
-* **Tests on PostgreSQL**: `SHELFWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost:5432/shelfwise_test pytest`
+* **Tests on PostgreSQL**: `LIBROWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost:5432/librowise_test pytest`
   (the schema is created once and every table truncated between tests; CI runs both databases).
 
 ## Cataloguing tools
@@ -354,7 +354,7 @@ python scripts/bench.py --database-url sqlite:///shelfwise.db                  #
 - Headings are matched on a normalised key (case, diacritics and punctuation folded). Whenever a record's authors, subjects or series change, they are linked to authorities and **variants are rewritten to the authorised form**; `"Whale fishing -- Fiction"` becomes `"Whaling -- Fiction"` via the main heading. Names also match without dates/qualifiers when that is unambiguous (linked, not rewritten). The policy setting `authority_auto_link` (default on) controls this.
 - **Rename** propagates to every linked record and re-indexes it; **merge** shows a preview of every record change before it runs; delete is blocked while a heading is in use.
 - MARC21 authority import/export (1XX/4XX/5XX, MARCXML or ISO 2709), a one-off *Generate from catalogue* bootstrap, and an *Unlinked headings* report with fuzzy "did you mean" suggestions.
-- CLI: `python -m shelfwise authorities relink` (re-derive all links) and `python -m shelfwise authorities generate`.
+- CLI: `python -m librowise authorities relink` (re-derive all links) and `python -m librowise authorities generate`.
 - OPAC: **`/browse`** — alphabetical author/subject/series index with record counts, "see" references from variants and "see also" links; each heading opens a filtered search.
 
 **MARC editor** (*record page → MARC editor*): field/subfield grid with indicators, add/remove/reorder, leader and control fields, a built-in MARC21 field dictionary (~100 tags) for hints and repeatability checks, live validation, keyboard shortcuts, a MarcEdit-style text view (`=245  10$aTitle`) and a MARCXML view with round-trip conversion. Saving shows a diff first, stores the MARCXML and re-derives the record's fields; items are never touched and stale edits are rejected.
@@ -368,7 +368,7 @@ Permissions added: `authorities:write`, `items:batch`, `inventory`, `labels` (gr
 ```bash
 pytest            # 570+ tests: security, circulation, holds, calendar, notices, serials, SIP2, SRU/OAI,
                   # authorities, MARC editor, labels, analytics, kiosk, i18n, jobs, migrations, pages
-SHELFWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost/test pytest   # same suite on PostgreSQL
+LIBROWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost/test pytest   # same suite on PostgreSQL
 ruff check .
 ```
 
@@ -376,5 +376,5 @@ ruff check .
 See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
 
 ## License
-GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+GPL-3.0-or-later, the same licence family as Koha. Librowise is an independent implementation and contains no Koha code.
 

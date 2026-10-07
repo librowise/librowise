@@ -12,7 +12,7 @@ def test_staff_pages_render(client, lib):
         assert f'data-page="{page}"' in r.text
         assert 'href="/staff/calendar"' in r.text and 'href="/staff/requests"' in r.text  # in the sidebar
     # Administration stays last in the staff navigation
-    from shelfwise.web import STAFF_NAV
+    from librowise.web import STAFF_NAV
 
     assert STAFF_NAV[-1][0] == "admin"
 

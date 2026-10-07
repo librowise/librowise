@@ -5,9 +5,9 @@ from datetime import timedelta
 import pytest
 from conftest import login
 
-from shelfwise.config import Settings
-from shelfwise.models import Notification, Patron, utcnow
-from shelfwise.services import circulation, notices
+from librowise.config import Settings
+from librowise.models import Notification, Patron, utcnow
+from librowise.services import circulation, notices
 
 
 def _patron(db, lib, key="patron"):
@@ -96,7 +96,7 @@ def test_preference_validation(db, lib):
 
 def test_broken_custom_template_falls_back_to_default(db, lib):
     p = _patron(db, lib)
-    from shelfwise.models import NoticeTemplate
+    from librowise.models import NoticeTemplate
 
     db.add(NoticeTemplate(code="OVERDUE", channel="email", subject="x", body="{{ ''.__class__ }}"))
     db.flush()
@@ -157,7 +157,7 @@ def _queue_one(db, lib):
 
 
 def test_outbox_retries_with_backoff_then_fails(db, lib):
-    from shelfwise.services import settings as settings_svc
+    from librowise.services import settings as settings_svc
 
     settings_svc.set_value(db, "notice_max_attempts", 3)
     n = _queue_one(db, lib)
@@ -191,7 +191,7 @@ def test_permanent_failure_and_success(db, lib):
 
 def test_console_backend_is_default(db, lib, caplog):
     _queue_one(db, lib)
-    with caplog.at_level("INFO", logger="shelfwise.notices"):
+    with caplog.at_level("INFO", logger="librowise.notices"):
         assert notices.deliver_pending(db, 10)["sent"] == 1
     assert "Welcome to" in caplog.text
 
@@ -235,7 +235,7 @@ def test_smtp_backend_with_fake_smtplib(db, lib, monkeypatch):
     assert conn.calls == ["starttls", ("login", "relay", "s3cret"), "quit"]
     msg = conn.messages[0]
     assert msg["To"] == a.to_address and msg["From"] == "Library <library@example.org>"
-    assert msg["Subject"].startswith("Welcome to") and msg["X-Shelfwise-Notice"] == "WELCOME"
+    assert msg["Subject"].startswith("Welcome to") and msg["X-Librowise-Notice"] == "WELCOME"
     assert "Reader1" in msg.get_content()
     assert a.status == b.status == "sent"
     # A refused recipient is a permanent failure
@@ -287,7 +287,7 @@ def test_sms_webhook_backend(db, lib, monkeypatch):
 
 
 def test_cli_send_notices(db, lib, capsys):
-    from shelfwise.__main__ import main
+    from librowise.__main__ import main
 
     _queue_one(db, lib)
     assert main(["send-notices", "--limit", "5"]) == 0

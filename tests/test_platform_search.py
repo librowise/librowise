@@ -9,11 +9,11 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select
 
-from shelfwise.ai import recommend, semantic
-from shelfwise.config import get_settings
-from shelfwise.db import search_backend
-from shelfwise.models import Biblio, Item, ItemStatus, Loan, utcnow
-from shelfwise.services import catalog, circulation
+from librowise.ai import recommend, semantic
+from librowise.config import get_settings
+from librowise.db import search_backend
+from librowise.models import Biblio, Item, ItemStatus, Loan, utcnow
+from librowise.services import catalog, circulation
 
 
 @pytest.fixture()
@@ -130,7 +130,7 @@ def test_filter_ids_and_smart_search_filters_only(shelf, client):
 def test_ensure_search_index_backfills_empty_tables(db, make_book):
     from sqlalchemy import delete, text
 
-    from shelfwise.models import BiblioFacet
+    from librowise.models import BiblioFacet
 
     make_book("Backfill Me", subjects=["Gardening"], authors=["Root, Ada"])
     assert catalog.ensure_search_index(db) == 0  # nothing to do
@@ -189,7 +189,7 @@ def test_semantic_index_is_incremental(db, make_book):
 
 
 def test_semantic_snapshot_roundtrip_and_tamper_check(db, make_book, tmp_path, monkeypatch):
-    monkeypatch.setenv("SHELFWISE_CACHE_DIR", str(tmp_path))
+    monkeypatch.setenv("LIBROWISE_CACHE_DIR", str(tmp_path))
     get_settings.cache_clear()
     make_book("Ocean Voyages", subjects=["Sea stories"], description="Sailing ships and whales.")
     make_book("Desert Roads", subjects=["Travel"])
@@ -211,8 +211,8 @@ def test_semantic_snapshot_roundtrip_and_tamper_check(db, make_book, tmp_path, m
 
 
 def test_large_catalogue_builds_in_background(db, make_book, monkeypatch, tmp_path):
-    monkeypatch.setenv("SHELFWISE_SEMANTIC_SYNC_BUILD_LIMIT", "1")
-    monkeypatch.setenv("SHELFWISE_CACHE_DIR", str(tmp_path))
+    monkeypatch.setenv("LIBROWISE_SEMANTIC_SYNC_BUILD_LIMIT", "1")
+    monkeypatch.setenv("LIBROWISE_CACHE_DIR", str(tmp_path))
     get_settings.cache_clear()
     make_book("Alpha Centauri", subjects=["Astronomy"])
     make_book("Beta Pictoris", subjects=["Astronomy"])
@@ -268,7 +268,7 @@ def test_also_borrowed_matches_reference_implementation(db, lib, make_book):
 
 
 def test_generator_produces_consistent_data(db, client):
-    from shelfwise.generate import generate
+    from librowise.generate import generate
 
     stats = generate(biblios=300, patrons=60, loans=900, seed=11)
     assert stats["biblios"] == 300 and stats["patrons"] == 60 and stats["loans"] == 900 and stats["indexed"] == 300

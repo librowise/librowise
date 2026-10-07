@@ -1,68 +1,68 @@
 # Production-style stack: PostgreSQL, a one-shot schema migration, the web app and the worker.
-#   SHELFWISE_SECRET_KEY=$(python -c "import secrets;print(secrets.token_urlsafe(64))") docker compose up -d
-#   docker compose run --rm app python -m shelfwise create-admin --username admin --email you@example.org
+#   LIBROWISE_SECRET_KEY=$(python -c "import secrets;print(secrets.token_urlsafe(64))") docker compose up -d
+#   docker compose run --rm app python -m librowise create-admin --username admin --email you@example.org
 # Put a TLS reverse proxy in front of `app` (see docs/DEPLOYMENT.md).
 
-x-shelfwise-env: &shelfwise-env
-  SHELFWISE_ENVIRONMENT: production
-  SHELFWISE_DATABASE_URL: postgresql+psycopg://shelfwise:${POSTGRES_PASSWORD:-shelfwise}@db:5432/shelfwise
-  SHELFWISE_SECRET_KEY: ${SHELFWISE_SECRET_KEY:-dev-only-change-me}
-  SHELFWISE_COOKIE_SECURE: ${SHELFWISE_COOKIE_SECURE:-false}  # true behind HTTPS
-  SHELFWISE_TIMEZONE: ${SHELFWISE_TIMEZONE:-Asia/Kolkata}
-  SHELFWISE_LOG_FORMAT: json
-  SHELFWISE_RATE_LIMIT_BACKEND: database
-  SHELFWISE_METRICS_TOKEN: ${SHELFWISE_METRICS_TOKEN:-}
-  SHELFWISE_REQUIRE_WORKER: "true"
-  SHELFWISE_DB_STATEMENT_TIMEOUT_MS: "30000"
-  SHELFWISE_SCHEDULES: '{"nightly": "0 2 * * *", "deliver_notices": "*/5 * * * *", "maintenance": "30 3 * * *", "backup": "15 1 * * *", "ai_warmup": "45 2 * * 0"}'
-  SHELFWISE_BACKUP_DIR: /backups
-  SHELFWISE_BACKUP_KEEP: "14"
-  SHELFWISE_CACHE_DIR: /var/lib/shelfwise
+x-librowise-env: &librowise-env
+  LIBROWISE_ENVIRONMENT: production
+  LIBROWISE_DATABASE_URL: postgresql+psycopg://librowise:${POSTGRES_PASSWORD:-librowise}@db:5432/librowise
+  LIBROWISE_SECRET_KEY: ${LIBROWISE_SECRET_KEY:-dev-only-change-me}
+  LIBROWISE_COOKIE_SECURE: ${LIBROWISE_COOKIE_SECURE:-false}  # true behind HTTPS
+  LIBROWISE_TIMEZONE: ${LIBROWISE_TIMEZONE:-Asia/Kolkata}
+  LIBROWISE_LOG_FORMAT: json
+  LIBROWISE_RATE_LIMIT_BACKEND: database
+  LIBROWISE_METRICS_TOKEN: ${LIBROWISE_METRICS_TOKEN:-}
+  LIBROWISE_REQUIRE_WORKER: "true"
+  LIBROWISE_DB_STATEMENT_TIMEOUT_MS: "30000"
+  LIBROWISE_SCHEDULES: '{"nightly": "0 2 * * *", "deliver_notices": "*/5 * * * *", "maintenance": "30 3 * * *", "backup": "15 1 * * *", "ai_warmup": "45 2 * * 0"}'
+  LIBROWISE_BACKUP_DIR: /backups
+  LIBROWISE_BACKUP_KEEP: "14"
+  LIBROWISE_CACHE_DIR: /var/lib/librowise
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
 services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: shelfwise
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shelfwise}
-      POSTGRES_DB: shelfwise
+      POSTGRES_USER: librowise
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-librowise}
+      POSTGRES_DB: librowise
     command: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB",
               "-c", "work_mem=16MB", "-c", "random_page_cost=1.1", "-c", "max_connections=200"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shelfwise -d shelfwise"]
+      test: ["CMD-SHELL", "pg_isready -U librowise -d librowise"]
       interval: 5s
       retries: 20
     restart: unless-stopped
 
   migrate:  # creates/updates tables and indexes once before app and worker start
     build: .
-    image: shelfwise:latest
-    command: ["python", "-m", "shelfwise", "migrate"]
-    environment: *shelfwise-env
+    image: librowise:latest
+    command: ["python", "-m", "librowise", "migrate"]
+    environment: *librowise-env
     depends_on:
       db: { condition: service_healthy }
     restart: "no"
 
   app:
-    image: shelfwise:latest
+    image: librowise:latest
     environment:
-      <<: *shelfwise-env
+      <<: *librowise-env
       FORWARDED_ALLOW_IPS: "*"  # only the reverse proxy can reach this port; narrow it if not
     depends_on:
       migrate: { condition: service_completed_successfully }
     ports: ["127.0.0.1:8000:8000"]
-    volumes: [cache:/var/lib/shelfwise]
+    volumes: [cache:/var/lib/librowise]
     restart: unless-stopped
 
   worker:
-    image: shelfwise:latest
-    command: ["python", "-m", "shelfwise", "worker", "--concurrency", "2", "--metrics-port", "9100", "--metrics-host", "0.0.0.0"]
-    environment: *shelfwise-env
+    image: librowise:latest
+    command: ["python", "-m", "librowise", "worker", "--concurrency", "2", "--metrics-port", "9100", "--metrics-host", "0.0.0.0"]
+    environment: *librowise-env
     depends_on:
       migrate: { condition: service_completed_successfully }
-    volumes: [backups:/backups, cache:/var/lib/shelfwise]
+    volumes: [backups:/backups, cache:/var/lib/librowise]
     stop_grace_period: 2m  # SIGTERM lets running jobs finish
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9100/metrics', timeout=4).status == 200 else 1)"]

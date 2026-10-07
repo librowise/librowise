@@ -106,12 +106,12 @@ def test_xss_payload_is_stored_as_text(client, staff, lib):
 
 
 def test_csv_formula_injection_neutralised(client, admin, lib, make_book, db):
-    from shelfwise.models import Patron
+    from librowise.models import Patron
 
     p = db.get(Patron, lib["patron"].id)
     p.first_name = "=HYPERLINK(\"http://evil\")"
     db.commit()
-    from shelfwise.services import circulation
+    from librowise.services import circulation
 
     circulation.charge(db, p, 5000, lib["admin"], "test")
     db.commit()

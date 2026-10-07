@@ -38,7 +38,7 @@ def test_audit_report_renders_without_results():
                "totals": {"pages": 0}, "failures": [], "axe_rules": [], "uncovered_routes": [], "escalated_to_admin": {},
                "pages_meta": []}
     out = audit.render_html(summary, [])
-    assert out.startswith("<!doctype html>") and "Shelfwise UI audit" in out
+    assert out.startswith("<!doctype html>") and "Librowise UI audit" in out
 
 
 def test_staff_shell_accessibility(client, lib):
@@ -56,7 +56,7 @@ def test_staff_shell_accessibility(client, lib):
 
 
 def test_demo_accounts_hidden_outside_development(client, monkeypatch):
-    from shelfwise import web
+    from librowise import web
 
     monkeypatch.setattr(web, "_show_demo_logins", lambda: False)
     assert 'id="demo-accounts"' not in client.get("/login").text

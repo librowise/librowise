@@ -53,7 +53,7 @@ def test_patron_registration_and_erasure(client, staff, lib):
 
 
 def test_payments(client, staff, lib, db):
-    from shelfwise.services import circulation
+    from librowise.services import circulation
 
     circulation.charge(db, lib["patron"], 2500, lib["admin"], "Printing")
     db.commit()
@@ -139,7 +139,7 @@ def test_all_pages_render(client, lib, make_book):
 def test_static_page_modules_exist(client):
     import re
 
-    from shelfwise.web import STAFF_NAV
+    from librowise.web import STAFF_NAV
 
     expected = {f"staff-{k}" for k, *_ in STAFF_NAV} | {"opac-home", "opac-search", "opac-record", "opac-account", "login",
                                                          "staff-record", "staff-record-edit", "staff-patron"}

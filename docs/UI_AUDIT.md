@@ -1,4 +1,4 @@
-# Shelfwise UI audit
+# Librowise UI audit
 
 *Audit date: 7 October 2026 · build 1.0.0 (branch `worktree-agent-a1e5377d0589ae16f`) · seeded demo database.*
 
@@ -386,7 +386,7 @@ come from the copilot drawer in `staff_base.html`.
 
 Examples: "Register patron", "Name, card number or email" (patrons); "Weekly closed days" (calendar);
 "Back to record", "Review & save" (MARC editor); "Job queue", "0 queued · 0 running · 0 retrying ·
-0 dead" (system); "Notifications", "Choose how we contact you." (OPAC account settings); "Join Shelfwise
+0 dead" (system); "Notifications", "Choose how we contact you." (OPAC account settings); "Join Librowise
 Public Library", "First name *" (register). The staff dashboard, kiosk, OPAC home, search and record
 are the only fully translated screens, and the translated sidebar and top bar make the untranslated
 page bodies more jarring.
@@ -497,7 +497,7 @@ state, ISBN Enter, login validation, demo sign-in).
 | 5 | Circulation receipt prints only the loaded patron's checkouts (and asks for a patron first) | `static/js/pages/staff-circulation.js` | privacy leak closed |
 | 6 | Enter in the ISBN field (scanner) runs **Fetch metadata** instead of submitting the record form | `static/js/pages/staff-record-edit.js` | scripted check: metadata imported, no "Title is required" |
 | 7 | Login: empty fields show the translated `login.missing` message (key existed, unused) instead of the raw Pydantic text and duplicate toast | `static/js/pages/login.js` | `shots/login-validation__*` |
-| 8 | Login: demo-account shortcuts are rendered only when `environment != "production"`, and their credentials come from `shelfwise/seed.py` via the template instead of being hard-coded in the shipped `login.js` | `web.py`, `templates/login.html`, `static/js/pages/login.js` | `tests/test_ui_audit.py::test_demo_accounts_hidden_outside_development` |
+| 8 | Login: demo-account shortcuts are rendered only when `environment != "production"`, and their credentials come from `librowise/seed.py` via the template instead of being hard-coded in the shipped `login.js` | `web.py`, `templates/login.html`, `static/js/pages/login.js` | `tests/test_ui_audit.py::test_demo_accounts_hidden_outside_development` |
 | 9 | Report result table and admin audit log table: scroll regions are focusable (`tabindex=0`, `role=region`, label) | `static/js/pages/staff-reports.js`, `static/js/pages/staff-admin.js` | `scrollable-region-focusable` desktop → 0 |
 | 10 | CI: the JS syntax check now covers `pages/<feature>/*.js` sub-folders (courses, serials, lib were skipped) and the non-blocking `ui-audit` job was added; `playwright` joined the `dev` extra | `.github/workflows/ci.yml`, `pyproject.toml` | — |
 
@@ -515,9 +515,9 @@ pip install -e ".[dev]"                       # includes playwright
 # elsewhere:  python -m playwright install --with-deps chromium
 
 # start a server yourself …
-SHELFWISE_DATABASE_URL=sqlite:///$PWD/audit.db SHELFWISE_ENVIRONMENT=development python -m shelfwise seed
-SHELFWISE_DATABASE_URL=sqlite:///$PWD/audit.db SHELFWISE_ENVIRONMENT=development \
-  python -m uvicorn shelfwise.app:app --host 127.0.0.31 --port 8781 &
+LIBROWISE_DATABASE_URL=sqlite:///$PWD/audit.db LIBROWISE_ENVIRONMENT=development python -m librowise seed
+LIBROWISE_DATABASE_URL=sqlite:///$PWD/audit.db LIBROWISE_ENVIRONMENT=development \
+  python -m uvicorn librowise.app:app --host 127.0.0.31 --port 8781 &
 python scripts/ui_audit.py --base-url http://127.0.0.31:8781
 
 # … or let the script seed a throw-away DB and run the server

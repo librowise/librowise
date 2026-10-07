@@ -11,9 +11,9 @@ import pytest
 from conftest import login
 from sqlalchemy import select
 
-from shelfwise import jobs
-from shelfwise.config import get_settings
-from shelfwise.models import AuditLog, Biblio, Job, WorkerHeartbeat, utcnow
+from librowise import jobs
+from librowise.config import get_settings
+from librowise.models import AuditLog, Biblio, Job, WorkerHeartbeat, utcnow
 
 # ------------------------------------------------------------------ metrics & logging
 
@@ -25,7 +25,7 @@ def test_metrics_requires_token_or_admin(client, lib, monkeypatch):
     admin = login(client, "admin")
     r = client.get("/metrics", headers=admin)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain")
-    monkeypatch.setenv("SHELFWISE_METRICS_TOKEN", "s3cret-metrics-token")
+    monkeypatch.setenv("LIBROWISE_METRICS_TOKEN", "s3cret-metrics-token")
     get_settings.cache_clear()
     assert client.get("/metrics", headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/metrics", headers={"Authorization": "Bearer s3cret-metrics-token"}).status_code == 200
@@ -41,16 +41,16 @@ def test_metrics_content_uses_route_templates(client, lib, make_book, admin):
     text = client.get("/metrics", headers=admin).text
     assert 'route="/api/v1/biblios/{biblio_id}"' in text
     assert f"/api/v1/biblios/{b.id}\"" not in text  # never raw paths
-    assert "shelfwise_http_request_duration_seconds_bucket" in text
-    assert 'shelfwise_circulation_operations_total{operation="checkout",outcome="success"}' in text
-    assert 'shelfwise_circulation_operations_total{operation="checkout",outcome="failure"}' in text
-    assert 'shelfwise_search_duration_seconds_count{kind="keyword"}' in text
-    assert 'shelfwise_jobs{status="queued"}' in text and "shelfwise_db_pool_connections" in text
-    assert "shelfwise_worker_heartbeat_age_seconds -1" in text
+    assert "librowise_http_request_duration_seconds_bucket" in text
+    assert 'librowise_circulation_operations_total{operation="checkout",outcome="success"}' in text
+    assert 'librowise_circulation_operations_total{operation="checkout",outcome="failure"}' in text
+    assert 'librowise_search_duration_seconds_count{kind="keyword"}' in text
+    assert 'librowise_jobs{status="queued"}' in text and "librowise_db_pool_connections" in text
+    assert "librowise_worker_heartbeat_age_seconds -1" in text
 
 
 def test_metrics_registry_exposition():
-    from shelfwise.observability import Registry
+    from librowise.observability import Registry
 
     reg = Registry()
     c = reg.counter("t_total", "help", ("a",))
@@ -75,11 +75,11 @@ def test_request_id_is_propagated(client):
 
 
 def test_json_log_formatter_includes_context():
-    from shelfwise.observability import JsonFormatter, request_id_var, user_id_var
+    from librowise.observability import JsonFormatter, request_id_var, user_id_var
 
     t1, t2 = request_id_var.set("rid-1"), user_id_var.set(7)
     try:
-        rec = logging.LogRecord("shelfwise.test", logging.INFO, __file__, 1, "hello %s", ("world",), None)
+        rec = logging.LogRecord("librowise.test", logging.INFO, __file__, 1, "hello %s", ("world",), None)
         rec.route = "/x/{id}"
         data = json.loads(JsonFormatter().format(rec))
     finally:
@@ -97,7 +97,7 @@ def test_readyz_checks_database_and_worker(client, db, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["checks"]["database"]["ok"] is True and body["checks"]["worker"]["ok"] is False
-    monkeypatch.setenv("SHELFWISE_REQUIRE_WORKER", "true")
+    monkeypatch.setenv("LIBROWISE_REQUIRE_WORKER", "true")
     get_settings.cache_clear()
     assert client.get("/readyz").status_code == 503
     db.add(WorkerHeartbeat(worker_id="w-test", hostname="h", pid=1, last_seen_at=utcnow()))
@@ -154,9 +154,9 @@ def test_system_page_admin_only(client, lib):
 
 
 def test_database_rate_limiter_is_shared(db, monkeypatch):
-    from shelfwise.security import SlidingWindowLimiter
+    from librowise.security import SlidingWindowLimiter
 
-    monkeypatch.setenv("SHELFWISE_RATE_LIMIT_BACKEND", "database")
+    monkeypatch.setenv("LIBROWISE_RATE_LIMIT_BACKEND", "database")
     get_settings.cache_clear()
     a = SlidingWindowLimiter(3, 60, name="t-shared")
     b = SlidingWindowLimiter(3, 60, name="t-shared")  # another process, same limiter name
@@ -171,7 +171,7 @@ def test_database_rate_limiter_is_shared(db, monkeypatch):
 
 
 def test_database_rate_limiter_sliding_window(db):
-    from shelfwise import ratelimit
+    from librowise import ratelimit
 
     t0 = 60 * 16_667 + 20.0  # 20 s into a 60 s window
     for _ in range(4):
@@ -186,9 +186,9 @@ def test_database_rate_limiter_sliding_window(db):
 
 
 def test_login_rate_limit_with_database_backend(client, lib, monkeypatch):
-    from shelfwise.security import login_limiter
+    from librowise.security import login_limiter
 
-    monkeypatch.setenv("SHELFWISE_RATE_LIMIT_BACKEND", "database")
+    monkeypatch.setenv("LIBROWISE_RATE_LIMIT_BACKEND", "database")
     get_settings.cache_clear()
     login_limiter.reset()
     codes = [client.post("/api/v1/auth/login", json={"username": "reader1", "password": "wrong"}).status_code
@@ -207,8 +207,8 @@ def _is_sqlite() -> bool:
 def test_sqlite_backup_verify_prune_restore(db, lib, make_book, tmp_path, monkeypatch, capsys):
     if not _is_sqlite():
         pytest.skip("SQLite backup test")
-    from shelfwise import backup
-    from shelfwise.__main__ import main
+    from librowise import backup
+    from librowise.__main__ import main
 
     make_book("Before Backup")
     dest = tmp_path / "backups"
@@ -225,11 +225,11 @@ def test_sqlite_backup_verify_prune_restore(db, lib, make_book, tmp_path, monkey
     make_book("After Backup")
     assert db.scalar(select(Biblio.id).where(Biblio.title == "After Backup"))
     assert main(["restore", str(dest / latest)]) == 2  # refuses without --yes
-    monkeypatch.setenv("SHELFWISE_BACKUP_DIR", str(tmp_path / "safety"))
+    monkeypatch.setenv("LIBROWISE_BACKUP_DIR", str(tmp_path / "safety"))
     get_settings.cache_clear()
     db.close()
     assert main(["restore", str(dest / latest), "--yes"]) == 0
-    from shelfwise.db import SessionLocal
+    from librowise.db import SessionLocal
 
     s = SessionLocal()
     try:
@@ -249,7 +249,7 @@ def test_sqlite_backup_leaves_no_wal_side_files(db, lib, make_book, tmp_path):
         pytest.skip("SQLite backup test")
     import sqlite3
 
-    from shelfwise import backup
+    from librowise import backup
 
     make_book("Side Files")
     dest = tmp_path / "backups"
@@ -263,7 +263,7 @@ def test_sqlite_backup_leaves_no_wal_side_files(db, lib, make_book, tmp_path):
         con.close()
     assert not [p.name for p in dest.iterdir() if p.name.endswith(("-wal", "-shm"))]
     # Side files left by an older, interrupted run are swept by prune; backups themselves are kept.
-    for name in ("shelfwise-20200101-000000.sqlite3.partial-wal", "shelfwise-20200101-000000.sqlite3.partial-shm",
+    for name in ("librowise-20200101-000000.sqlite3.partial-wal", "librowise-20200101-000000.sqlite3.partial-shm",
                  info["name"] + "-shm"):
         (dest / name).write_bytes(b"x")
     backup.prune(dest, keep=5)
@@ -273,7 +273,7 @@ def test_sqlite_backup_leaves_no_wal_side_files(db, lib, make_book, tmp_path):
 def test_backup_detects_corruption(tmp_path, db, lib):
     if not _is_sqlite():
         pytest.skip("SQLite backup test")
-    from shelfwise import backup
+    from librowise import backup
 
     info = backup.create_backup(tmp_path, keep=0)
     with open(info["file"], "r+b") as fh:
@@ -281,7 +281,7 @@ def test_backup_detects_corruption(tmp_path, db, lib):
         fh.write(b"\x00garbage\x00" * 50)
     with pytest.raises(backup.BackupError):
         backup.verify(info["file"])
-    bogus = tmp_path / "shelfwise-bogus.sqlite3"
+    bogus = tmp_path / "librowise-bogus.sqlite3"
     bogus.write_bytes(b"not a database" * 100)
     with pytest.raises(backup.BackupError):
         backup.verify(bogus)
@@ -290,7 +290,7 @@ def test_backup_detects_corruption(tmp_path, db, lib):
 def test_postgres_backup_when_tools_available(db, lib, tmp_path):
     if _is_sqlite() or not shutil.which("pg_dump"):
         pytest.skip("needs PostgreSQL and pg_dump")
-    from shelfwise import backup
+    from librowise import backup
 
     info = backup.create_backup(tmp_path, keep=3)
     assert info["kind"] == "postgresql" and info["name"].endswith(".dump")
@@ -300,7 +300,7 @@ def test_postgres_backup_when_tools_available(db, lib, tmp_path):
 def test_backup_job_and_api_listing(client, db, admin, tmp_path, monkeypatch):
     if not _is_sqlite():
         pytest.skip("SQLite backup test")
-    monkeypatch.setenv("SHELFWISE_BACKUP_DIR", str(tmp_path))
+    monkeypatch.setenv("LIBROWISE_BACKUP_DIR", str(tmp_path))
     get_settings.cache_clear()
     jobs.enqueue(db, "backup", {"keep": 3})
     db.commit()

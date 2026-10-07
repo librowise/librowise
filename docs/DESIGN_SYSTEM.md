@@ -1,7 +1,7 @@
 # Librowise design system
 
-> Product brand: **Librowise — the modern library system.** (The Python package, CLI, `SHELFWISE_*`
-> environment variables, cookies and storage keys keep their `shelfwise` names until the planned code rename.)
+> Product brand: **Librowise — the modern library system.** (The Python package, CLI, `LIBROWISE_*`
+> environment variables, cookies and storage keys keep their `librowise` names until the planned code rename.)
 
 This document is the contract for every screen in Librowise. It covers the principles, the tokens, every
 component (with usage, do/don't and accessibility notes), the page templates and a checklist for migrating
@@ -12,13 +12,13 @@ theme and LTR/RTL switcher. When the two disagree, fix whichever is wrong.
 
 | Layer | File | Owns |
 |---|---|---|
-| Tokens | `shelfwise/static/css/tokens.css` | Fonts, colour ramps, semantic colours per theme, type/space/radius/elevation/motion/z scales |
-| Base | `shelfwise/static/css/app.css` | Element defaults, buttons, inputs, cards, badges, tables, dialogs, toasts + legacy feature sections |
-| Components | `shelfwise/static/css/ui.css` | Staff shell, page header, filter bar, data table, forms, side panel, tabs, combobox, pills, notification centre, OPAC search, style guide |
-| Behaviour | `shelfwise/static/js/ui/*.js` (barrel: `ui/index.js`) | One small ES module per component |
-| Core | `shelfwise/static/js/core.js` | `api`, `html```, `raw`, `esc`, `modal`, `confirmDialog`, `toast`, `withBusy`, `cover`, `badge`, `icon`, formatting |
-| Shell | `shelfwise/templates/staff_base.html`, `shelfwise/web.py` (`HUBS`) | Sidebar, top bar, breadcrumbs, hub tabs |
-| Icons | `shelfwise/templates/_icons.html` | SVG sprite: `icon("name")` → `<use href="#i-name">` |
+| Tokens | `librowise/static/css/tokens.css` | Fonts, colour ramps, semantic colours per theme, type/space/radius/elevation/motion/z scales |
+| Base | `librowise/static/css/app.css` | Element defaults, buttons, inputs, cards, badges, tables, dialogs, toasts + legacy feature sections |
+| Components | `librowise/static/css/ui.css` | Staff shell, page header, filter bar, data table, forms, side panel, tabs, combobox, pills, notification centre, OPAC search, style guide |
+| Behaviour | `librowise/static/js/ui/*.js` (barrel: `ui/index.js`) | One small ES module per component |
+| Core | `librowise/static/js/core.js` | `api`, `html```, `raw`, `esc`, `modal`, `confirmDialog`, `toast`, `withBusy`, `cover`, `badge`, `icon`, formatting |
+| Shell | `librowise/templates/staff_base.html`, `librowise/web.py` (`HUBS`) | Sidebar, top bar, breadcrumbs, hub tabs |
+| Icons | `librowise/templates/_icons.html` | SVG sprite: `icon("name")` → `<use href="#i-name">` |
 
 Load order is fixed in `base.html`: `tokens.css` → `app.css` → `ui.css`.
 

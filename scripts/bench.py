@@ -1,12 +1,12 @@
-"""Shelfwise benchmark: search, record page, circulation throughput and dashboards.
+"""Librowise benchmark: search, record page, circulation throughput and dashboards.
 
 Runs the real ASGI app in-process (FastAPI TestClient — no network noise) against an existing
-database, typically one produced by ``python -m shelfwise generate``::
+database, typically one produced by ``python -m librowise generate``::
 
-    python -m shelfwise generate --biblios 100000 --patrons 20000 --loans 300000
-    python scripts/bench.py --database-url sqlite:///shelfwise.db --runs 30
+    python -m librowise generate --biblios 100000 --patrons 20000 --loans 300000
+    python scripts/bench.py --database-url sqlite:///librowise.db --runs 30
 
-Prints a table and optionally writes JSON (``--json out.json``). Works with any Shelfwise
+Prints a table and optionally writes JSON (``--json out.json``). Works with any Librowise
 version that exposes the v1 API, so it can measure before/after a change.
 """
 
@@ -56,25 +56,25 @@ def timed(client, method: str, url: str, **kw) -> tuple[float, object]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--database-url", default=os.environ.get("SHELFWISE_DATABASE_URL"))
+    ap.add_argument("--database-url", default=os.environ.get("LIBROWISE_DATABASE_URL"))
     ap.add_argument("--runs", type=int, default=20, help="Timed repetitions per query (after 2 warm-ups)")
     ap.add_argument("--circ", type=int, default=200, help="Checkout+checkin pairs for the throughput test")
     ap.add_argument("--json", help="Write results to this file")
     ap.add_argument("--label", default="")
     ap.add_argument("--cold", action="store_true",
                     help="Clear in-process search caches before every request (measures uncached latency)")
-    ap.add_argument("--code", default=str(ROOT), help="Path of the Shelfwise source tree to benchmark")
+    ap.add_argument("--code", default=str(ROOT), help="Path of the Librowise source tree to benchmark")
     args = ap.parse_args()
     if not args.database_url:
-        ap.error("--database-url or SHELFWISE_DATABASE_URL is required")
+        ap.error("--database-url or LIBROWISE_DATABASE_URL is required")
 
-    os.environ["SHELFWISE_DATABASE_URL"] = args.database_url
-    os.environ.setdefault("SHELFWISE_ENVIRONMENT", "bench")
-    os.environ.setdefault("SHELFWISE_AI_ENABLED", "false")
-    os.environ.setdefault("SHELFWISE_METADATA_LOOKUP_ENABLED", "false")
-    os.environ.setdefault("SHELFWISE_ACCESS_LOG", "false")
-    os.environ.setdefault("SHELFWISE_LOG_LEVEL", "WARNING")
-    os.environ.setdefault("SHELFWISE_SEMANTIC_SYNC_BUILD_LIMIT", "10000000")  # measure the build explicitly
+    os.environ["LIBROWISE_DATABASE_URL"] = args.database_url
+    os.environ.setdefault("LIBROWISE_ENVIRONMENT", "bench")
+    os.environ.setdefault("LIBROWISE_AI_ENABLED", "false")
+    os.environ.setdefault("LIBROWISE_METADATA_LOOKUP_ENABLED", "false")
+    os.environ.setdefault("LIBROWISE_ACCESS_LOG", "false")
+    os.environ.setdefault("LIBROWISE_LOG_LEVEL", "WARNING")
+    os.environ.setdefault("LIBROWISE_SEMANTIC_SYNC_BUILD_LIMIT", "10000000")  # measure the build explicitly
     sys.path.insert(0, args.code)
 
     import logging
@@ -83,10 +83,10 @@ def main() -> int:
     from fastapi.testclient import TestClient
     from sqlalchemy import func, select
 
-    from shelfwise import db as dbmod
-    from shelfwise.app import create_app
-    from shelfwise.models import Biblio, Item, ItemStatus, Loan, Patron, PatronCategory, Role
-    from shelfwise.security import ai_limiter, hash_password, login_limiter
+    from librowise import db as dbmod
+    from librowise.app import create_app
+    from librowise.models import Biblio, Item, ItemStatus, Loan, Patron, PatronCategory, Role
+    from librowise.security import ai_limiter, hash_password, login_limiter
 
     dbmod.init_engine(args.database_url)
     results: dict = {"cold": args.cold, "label": args.label, "database": args.database_url.split("@")[-1], "runs": args.runs, "timings": {}}
@@ -108,7 +108,7 @@ def main() -> int:
     print(f"Database: {results['database']}  sizes: {results['sizes']}", flush=True)
 
     try:
-        from shelfwise.services.catalog import clear_search_cache
+        from librowise.services.catalog import clear_search_cache
     except ImportError:  # older versions have no cache
         def clear_search_cache():
             return None

@@ -9,8 +9,8 @@ import httpx
 import pytest
 from conftest import login
 
-from shelfwise.config import get_settings
-from shelfwise.services import covers
+from librowise.config import get_settings
+from librowise.services import covers
 
 
 def png(w: int = 60, h: int = 90) -> bytes:
@@ -28,9 +28,9 @@ def jpeg(w: int = 120, h: int = 180) -> bytes:
 
 @pytest.fixture()
 def cover_env(engine, tmp_path, monkeypatch):
-    monkeypatch.setenv("SHELFWISE_MEDIA_DIR", str(tmp_path / "media"))
-    monkeypatch.setenv("SHELFWISE_CACHE_DIR", str(tmp_path / "cache"))
-    monkeypatch.setenv("SHELFWISE_COVERS_REMOTE_ENABLED", "true")
+    monkeypatch.setenv("LIBROWISE_MEDIA_DIR", str(tmp_path / "media"))
+    monkeypatch.setenv("LIBROWISE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("LIBROWISE_COVERS_REMOTE_ENABLED", "true")
     get_settings.cache_clear()
     yield tmp_path
     get_settings.cache_clear()
@@ -115,7 +115,7 @@ def test_upload_rejects_non_images(client, lib, make_book, cover_env, name, data
 
 def test_upload_size_limit_and_permissions(client, lib, make_book, cover_env, monkeypatch):
     b, _ = make_book("Limits")
-    monkeypatch.setenv("SHELFWISE_COVER_UPLOAD_MAX_BYTES", "2000")
+    monkeypatch.setenv("LIBROWISE_COVER_UPLOAD_MAX_BYTES", "2000")
     get_settings.cache_clear()
     staff = login(client, "librarian")
     big = png(400, 600)
@@ -192,7 +192,7 @@ def test_remote_timeouts_and_disabled_lookup(client, lib, make_book, cover_env, 
     state["handler"] = boom
     assert client.get(f"/covers/{b.id}.jpg").status_code == 404
     other, _ = make_book("Offline", isbn="9780060934347")
-    monkeypatch.setenv("SHELFWISE_COVERS_REMOTE_ENABLED", "false")
+    monkeypatch.setenv("LIBROWISE_COVERS_REMOTE_ENABLED", "false")
     get_settings.cache_clear()
     n = len(calls)
     assert client.get(f"/covers/{other.id}.jpg").status_code == 404 and len(calls) == n

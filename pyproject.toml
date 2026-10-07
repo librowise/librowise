@@ -3,13 +3,13 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shelfwise"
-version = "1.0.0"
+name = "librowise"
+version = "1.1.0"
 description = "Modern, AI-assisted integrated library system (ILS) — a Python reimagining of Koha"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.11"
-authors = [{ name = "Shelfwise contributors" }]
+authors = [{ name = "Librowise contributors" }]
 keywords = ["library", "ils", "koha", "opac", "circulation", "marc", "fastapi", "ai"]
 classifiers = [
   "Framework :: FastAPI",
@@ -43,13 +43,13 @@ postgres = ["psycopg[binary]>=3.2"]
 dev = ["pytest>=8", "ruff>=0.6", "playwright>=1.45"]  # playwright: scripts/ui_audit.py
 
 [project.scripts]
-shelfwise = "shelfwise.__main__:main"
+librowise = "librowise.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["shelfwise*"]
+include = ["librowise*"]
 
 [tool.setuptools.package-data]
-shelfwise = ["templates/**/*", "static/**/*", "migrations/*.mako", "i18n/*.json"]
+librowise = ["templates/**/*", "static/**/*", "migrations/*.mako", "i18n/*.json", "i18n/*/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

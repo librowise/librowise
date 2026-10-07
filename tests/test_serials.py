@@ -8,8 +8,8 @@ import pytest
 from conftest import login
 from sqlalchemy import select
 
-from shelfwise.errors import Conflict, PolicyBlocked
-from shelfwise.models import (
+from librowise.errors import Conflict, PolicyBlocked
+from librowise.models import (
     AuditLog,
     Item,
     Loan,
@@ -20,9 +20,9 @@ from shelfwise.models import (
     Vendor,
     utcnow,
 )
-from shelfwise.services import circulation
-from shelfwise.services import serials as svc
-from shelfwise.services.serials import SerialSpec, add_months, predict, preview
+from librowise.services import circulation
+from librowise.services import serials as svc
+from librowise.services.serials import SerialSpec, add_months, predict, preview
 
 # ------------------------------------------------------------------ prediction math (pure)
 
@@ -226,7 +226,7 @@ def test_failing_nightly_hook_is_isolated(db, monkeypatch):
     module = types.ModuleType("sw_test_hooks")
     module.boom = boom
     monkeypatch.setitem(__import__("sys").modules, "sw_test_hooks", module)
-    monkeypatch.setattr(circulation, "NIGHTLY_HOOKS", ["sw_test_hooks:boom", "shelfwise.services.serials:nightly"])
+    monkeypatch.setattr(circulation, "NIGHTLY_HOOKS", ["sw_test_hooks:boom", "librowise.services.serials:nightly"])
     stats = circulation.run_nightly(db, now=datetime(2026, 4, 20, 2))
     assert stats["failed:sw_test_hooks:boom"] == 1 and "serials_late" in stats
     assert db.scalar(select(Vendor).where(Vendor.name == "written inside the failed hook")) is None

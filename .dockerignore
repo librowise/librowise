@@ -11,7 +11,7 @@ venv
 *.db-shm
 *.db-wal
 .env
-.shelfwise_secret
+.librowise_secret
 var/
 backups/
 tests/

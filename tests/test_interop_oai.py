@@ -17,7 +17,7 @@ STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
-    from shelfwise.interop.ratelimit import limiter
+    from librowise.interop.ratelimit import limiter
 
     limiter.reset()
 
@@ -25,8 +25,8 @@ def _reset_rate_limit():
 @pytest.fixture()
 def repo(make_book, db):
     """Five records with distinct datestamps (one per day in January 2026), one deleted, one DVD."""
-    from shelfwise.models import Biblio
-    from shelfwise.services import catalog
+    from librowise.models import Biblio
+    from librowise.services import catalog
 
     made = []
     for i, (title, mt) in enumerate([("Alpha", "book"), ("Bravo", "book"), ("Charlie", "dvd"),
@@ -63,7 +63,7 @@ def ids(root, verb) -> list[str]:
 
 
 def ident(bid: int) -> str:
-    return f"oai:shelfwise.local:{bid}"
+    return f"oai:librowise.local:{bid}"
 
 
 def test_identify(client, repo):
@@ -81,7 +81,7 @@ def test_identify(client, repo):
     assert idf.find(f"{OAI}earliestDatestamp").text == "2026-01-01T12:00:00Z"
     assert "@" in idf.find(f"{OAI}adminEmail").text
     sample = idf.find(".//{http://www.openarchives.org/OAI/2.0/oai-identifier}sampleIdentifier").text
-    assert sample.startswith("oai:shelfwise.local:")
+    assert sample.startswith("oai:librowise.local:")
 
 
 def test_list_metadata_formats_and_sets(client, repo):
@@ -91,7 +91,7 @@ def test_list_metadata_formats_and_sets(client, repo):
     for f in root.iter(f"{OAI}metadataFormat"):
         assert f.find(f"{OAI}schema").text.endswith(".xsd") and f.find(f"{OAI}metadataNamespace").text
     assert error(oai(client, verb="ListMetadataFormats", identifier=ident(repo[0]))) is None
-    assert error(oai(client, verb="ListMetadataFormats", identifier="oai:shelfwise.local:99999")) == "idDoesNotExist"
+    assert error(oai(client, verb="ListMetadataFormats", identifier="oai:librowise.local:99999")) == "idDoesNotExist"
     assert error(oai(client, verb="ListMetadataFormats", identifier="nonsense")) == "idDoesNotExist"
     sets = {s.find(f"{OAI}setSpec").text: s.find(f"{OAI}setName").text for s in oai(client, verb="ListSets").iter(f"{OAI}set")}
     assert sets["book"] == "Books" and sets["dvd"] == "DVDs and video"
@@ -142,10 +142,10 @@ def test_from_until(client, repo):
     ({}, "badVerb"),
     ({"verb": "Explode"}, "badVerb"),
     ({"verb": "ListRecords"}, "badArgument"),
-    ({"verb": "GetRecord", "identifier": "oai:shelfwise.local:1"}, "badArgument"),
+    ({"verb": "GetRecord", "identifier": "oai:librowise.local:1"}, "badArgument"),
     ({"verb": "Identify", "extra": "1"}, "badArgument"),
     ({"verb": "ListRecords", "metadataPrefix": "mods"}, "cannotDisseminateFormat"),
-    ({"verb": "GetRecord", "identifier": "oai:shelfwise.local:424242", "metadataPrefix": "oai_dc"}, "idDoesNotExist"),
+    ({"verb": "GetRecord", "identifier": "oai:librowise.local:424242", "metadataPrefix": "oai_dc"}, "idDoesNotExist"),
     ({"verb": "ListRecords", "metadataPrefix": "oai_dc", "from": "2026-13-45"}, "badArgument"),
     ({"verb": "ListRecords", "metadataPrefix": "oai_dc", "from": "2026-01-01", "until": "2026-01-02T00:00:00Z"}, "badArgument"),
     ({"verb": "ListRecords", "metadataPrefix": "oai_dc", "from": "2026-02-01", "until": "2026-01-01"}, "badArgument"),
@@ -169,7 +169,7 @@ def test_repeated_arguments(client, repo):
 
 
 def test_resumption_tokens(client, repo, monkeypatch):
-    monkeypatch.setenv("SHELFWISE_OAI_PAGE_SIZE", "2")
+    monkeypatch.setenv("LIBROWISE_OAI_PAGE_SIZE", "2")
     root = oai(client, verb="ListIdentifiers", metadataPrefix="oai_dc")
     seen = ids(root, "x")
     token = root.find(f"{OAI}ListIdentifiers/{OAI}resumptionToken")
@@ -194,16 +194,16 @@ def test_resumption_tokens(client, repo, monkeypatch):
     page2 = oai(client, method="post", verb="ListRecords", resumptionToken=tok)
     assert len(page2.findall(f"{OAI}ListRecords/{OAI}record")) == 2
 
-    from shelfwise.interop import oai as oai_mod
+    from librowise.interop import oai as oai_mod
 
     monkeypatch.setattr(oai_mod, "TOKEN_TTL", timedelta(seconds=-5))
     assert error(oai(client, verb="ListRecords", resumptionToken=tok)) == "badResumptionToken"  # expired
 
 
 def test_harvest_sees_changes_made_during_harvest(client, repo, monkeypatch, db):
-    from shelfwise.models import Biblio
+    from librowise.models import Biblio
 
-    monkeypatch.setenv("SHELFWISE_OAI_PAGE_SIZE", "2")
+    monkeypatch.setenv("LIBROWISE_OAI_PAGE_SIZE", "2")
     root = oai(client, verb="ListIdentifiers", metadataPrefix="oai_dc")
     token = root.find(f"{OAI}ListIdentifiers/{OAI}resumptionToken").text
     db.get(Biblio, repo[0]).updated_at = datetime(2026, 2, 1)  # already harvested record changes

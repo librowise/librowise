@@ -7,8 +7,8 @@ from datetime import date, datetime, time, timedelta
 import pytest
 from conftest import login
 
-from shelfwise.models import Budget, Hold, HoldStatus, ItemStatus, LedgerEntry, LedgerKind, PurchaseOrder, Vendor
-from shelfwise.services import analytics, circulation
+from librowise.models import Budget, Hold, HoldStatus, ItemStatus, LedgerEntry, LedgerKind, PurchaseOrder, Vendor
+from librowise.services import analytics, circulation
 
 
 def local_noon(d: date, hour: int = 12) -> datetime:

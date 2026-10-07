@@ -1,11 +1,11 @@
-"""Shelfwise UI audit: every page x role x theme x viewport, with screenshots, axe-core and Web Vitals.
+"""Librowise UI audit: every page x role x theme x viewport, with screenshots, axe-core and Web Vitals.
 
 What it does
 ------------
 * Signs in once per role (anonymous, patron, librarian, admin) through ``POST /api/v1/auth/login`` and
   reuses the session cookies for every visit.
 * Visits every HTML page. The page list is declared in ``PAGES`` below and cross-checked against the
-  routes registered in ``shelfwise/web.py`` (uncovered routes are listed in the report so the table
+  routes registered in ``librowise/web.py`` (uncovered routes are listed in the report so the table
   never silently rots). Dynamic pages use real ids looked up through the JSON API (a record, a patron,
   a serial subscription, a claim batch, courses) and a kiosk device token minted for the audit.
 * Renders each page in the light / dark / sepia / contrast themes (``sw-prefs`` in localStorage, then
@@ -440,10 +440,10 @@ def fetch_axe(cache: Path, version: str = AXE_VERSION) -> str:
 
 
 def demo_credentials() -> dict[str, tuple[str, str]]:
-    """Seeded demo accounts (shelfwise/seed.py); override with SW_AUDIT_<ROLE>_USER / _PASSWORD."""
+    """Seeded demo accounts (librowise/seed.py); override with SW_AUDIT_<ROLE>_USER / _PASSWORD."""
     try:
         sys.path.insert(0, str(ROOT))
-        from shelfwise.seed import DEMO_ACCOUNTS
+        from librowise.seed import DEMO_ACCOUNTS
     except Exception:  # noqa: BLE001 - the audit can run against a remote server without the package
         DEMO_ACCOUNTS = {}
     defaults = {"admin": "admin", "librarian": "librarian", "patron": "1000000001"}
@@ -456,10 +456,10 @@ def demo_credentials() -> dict[str, tuple[str, str]]:
 
 
 def web_routes() -> list[str]:
-    """GET routes registered by shelfwise/web.py (for the coverage check)."""
+    """GET routes registered by librowise/web.py (for the coverage check)."""
     try:
         sys.path.insert(0, str(ROOT))
-        from shelfwise.web import router
+        from librowise.web import router
     except Exception as exc:  # noqa: BLE001
         log(f"  (route coverage skipped: {exc})")
         return []
@@ -492,18 +492,18 @@ class Server:
             raise SystemExit("--serve needs a base URL with host and port")
         host, port = m.groups()
         env = dict(os.environ)
-        if "SHELFWISE_DATABASE_URL" not in env:
+        if "LIBROWISE_DATABASE_URL" not in env:
             db = self.out / ".cache" / "audit.db"
             db.parent.mkdir(parents=True, exist_ok=True)
             for suffix in ("", "-wal", "-shm"):
                 Path(f"{db}{suffix}").unlink(missing_ok=True)
-            env["SHELFWISE_DATABASE_URL"] = f"sqlite:///{db.as_posix()}"
-        env.setdefault("SHELFWISE_ENVIRONMENT", "development")
-        seeded = subprocess.run([sys.executable, "-m", "shelfwise", "seed"], cwd=ROOT, env=env,
+            env["LIBROWISE_DATABASE_URL"] = f"sqlite:///{db.as_posix()}"
+        env.setdefault("LIBROWISE_ENVIRONMENT", "development")
+        seeded = subprocess.run([sys.executable, "-m", "librowise", "seed"], cwd=ROOT, env=env,
                                 capture_output=True, text=True)
         log("  seed: " + (seeded.stdout.strip().splitlines() or [seeded.stderr.strip()[-200:]])[0])
         self.log_file = open(self.out / "server.log", "w", encoding="utf-8")  # noqa: SIM115
-        self.proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "shelfwise.app:app", "--host", host, "--port", port],
+        self.proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "librowise.app:app", "--host", host, "--port", port],
                                      cwd=ROOT, env=env, stdout=self.log_file, stderr=subprocess.STDOUT)
         for _ in range(120):
             try:
@@ -929,8 +929,8 @@ def visit_issues(r: dict) -> list[str]:
 def render_html(summary: dict, results: list[dict]) -> str:
     t = summary["totals"]
     parts = [f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-             f"<title>Shelfwise UI audit</title><style>{REPORT_CSS}</style></head><body>"
-             f"<header><h1>Shelfwise UI audit</h1><div class='muted'>{_e(summary['generated_at'])} · {_e(summary['base_url'])} · "
+             f"<title>Librowise UI audit</title><style>{REPORT_CSS}</style></head><body>"
+             f"<header><h1>Librowise UI audit</h1><div class='muted'>{_e(summary['generated_at'])} · {_e(summary['base_url'])} · "
              f"{_e(summary['browser'])} · axe-core {_e(summary['axe_version'])} ({_e(', '.join(summary['axe_tags']))})</div>"
              f"<div class='row' style='margin-top:10px'><input id='q' type='search' placeholder='Filter pages (id, path, family)…' aria-label='Filter pages'>"
              f"<label><input type='checkbox' id='only'> only pages with issues</label></div></header><main>"]

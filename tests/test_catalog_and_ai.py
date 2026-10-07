@@ -1,5 +1,5 @@
-from shelfwise.ai import cataloging, copilot, insights, nlsearch, recommend, semantic
-from shelfwise.services import catalog, circulation, marc
+from librowise.ai import cataloging, copilot, insights, nlsearch, recommend, semantic
+from librowise.services import catalog, circulation, marc
 
 
 def test_isbn_normalisation():

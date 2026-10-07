@@ -5,10 +5,10 @@ from datetime import timedelta
 import pytest
 from conftest import login
 
-from shelfwise.errors import Conflict, NotFound, PolicyBlocked
-from shelfwise.models import HoldStatus, ItemStatus, utcnow
-from shelfwise.services import circulation
-from shelfwise.services import holds as holds_svc
+from librowise.errors import Conflict, NotFound, PolicyBlocked
+from librowise.models import HoldStatus, ItemStatus, utcnow
+from librowise.services import circulation
+from librowise.services import holds as holds_svc
 
 
 def test_suspended_hold_is_skipped_by_routing_and_resumes(db, lib, make_book):

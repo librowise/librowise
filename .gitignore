@@ -13,7 +13,7 @@ htmlcov/
 *.db-shm
 *.db-wal
 .env
-.shelfwise_secret
+.librowise_secret
 .DS_Store
 .idea/
 .vscode/

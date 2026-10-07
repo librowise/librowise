@@ -3,8 +3,8 @@
 import pytest
 from conftest import login
 
-from shelfwise.models import Notification, Patron, PatronRegistration
-from shelfwise.services import registration
+from librowise.models import Notification, Patron, PatronRegistration
+from librowise.services import registration
 
 GOOD_PW = "Lantern#Reader42"
 

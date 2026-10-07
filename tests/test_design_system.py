@@ -9,11 +9,11 @@ from pathlib import Path
 
 from conftest import login
 
-from shelfwise import web
-from shelfwise.models import Hold, HoldStatus, Job, Patron, Role, utcnow
+from librowise import web
+from librowise.models import Hold, HoldStatus, Job, Patron, Role, utcnow
 
 ROOT = Path(__file__).resolve().parent.parent
-STATIC = ROOT / "shelfwise" / "static"
+STATIC = ROOT / "librowise" / "static"
 
 
 # ------------------------------------------------------------------ navigation registry

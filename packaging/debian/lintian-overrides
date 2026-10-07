@@ -6,3 +6,7 @@ librowise: embedded-library
 librowise: systemd-service-file-refers-to-unusual-wantedby-target
 librowise: package-contains-upstream-installation-documentation
 librowise: initial-upload-closes-no-bugs
+librowise: dir-or-file-in-opt
+librowise: unstripped-binary-or-object
+librowise: script-not-executable
+librowise: maintainer-script-calls-systemctl

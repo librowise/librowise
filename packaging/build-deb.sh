@@ -144,6 +144,19 @@ printf '/etc/logrotate.d/%s\n' "$PKG" >"$STAGE/DEBIAN/conffiles"
 find "$STAGE" -path "$STAGE/DEBIAN" -prune -o -type d -exec chmod 0755 {} +
 find "$STAGE" -path "$STAGE/DEBIAN" -prune -o -type f -perm /111 -exec chmod 0755 {} + -o -type f -exec chmod 0644 {} +
 find "$STAGE$VENV" -type f -name '*.so*' -exec chmod 0644 {} +  # shared libraries are not programs
+# Wheels sometimes carry a stray executable bit on data/module files: keep it on scripts and ELF programs only.
+"$PYTHON" - "$STAGE$VENV/lib" <<'EOF'
+import os, stat, sys
+for root, _, files in os.walk(sys.argv[1]):
+    for name in files:
+        path = os.path.join(root, name)
+        mode = os.lstat(path).st_mode
+        if stat.S_ISREG(mode) and mode & 0o111 and ".so" not in name:
+            with open(path, "rb") as fh:
+                head = fh.read(4)
+            if not (head.startswith(b"#!") or head == b"\x7fELF"):
+                os.chmod(path, 0o644)
+EOF
 
 INSTALLED_SIZE="$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)"
 sed -e "s|@VERSION@|$VERSION|" -e "s|@ARCH@|$ARCH|" -e "s|@MAINTAINER@|$MAINTAINER|" \

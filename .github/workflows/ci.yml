@@ -60,9 +60,41 @@ jobs:
           node-version: 22
       - name: Syntax-check ES modules
         run: |
-          for f in shelfwise/static/js/core.js shelfwise/static/js/pages/*.js; do
+          # every module, including pages/<feature>/*.js sub-folders (sw.js and theme-boot.js are classic scripts)
+          find shelfwise/static/js -name '*.js' | while read -r f; do
             cp "$f" /tmp/check.mjs && node --check /tmp/check.mjs || { echo "::error file=$f::syntax error"; exit 1; }
           done
+
+  ui-audit:
+    # Accessibility / visual audit of every page (scripts/ui_audit.py). Informational for now: it
+    # reports serious axe violations and JS errors without blocking merges; the HTML report and
+    # screenshots are uploaded as an artifact.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    env:
+      SHELFWISE_ENVIRONMENT: development
+      SHELFWISE_DATABASE_URL: sqlite:////tmp/ui-audit.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: python -m playwright install --with-deps chromium
+      - name: Run the UI audit (seeds SQLite and starts the server itself)
+        run: python scripts/ui_audit.py --serve --browser chromium --base-url http://127.0.0.1:8781 --concurrency 4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-audit
+          path: |
+            var/ui-audit/index.html
+            var/ui-audit/report.json
+            var/ui-audit/shots/
+            var/ui-audit/server.log
+          retention-days: 14
 
   docker:
     runs-on: ubuntu-latest

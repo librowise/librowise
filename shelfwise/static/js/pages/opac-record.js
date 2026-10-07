@@ -137,7 +137,8 @@ async function latestIssues(biblioId) {
   let r;
   try { r = await api(`/serials/public/biblios/${biblioId}/issues`); } catch { return; }
   if (!r.results.length && !r.next_expected_on) return;
-  const anchor = $("#reviews")?.closest(".card");
+  const cards = [...document.querySelectorAll("#record .card")];
+  const anchor = cards.find((c) => c.querySelector(".card-head h3")?.textContent === "Copies") || $("#reviews")?.closest(".card");
   if (!anchor) return;
   anchor.insertAdjacentHTML("beforebegin", html`<section class="card" aria-labelledby="latest-issues-h">
     <div class="card-head"><h3 id="latest-issues-h">Latest issues</h3>

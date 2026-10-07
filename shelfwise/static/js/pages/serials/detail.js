@@ -1,8 +1,8 @@
 // Staff: one subscription — issue grid (receive / claim / missing), routing list, claims and settings.
 import {
-  $, $$, BOOT, api, badge, confirmDialog, date, empty, html, icon, num, qs, relative, skeleton, toast, withBusy,
+  $, $$, BOOT, api, badge, confirmDialog, date, empty, html, icon, num, qs, skeleton, toast, withBusy,
 } from "/static/js/core.js";
-import { errorBox, formModal, isoDay, peoplePicker, plural, str } from "/static/js/pages/lib/sc-ui.js";
+import { errorBox, formModal, isoDay, peoplePicker, plural, relDay, str } from "/static/js/pages/lib/sc-ui.js";
 import { claimDialog, endsBadge, issueBadge, renewDialog, subBadge } from "/static/js/pages/serials/common.js";
 import { priceLabel, subscriptionForm } from "/static/js/pages/serials/form.js";
 
@@ -33,7 +33,7 @@ function header(s) {
     </div></div>
     <div class="row tight sc-counts" aria-label="Issue counts">${Object.entries({ expected: "Expected", arrived: "Arrived", late: "Late", claimed: "Claimed", missing: "Missing", not_published: "Not published" })
       .map(([k, l]) => html`<span class="sc-count"><span class="num">${num(s.counts[k] || 0)}</span> ${l}</span>`)}
-      ${s.next_issue ? html`<span class="sc-count">Next: <strong>${s.next_issue.enumeration}</strong> · ${date(s.next_issue.expected_on)} (${relative(s.next_issue.expected_on)})</span>` : ""}</div>`;
+      ${s.next_issue ? html`<span class="sc-count">Next: <strong>${s.next_issue.enumeration}</strong> · ${date(s.next_issue.expected_on)} (${relDay(s.next_issue.expected_on)})</span>` : ""}</div>`;
 }
 
 function actions(i) {
@@ -100,7 +100,7 @@ function sidePanel(s) {
     ["Annual cost", priceLabel(s.price)],
     ["Receiving", s.create_items ? html`Creates ${s.item_type?.name || "an"} item${s.shelf_location ? ` in ${s.shelf_location}` : ""} at ${s.branch.name}` : "No items created"],
   ];
-  return html`<div class="stack">
+  return html`<div class="grid cols-3 sc-side">
     <section class="card pad" aria-labelledby="sd-h"><h3 id="sd-h" style="margin-top:0">Subscription</h3>
       <dl class="dl">${rows.map(([k, v]) => html`<dt>${k}</dt><dd>${v}</dd>`)}</dl>
       ${s.notes ? html`<p class="small" style="margin:.75rem 0 0;white-space:pre-line">${s.notes}</p>` : ""}</section>
@@ -155,7 +155,7 @@ async function load({ full = true } = {}) {
     st.issues = r.results;
     st.years = r.years;
     root.innerHTML = html`<div id="sub-head">${header(st.sub)}</div>
-      <div class="grid split" style="margin-top:1rem"><div>${issuesCard()}</div><div id="sub-side">${sidePanel(st.sub)}</div></div>`;
+      <div id="sub-side" style="margin:1rem 0">${sidePanel(st.sub)}</div>${issuesCard()}`;
     renderIssues();
     loadClaims();
   } else {

@@ -245,6 +245,8 @@ def stats(db: Session = Depends(get_db), _: Patron = Depends(require("serials:re
                                    Subscription.status != SubscriptionStatus.cancelled)),
         "claimed": count(issues.where(SerialIssue.status == SerialIssueStatus.claimed,
                                       Subscription.status != SubscriptionStatus.cancelled)),
+        "missing": count(issues.where(SerialIssue.status == SerialIssueStatus.missing,
+                                      Subscription.status != SubscriptionStatus.cancelled)),
         "expected_week": count(issues.where(SerialIssue.status == SerialIssueStatus.expected,
                                             SerialIssue.expected_on <= today + timedelta(days=7),
                                             Subscription.status == SubscriptionStatus.active)),

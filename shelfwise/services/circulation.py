@@ -588,7 +588,7 @@ def run_nightly_hooks(db: Session, now: datetime) -> dict:
             fn = getattr(importlib.import_module(module_name), func_name)
             with db.begin_nested():
                 stats.update(fn(db, now) or {})
-        except Exception:  # pragma: no cover - defensive: one broken hook must not stop circulation jobs
+        except Exception:  # one broken hook must not stop the circulation jobs
             logging.getLogger("shelfwise.nightly").exception("Nightly hook %s failed", path)
             stats[f"failed:{path}"] = 1
     return stats

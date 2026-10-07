@@ -1,7 +1,7 @@
 // Staff: serials — subscriptions list, late issues & claims, claim history and renewal alerts.
 // The same page module also serves the subscription detail and claim-letter screens.
-import { $, $$, BOOT, api, badge, date, datetime, debounce, empty, html, icon, num, qs, relative, skeleton, toast } from "/static/js/core.js";
-import { errorBox, plural, setupTabs } from "/static/js/pages/lib/sc-ui.js";
+import { $, $$, BOOT, api, badge, date, datetime, debounce, empty, html, icon, num, qs, skeleton, toast } from "/static/js/core.js";
+import { errorBox, plural, relDay, setupTabs } from "/static/js/pages/lib/sc-ui.js";
 import { claimDialog, endsBadge, issueBadge, renewDialog, subBadge } from "/static/js/pages/serials/common.js";
 import { loadRefs, subscriptionForm } from "/static/js/pages/serials/form.js";
 
@@ -19,12 +19,12 @@ async function loadStats() {
       <div class="card stat"><span class="label">Expected this week</span><span class="value">${num(s.expected_week)}</span>
         <span class="delta">Due on or before ${date(new Date(Date.now() + 7 * 864e5))}</span></div>
       <div class="card stat ${s.late ? "alert" : ""}"><span class="label">Late issues</span><span class="value">${num(s.late)}</span>
-        <span class="delta">${num(s.claimed)} awaiting vendor after a claim</span></div>
+        <span class="delta">${num(s.claimed)} claimed · ${num(s.missing)} missing</span></div>
       <div class="card stat ${s.expiring ? "alert" : ""}"><span class="label">Ending within 60 days</span><span class="value">${num(s.expiring)}</span>
         <span class="delta">Renewal alerts</span></div>`;
-    const late = $("#count-late");
-    late.textContent = s.late + s.claimed;
-    late.classList.toggle("hidden", !(s.late + s.claimed));
+    const late = $("#count-late"), outstanding = s.late + s.claimed + s.missing;
+    late.textContent = outstanding;
+    late.classList.toggle("hidden", !outstanding);
     const ren = $("#count-renewals");
     ren.textContent = s.expiring;
     ren.classList.toggle("hidden", !s.expiring);
@@ -74,7 +74,7 @@ async function loadSubs() {
           <td>${s.vendor ? s.vendor.name : html`<span class="muted">—</span>`}</td>
           <td class="small">${s.frequency_label}</td>
           <td>${subBadge(s.status)}</td>
-          <td>${s.next_issue ? html`<div>${s.next_issue.enumeration}</div><div class="tiny muted">${date(s.next_issue.expected_on)} · ${relative(s.next_issue.expected_on)}</div>`
+          <td>${s.next_issue ? html`<div>${s.next_issue.enumeration}</div><div class="tiny muted">${date(s.next_issue.expected_on)} · ${relDay(s.next_issue.expected_on)}</div>`
             : html`<span class="muted small">${s.frequency === "irregular" ? "Irregular" : "—"}</span>`}</td>
           <td class="num">${num(s.counts.arrived || 0)}</td>
           <td class="num">${late ? badge("warn", num(late)) : html`<span class="muted">0</span>`}</td>

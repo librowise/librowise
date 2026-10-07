@@ -16,7 +16,6 @@ function courseCard(c) {
 }
 
 async function listView() {
-  document.title = `Course reserves · ${document.title}`;
   const f = { q: params.get("q") || "", department: params.get("department") || "", term: params.get("term") || "", instructor: params.get("instructor") || "" };
   view().innerHTML = html`<div class="page-head"><div><h1>Course reserves</h1>
       <div class="sub">Readings your instructors have set aside for short loan. Search by course, department or instructor.</div></div></div>
@@ -86,7 +85,7 @@ async function courseView(id) {
       ${empty(e.status === 404 ? "This course is not available." : e.message, "alert")}`;
     return;
   }
-  document.title = `${c.code} · Course reserves · ${document.title}`;
+  document.title = `${c.code} · ${document.title}`;
   view().innerHTML = html`<nav class="small muted" style="margin-bottom:1rem"><a href="/courses">← All courses</a></nav>
     <div class="page-head"><div>
       <div class="row tight" style="margin-bottom:.35rem">${c.term ? badge("info", c.term) : ""}${c.department ? html`<span class="small muted">${c.department}</span>` : ""}</div>

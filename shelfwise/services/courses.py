@@ -36,7 +36,7 @@ def ensure_reserve_item_type(db: Session) -> ItemType:
     """The short-loan item type used for course reserves (1-day loans, no renewals, not holdable)."""
     itype = db.scalar(select(ItemType).where(ItemType.code == RESERVE_ITEM_TYPE))
     if itype is None:
-        itype = ItemType(code=RESERVE_ITEM_TYPE, name="Course reserve (1-day loan)", holdable=False,
+        itype = ItemType(code=RESERVE_ITEM_TYPE, name="Course reserve", holdable=False,
                          replacement_cost=50000)
         db.add(itype)
         db.flush()

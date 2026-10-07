@@ -37,23 +37,28 @@ function header(c) {
 
 function addCard() {
   const res = st.itemTypes.find((t) => t.code === "RES");
-  return html`<section class="card pad stack" aria-labelledby="add-h">
+  return html`<section class="card pad stack" aria-labelledby="add-h" style="margin-bottom:1.25rem">
     <h2 id="add-h" style="margin:0">Add to reserve</h2>
-    <form id="scan-form" class="stack tight" autocomplete="off">
-      <div class="field"><label for="scan-barcode">Scan or type an item barcode</label>
-        <div class="input-group"><input id="scan-barcode" name="barcode" class="mono" maxlength="32" required placeholder="Barcode" data-search-focus>
-        <button class="btn primary">${icon("barcode")}Add</button></div></div>
-      <div class="grid cols-2">${settingsFields("scan", { itemTypeId: res?.id, location: RES_LOCATION })}</div>
-      <div class="field"><label for="scan-note">Public note <span class="muted">(optional)</span></label><input id="scan-note" name="public_note" maxlength="500" placeholder="e.g. Read chapters 1–3 for week 2"></div>
-    </form>
-    <div id="scan-log" class="stack tight" aria-live="polite"></div>
-    <hr class="sc-sep">
-    <form id="find-form" class="stack tight" role="search">
-      <div class="field"><label for="find-q">…or find a title in the catalogue</label>
-        <div class="input-group"><input id="find-q" name="q" type="search" placeholder="Title, author or ISBN" required>
-        <button class="btn">${icon("search")}Search</button></div></div>
-    </form>
-    <div id="find-results" class="stack tight"></div>
+    <div class="grid cols-2 sc-add">
+      <div class="stack tight">
+        <form id="scan-form" class="stack tight" autocomplete="off">
+          <div class="field"><label for="scan-barcode">Scan or type an item barcode</label>
+            <div class="input-group"><input id="scan-barcode" name="barcode" class="mono" maxlength="32" required placeholder="Barcode" data-search-focus>
+            <button class="btn primary">${icon("barcode")}Add</button></div></div>
+          <div class="grid cols-2">${settingsFields("scan", { itemTypeId: res?.id, location: RES_LOCATION })}</div>
+          <div class="field"><label for="scan-note">Public note <span class="muted">(optional)</span></label><input id="scan-note" name="public_note" maxlength="500" placeholder="e.g. Read chapters 1–3 for week 2"></div>
+        </form>
+        <div id="scan-log" class="stack tight" aria-live="polite"></div>
+      </div>
+      <div class="stack tight">
+        <form id="find-form" class="stack tight" role="search">
+          <div class="field"><label for="find-q">…or find a title in the catalogue</label>
+            <div class="input-group"><input id="find-q" name="q" type="search" placeholder="Title, author or ISBN" required>
+            <button class="btn">${icon("search")}Search</button></div></div>
+        </form>
+        <div id="find-results" class="stack tight"></div>
+      </div>
+    </div>
   </section>`;
 }
 
@@ -86,7 +91,7 @@ function render() {
   const c = st.course;
   document.title = `${c.code} · Course reserves`;
   $("#course-detail").innerHTML = html`<div id="course-head">${header(c)}</div>
-    <div class="grid split"><div id="course-reserves">${reservesCard(c)}</div><div>${addCard()}</div></div>`;
+    ${addCard()}<div id="course-reserves">${reservesCard(c)}</div>`;
 }
 
 async function reload() {

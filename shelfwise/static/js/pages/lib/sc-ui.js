@@ -56,6 +56,17 @@ export const paise = (rupees) => Math.round(Number(rupees || 0) * 100);
 /** Local calendar date as YYYY-MM-DD (for <input type=date> defaults). */
 export const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** Calendar-day distance for a date-only value ("today", "in 3 days", "5 days ago"). */
+export function relDay(ymd) {
+  if (!ymd) return "";
+  const [y, m, d] = String(ymd).slice(0, 10).split("-").map(Number);
+  const now = new Date();
+  const days = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 0 ? `in ${days} days` : `${-days} days ago`;
+}
 
 /**
  * An ordered people picker (routing lists, course instructors). Renders into `root` and returns

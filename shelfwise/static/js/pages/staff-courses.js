@@ -23,7 +23,7 @@ function fillFacets() {
 
 function updateBulk() {
   const n = $$("[data-course]:checked").length;
-  $("#course-bulk").hidden = !n;
+  $("#course-bulk").classList.toggle("hidden", !n);
   $("#course-selected").textContent = `${plural(n, "course")} selected`;
 }
 

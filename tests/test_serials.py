@@ -16,7 +16,6 @@ from shelfwise.models import (
     SerialClaim,
     SerialIssue,
     SerialIssueStatus,
-    Subscription,
     SubscriptionStatus,
     Vendor,
     utcnow,
@@ -214,6 +213,23 @@ def test_nightly_job_runs_serials_hook(db, serial):
     stats = circulation.run_nightly(db, now=datetime(2026, 4, 20, 2))
     assert stats["serials_late"] >= 1
     assert issues_of(db, sub)[0].status == SerialIssueStatus.late
+
+
+def test_failing_nightly_hook_is_isolated(db, monkeypatch):
+    def boom(db, now):
+        db.add(Vendor(name="written inside the failed hook"))
+        db.flush()
+        raise RuntimeError("boom")
+
+    import types
+
+    module = types.ModuleType("sw_test_hooks")
+    module.boom = boom
+    monkeypatch.setitem(__import__("sys").modules, "sw_test_hooks", module)
+    monkeypatch.setattr(circulation, "NIGHTLY_HOOKS", ["sw_test_hooks:boom", "shelfwise.services.serials:nightly"])
+    stats = circulation.run_nightly(db, now=datetime(2026, 4, 20, 2))
+    assert stats["failed:sw_test_hooks:boom"] == 1 and "serials_late" in stats
+    assert db.scalar(select(Vendor).where(Vendor.name == "written inside the failed hook")) is None
 
 
 def test_nightly_expires_subscriptions(db, serial):

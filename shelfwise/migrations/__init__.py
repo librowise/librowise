@@ -20,12 +20,21 @@ log = logging.getLogger("shelfwise.migrations")
 HERE = Path(__file__).resolve().parent
 
 
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    """Skip tables managed with raw DDL (FTS5 / tsvector search tables) and SQLite internals."""
+    from ..db import EXTRA_TABLES
+
+    ignored = {n for names in EXTRA_TABLES.values() for n in names} | {"sqlite_sequence"}
+    return not (type_ == "table" and (name in ignored or (name or "").startswith("biblio_fts")))
+
+
 def alembic_config(url: str | None = None):
     from alembic.config import Config
 
     from ..db import get_engine
 
     cfg = Config()
+    cfg.set_main_option("path_separator", "os")
     cfg.set_main_option("script_location", str(HERE))
     cfg.set_main_option("version_locations", str(HERE / "versions"))
     cfg.attributes["engine"] = get_engine()

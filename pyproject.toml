@@ -21,6 +21,7 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
   "sqlalchemy>=2.0",
+  "alembic>=1.13",
   "pydantic>=2.7",
   "pydantic-settings>=2.3",
   "email-validator>=2.1",
@@ -48,7 +49,7 @@ shelfwise = "shelfwise.__main__:main"
 include = ["shelfwise*"]
 
 [tool.setuptools.package-data]
-shelfwise = ["templates/**/*", "static/**/*", "i18n/*.json"]
+shelfwise = ["templates/**/*", "static/**/*", "migrations/*.mako", "i18n/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

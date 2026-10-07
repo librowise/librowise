@@ -39,7 +39,7 @@ services:
   migrate:  # creates/updates tables and indexes once before app and worker start
     build: .
     image: shelfwise:latest
-    command: ["python", "-m", "shelfwise", "init-db"]
+    command: ["python", "-m", "shelfwise", "migrate"]
     environment: *shelfwise-env
     depends_on:
       db: { condition: service_healthy }

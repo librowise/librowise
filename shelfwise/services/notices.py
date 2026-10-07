@@ -563,7 +563,7 @@ def deliver_pending(db: Session, limit: int = 100, *, now: datetime | None = Non
             if seen:
                 stmt = stmt.where(Notification.id.not_in(seen))
             n = db.scalar(stmt.order_by(Notification.created_at, Notification.id).limit(1)
-                          .with_for_update(skip_locked=True))
+                          .with_for_update(skip_locked=True, of=Notification))  # lock only the notice row
             if n is None:
                 break
             seen.add(n.id)

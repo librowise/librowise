@@ -6,18 +6,11 @@ from alembic import context
 from sqlalchemy import create_engine
 
 from shelfwise import models  # noqa: F401  (register every mapper on Base.metadata)
-from shelfwise.db import EXTRA_TABLES, Base
+from shelfwise.db import Base
+from shelfwise.migrations import include_object
 
 config = context.config
 target_metadata = Base.metadata
-# Tables managed with raw DDL (FTS5 / tsvector) and SQLite internals are not part of the models.
-IGNORED = {name for names in EXTRA_TABLES.values() for name in names} | {"sqlite_sequence"}
-
-
-def include_object(obj, name, type_, reflected, compare_to):
-    if type_ == "table" and (name in IGNORED or (name or "").startswith("biblio_fts")):
-        return False
-    return True
 
 
 def _engine():

@@ -149,17 +149,36 @@ tests/              pytest suite: security, circulation, catalogue, AI, API, pag
 
 **Design principles:** API-first, one transaction per request, database-enforced invariants, no inline JS (strict CSP), and graceful degradation for every AI feature.
 
-## Testing
+## Koha parity at a glance
+
+| Area | Shelfwise |
+|---|---|
+| Cataloguing | Records, items, MARC21/MARCXML import & export, **MARC editor**, **authority control**, copy cataloguing (SRU, Library of Congress), AI enrichment, duplicate detection |
+| Circulation | Checkout/check-in/renew, rule matrix, **library calendar**, fines ledger, holds (item-level, suspend, expiry), transfers, lost items, **SIP2** self-check, **self-checkout kiosk** |
+| Patrons | Registration, **OPAC self-registration** with approval, categories, payments, privacy controls, GDPR erasure, Koha CSV import |
+| Acquisitions & serials | Vendors, budgets, orders, receiving, purchase suggestions, **serial subscriptions with prediction, receiving & claims** |
+| Course reserves | Courses, instructors, short-loan reserves with automatic restore |
+| Notices | Sandboxed email/SMS templates, outbox with retries, patron messaging preferences |
+| OPAC | Keyword + AI search, facets, suggestions, did-you-mean, browse by author/subject, reading lists, reviews, citations, installable PWA, Hindi/Urdu |
+| Reports & analytics | Vetted reports with CSV, **analytics dashboards**, live staff dashboard, AI insights and copilot |
+| Interop | SIP2, SRU, OAI-PMH, schema.org JSON-LD, OpenAPI 3.1 REST |
+| Security | Argon2id, 2FA (TOTP), SSO (OIDC), custom roles & fine-grained permissions, session management, API tokens, lockout, CSRF, strict CSP, audit log |
+| Operations | SQLite or PostgreSQL, Alembic migrations, background worker & scheduler, Prometheus metrics, backups, Docker Compose |
+
+## Database migrations
+
+Schema changes are versioned with Alembic (`shelfwise/migrations`).
+
 ```bash
-pytest            # 60 tests: security, circulation rules, holds routing, search, AI, MARC, API, pages
-ruff check .
+python -m shelfwise migrate                       # create or upgrade the database (also: init-db)
+python -m shelfwise makemigration -m "add field"  # developers: autogenerate a revision, then review it
 ```
 
-## Security
-See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
-
-## License
-GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+Development databases are created and stamped automatically on first start; databases created by
+earlier versions (before migrations existed) are adopted on the first `migrate`. In production
+(`SHELFWISE_ENVIRONMENT=production`) the app never auto-creates tables — run `migrate` as part of
+each deployment (the Docker Compose `migrate` service does this). A test fails if a model changes
+without a matching migration.
 
 ## Circulation services: calendar, holds, notices, registration, suggestions
 
@@ -336,3 +355,17 @@ python scripts/bench.py --database-url sqlite:///shelfwise.db                  #
 **Batch & inventory** (*Staff → Batch & inventory*): batch modify (branch, location, item type, status, notes, call-number prefix) and batch withdraw/delete from a barcode list or a catalogue search, always previewed item by item first; items on loan, in transit or on the hold shelf are protected. Inventory compares scanned barcodes with a branch/location/call-number range and reports missing, out-of-place and wrong-status items (with one-click check-in), marks items as seen, and exports CSV.
 
 Permissions added: `authorities:write`, `items:batch`, `inventory`, `labels` (granted to librarians).
+## Testing
+```bash
+pytest            # 570+ tests: security, circulation, holds, calendar, notices, serials, SIP2, SRU/OAI,
+                  # authorities, MARC editor, labels, analytics, kiosk, i18n, jobs, migrations, pages
+SHELFWISE_TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost/test pytest   # same suite on PostgreSQL
+ruff check .
+```
+
+## Security
+See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately.
+
+## License
+GPL-3.0-or-later, the same licence family as Koha. Shelfwise is an independent implementation and contains no Koha code.
+

@@ -1,0 +1,24 @@
+{% extends "opac_base.html" %}
+{% block title %}Browse authors &amp; subjects · {{ library_name }}{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-head" style="margin-top:1.5rem">
+    <div><h1>Browse the catalogue</h1>
+      <div class="sub">An alphabetical index of authors, subjects and series titles. Cross-references guide you to the form we use.</div></div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Browse index" id="browse-tabs">
+    <button role="tab" id="tab-authors" data-index="authors" aria-selected="true" aria-controls="browse-panel">Authors</button>
+    <button role="tab" id="tab-subjects" data-index="subjects" aria-selected="false" aria-controls="browse-panel" tabindex="-1">Subjects</button>
+    <button role="tab" id="tab-titles" data-index="titles" aria-selected="false" aria-controls="browse-panel" tabindex="-1">Series &amp; titles</button>
+  </div>
+  <form class="card pad row" id="browse-form" role="search" style="margin-bottom:1rem">
+    <div class="field grow"><label for="browse-start">Jump to</label>
+      <input id="browse-start" name="start" type="search" placeholder="Type the first letters, e.g. “Tw” or “Detective”" autocomplete="off" data-search-focus></div>
+    <div class="field"><label>&nbsp;</label><button class="btn primary" type="submit">Browse</button></div>
+  </form>
+  <div class="browse-alpha row tight" id="browse-alpha" aria-label="Jump to letter"></div>
+  <div id="browse-notice" aria-live="polite"></div>
+  <section id="browse-panel" role="tabpanel" aria-labelledby="tab-authors" class="card flush"><div class="card-body" id="browse-list"></div></section>
+  <div class="pager" id="browse-pager"></div>
+</div>
+{% endblock %}

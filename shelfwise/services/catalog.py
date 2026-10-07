@@ -320,7 +320,7 @@ def search(
     # JSON-array filters are applied in Python so the code stays portable across databases.
     if filters.subject:
         s = filters.subject.lower()
-        rows = [r for r in rows if any(s == x.lower() for x in (r.subjects or []))]
+        rows = [r for r in rows if any(s == x.lower() or x.lower().startswith(s + " -- ") for x in (r.subjects or []))]
     if filters.author:
         a = filters.author.lower()
         rows = [r for r in rows if any(a in x.lower() for x in (r.authors or []))]

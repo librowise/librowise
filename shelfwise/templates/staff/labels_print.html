@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Print labels · {{ library_name }}{% endblock %}
+{% block body %}
+{% if job %}<style>@page { size: {{ job.layout.page_width }}mm {{ job.layout.page_height }}mm; margin: 0; }</style>{% endif %}
+<div class="label-toolbar">
+  <a class="btn ghost" href="/staff/labels"><svg class="icon"><use href="#i-arrow-right"></use></svg>Labels &amp; cards</a>
+  {% if job %}
+    <span><strong>{{ job.count }}</strong> {{ 'card' if job.kind == 'patron' else 'label' }}{{ '' if job.count == 1 else 's' }}
+      on <strong>{{ job.sheets }}</strong> sheet{{ '' if job.sheets == 1 else 's' }} · {{ job.layout.name }} · from position {{ job.start }}</span>
+    <label class="checkbox small"><input type="checkbox" id="print-outlines"> Print outlines (alignment test)</label>
+    <button class="btn primary" type="button" id="print-now" {% if not job.count %}disabled{% endif %}><svg class="icon"><use href="#i-check"></use></svg>Print</button>
+    <span class="tiny muted">In the print dialog choose 100% / actual size and no margins.</span>
+  {% endif %}
+</div>
+{% if error %}<div class="wrap" style="padding-top:1rem"><div class="alert bad" role="alert"><svg class="icon"><use href="#i-alert"></use></svg><div>{{ error }}</div></div></div>{% endif %}
+{% if job and job.missing %}<div class="wrap" style="padding-top:1rem"><div class="alert warn" role="status"><svg class="icon"><use href="#i-alert"></use></svg>
+  <div><strong>{{ job.missing|length }} barcode(s) not found and skipped:</strong> <span class="mono">{{ job.missing|join(", ") }}</span></div></div></div>{% endif %}
+{% if job and job.errors %}<div class="wrap" style="padding-top:1rem"><div class="alert warn" role="status"><svg class="icon"><use href="#i-alert"></use></svg>
+  <div><strong>{{ job.errors|length }} value(s) cannot be encoded as Code 128</strong> and print as text only.</div></div></div>{% endif %}
+{% if job %}
+{% set L = job.layout %}
+<main id="main" class="label-sheets show-outlines" data-kind="{{ job.kind }}">
+  {% if not job.count %}<p class="muted">Nothing to print.</p>{% endif %}
+  {% for page in job.pages %}
+  <section class="label-page" style="width:{{ L.page_width }}mm;height:{{ L.page_height }}mm" aria-label="Sheet {{ loop.index }} of {{ job.sheets }}">
+    {% for cell in page %}{% set e = cell.entry %}
+    <div class="label-cell {{ job.kind }}{% if not e %} blank{% endif %}" style="left:{{ cell.left }}mm;top:{{ cell.top }}mm;width:{{ L.label_width }}mm;height:{{ L.label_height }}mm;padding:{{ L.padding }}mm;font-size:{{ e.font_size if e and e.font_size else L.font_size }}pt">
+      {%- if e and job.kind == 'spine' -%}
+        {% for line in e.lines %}<div class="line">{{ line }}</div>{% else %}<div class="line">{{ e.barcode }}</div>{% endfor %}
+      {%- elif e and job.kind == 'item' -%}
+        <div class="s">{{ e.library }}{% if e.location %} · {{ e.location }}{% endif %}</div>
+        <div class="t">{{ e.title }}</div>
+        {% if e.barcode_svg %}{{ e.barcode_svg|safe }}{% else %}<div class="err">{{ e.error }}</div>{% endif %}
+        <div class="s mono">{{ e.barcode }}{% if e.call_number %} · {{ e.call_number }}{% endif %}</div>
+      {%- elif e -%}
+        <div class="photo" aria-hidden="true">{{ e.initials }}</div>
+        <div class="body">
+          <div class="lib">{{ e.library }}</div>
+          <div class="name">{{ e.name }}</div>
+          <div class="s">{{ e.category }} · {{ e.branch }}</div>
+          {% if e.barcode_svg %}{{ e.barcode_svg|safe }}{% else %}<div class="err">{{ e.error }}</div>{% endif %}
+          <div class="s mono">{{ e.card_number }}{% if e.expires_on %} · valid to {{ e.expires_on }}{% endif %}</div>
+        </div>
+      {%- endif -%}
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</main>
+{% endif %}
+{% endblock %}

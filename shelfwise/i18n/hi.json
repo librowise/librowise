@@ -113,7 +113,8 @@
       "browse": "ब्राउज़ करें",
       "account": "मेरा खाता",
       "staff": "स्टाफ़",
-      "courses": "पाठ्यक्रम"
+      "courses": "पाठ्यक्रम",
+      "browse_headings": "लेखक और विषय"
     },
     "footer": {
       "powered": "{library} · Shelfwise ILS v{version} द्वारा संचालित",

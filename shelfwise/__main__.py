@@ -46,9 +46,21 @@ def main(argv: list[str] | None = None) -> int:
     from .cli_ops import dispatch as ops_dispatch
 
     add_ops_parsers(sub)  # worker, jobs, backup, restore, generate
+    p_auth = sub.add_parser("authorities", help="Authority control maintenance")
+    p_auth.add_argument("action", choices=["relink", "generate"],
+                        help="relink: re-derive record/authority links; generate: create authorities from catalogue headings")
     args = parser.parse_args(argv)
     if (rc := ops_dispatch(args)) is not None:
         return rc
+    if args.cmd == "authorities":
+        from .db import create_all, session_scope
+        from .services import authorities
+
+        create_all()
+        with session_scope() as db:
+            out = authorities.relink_all(db) if args.action == "relink" else authorities.generate_from_catalogue(db)
+        print(json.dumps({k: v for k, v in out.items() if k != "sample"}, default=str))
+        return 0
 
     from .db import create_all, drop_all, session_scope
 

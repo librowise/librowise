@@ -47,3 +47,9 @@ for module in (analytics, kiosk, discovery):
 from . import system  # noqa: E402
 
 api_router.include_router(system.router)
+
+# ---- cataloguing ----
+from . import authorities, batch_items, labels, marc_editor  # noqa: E402
+
+for module in (authorities, marc_editor, labels, batch_items):
+    api_router.include_router(module.router)

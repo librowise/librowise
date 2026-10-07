@@ -113,7 +113,8 @@
       "browse": "Browse",
       "account": "My account",
       "staff": "Staff",
-      "courses": "Courses"
+      "courses": "Courses",
+      "browse_headings": "Authors & subjects"
     },
     "footer": {
       "powered": "{library} · Powered by Shelfwise ILS v{version}",

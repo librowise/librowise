@@ -230,6 +230,8 @@ def seed(db: Session, *, patrons: int = 60, history_days: int = 365, rng_seed: i
     seed_serials_and_courses(db, rng=rng)
     seed_identity(db)
     seed_interop(db)
+
+    seed_cataloguing(db)
     return {
         "titles": len(biblios), "items": db.query(Item).count(), "patrons": len(people) + len(staff),
         "loans": db.query(Loan).count(), "open_loans": db.query(Loan).filter(Loan.returned_at.is_(None)).count(),
@@ -450,4 +452,37 @@ def seed_interop(db: Session) -> None:
     if not db.scalar(select(CopyCatTarget.id).limit(1)):
         db.add(CopyCatTarget(**DEFAULT_TARGET))
     db.flush()
+
+# ---- cataloguing ----
+
+DEMO_AUTHORITIES = [
+    ("personal_name", "Doyle, Arthur Conan", ["Conan Doyle, Arthur", "Doyle, A. Conan"], [], "lcnaf"),
+    ("personal_name", "Orwell, George", ["Blair, Eric Arthur"], [], "lcnaf"),
+    ("personal_name", "Tolkien, J. R. R.", ["Tolkien, John Ronald Reuel"], [], "lcnaf"),
+    ("personal_name", "Carroll, Lewis", ["Dodgson, Charles Lutwidge"], [], "lcnaf"),
+    ("personal_name", "Le Guin, Ursula K.", ["LeGuin, Ursula K."], [], "lcnaf"),
+    ("personal_name", "Holmes, Sherlock (Fictitious character)", ["Sherlock Holmes"], [], "lcsh"),
+    ("topical_subject", "Science fiction", ["Sci-fi", "SF (Science fiction)"],
+     [("Fantasy fiction", "related"), ("Space", "related")], "lcsh"),
+    ("topical_subject", "Detective and mystery stories", ["Mystery stories", "Whodunits"], [("Crime", "related")], "lcsh"),
+    ("topical_subject", "Children's stories", ["Stories for children"], [], "lcsh"),
+    ("topical_subject", "Astronomy", [], [("Cosmology", "narrower"), ("Space", "related")], "lcsh"),
+    ("topical_subject", "Cosmology", [], [("Astronomy", "broader")], "lcsh"),
+    ("topical_subject", "Dystopias", ["Dystopian fiction"], [("Totalitarianism", "related")], "lcsh"),
+    ("geographic", "India", ["Bharat"], [], "lcsh"),
+]
+
+
+def seed_cataloguing(db: Session) -> dict:
+    """Label sheet presets and an authority file for the demo catalogue (curated + generated)."""
+    from .services import authorities, labels
+
+    labels.ensure_presets(db)
+    for auth_type, heading, variants, see_also, source in DEMO_AUTHORITIES:
+        authorities.create_authority(db, {
+            "auth_type": auth_type, "heading": heading, "variants": variants, "source": source,
+            "see_also": [{"heading": h, "relationship": r} for h, r in see_also]})
+    generated = authorities.generate_from_catalogue(db)
+    db.flush()
+    return {"authorities": len(DEMO_AUTHORITIES) + generated["created"], "links": generated["relink"]["links"]}
 

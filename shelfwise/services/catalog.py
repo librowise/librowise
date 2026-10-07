@@ -449,7 +449,11 @@ def _apply_filters(db: Session, stmt, filters: SearchFilters):
     if filters.year_to:
         stmt = stmt.where(Biblio.pub_year <= filters.year_to)
     if filters.subject:
-        stmt = stmt.where(Biblio.id.in_(_facet_values(db, "s", [filters.subject])))
+        # A subject also matches its subdivided forms ("Whaling" ⊃ "Whaling -- Fiction").
+        s = filters.subject.lower()
+        stmt = stmt.where(Biblio.id.in_(select(BiblioFacet.biblio_id).where(
+            BiblioFacet.kind == "s",
+            or_(BiblioFacet.value_norm == s, BiblioFacet.value_norm.startswith(s + " -- ", autoescape=True)))))
     if filters.author:
         stmt = stmt.where(Biblio.id.in_(_facet_values(db, "a", [filters.author], like=True)))
     if filters.available_only or filters.branch_id:

@@ -1,0 +1,14 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Batch &amp; inventory{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Batch item tools &amp; inventory</h1>
+    <div class="sub">Change many items at once with a preview of every change, withdraw or delete in bulk, and run a stocktake.</div></div>
+</div>
+<div class="tabs" role="tablist" aria-label="Batch tools" id="batch-tabs">
+  <button role="tab" id="tab-modify" data-tab="modify" aria-selected="true" aria-controls="batch-panel">Batch modify</button>
+  <button role="tab" id="tab-delete" data-tab="delete" aria-selected="false" aria-controls="batch-panel" tabindex="-1">Withdraw / delete</button>
+  <button role="tab" id="tab-inventory" data-tab="inventory" aria-selected="false" aria-controls="batch-panel" tabindex="-1">Inventory</button>
+</div>
+<section id="batch-panel" role="tabpanel" aria-labelledby="tab-modify"></section>
+{% endblock %}

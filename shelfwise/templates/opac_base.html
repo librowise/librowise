@@ -6,6 +6,7 @@
     <a class="brand" href="/" style="padding:0"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span><span>{{ library_name }}</span></a>
     <nav aria-label="{{ t('opac.nav.label') }}">
       <a href="/search"{% if page == 'opac-search' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse') }}</a>
+      <a href="/browse"{% if page == 'opac-browse' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse_headings') }}</a>
       <a href="/courses"{% if page == 'opac-courses' %} aria-current="page"{% endif %}>{{ t('opac.nav.courses') }}</a>
       {% if user %}
         <a href="/account"{% if page == 'opac-account' %} aria-current="page"{% endif %}>{{ t('opac.nav.account') }}</a>

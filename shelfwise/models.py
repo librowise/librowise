@@ -1057,3 +1057,99 @@ Index("ix_loans_patron_returns", Loan.patron_id, Loan.returned_at, Loan.due_at)
 Index("ix_loans_due_open", Loan.due_at, sqlite_where=text("returned_at IS NULL"),
       postgresql_where=text("returned_at IS NULL"))
 Index("ix_loans_updated_at", Loan.updated_at)
+
+# ---- cataloguing: authorities, labels ----
+
+
+class AuthorityType(enum.StrEnum):
+    personal_name = "personal_name"
+    corporate_name = "corporate_name"
+    meeting_name = "meeting_name"
+    uniform_title = "uniform_title"
+    topical_subject = "topical_subject"
+    geographic = "geographic"
+    genre_form = "genre_form"
+
+
+class Authority(TimestampMixin, Base):
+    """An authorised heading (MARC21 authority 1XX) with see-from (4XX) and see-also (5XX) references."""
+
+    __tablename__ = "authorities"
+    __table_args__ = (
+        # One live authorised heading per type; soft-deleted rows do not block re-creation.
+        Index(
+            "uq_authority_heading",
+            "auth_type",
+            "normalized",
+            unique=True,
+            sqlite_where=text("deleted_at IS NULL"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    auth_type: Mapped[AuthorityType] = mapped_column(Enum(AuthorityType), index=True)
+    heading: Mapped[str] = mapped_column(String(500))
+    normalized: Mapped[str] = mapped_column(String(500), index=True)
+    match_key: Mapped[str | None] = mapped_column(String(500), index=True)  # names without dates
+    # [{"heading": str, "relationship": "broader|narrower|related|earlier|later", "authority_id": int|None}]
+    see_also: Mapped[list] = mapped_column(JSON, default=list)
+    source: Mapped[str] = mapped_column(String(32), default="local")
+    notes: Mapped[str | None] = mapped_column(Text)
+    marc_xml: Mapped[str | None] = mapped_column(Text)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+
+    variants: Mapped[list[AuthorityVariant]] = relationship(
+        back_populates="authority", cascade="all, delete-orphan", lazy="selectin",
+        order_by="AuthorityVariant.id",
+    )
+
+
+class AuthorityVariant(Base):
+    """A see-from (4XX) form that is matched and rewritten to the authorised heading."""
+
+    __tablename__ = "authority_variants"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    authority_id: Mapped[int] = mapped_column(ForeignKey("authorities.id", ondelete="CASCADE"), index=True)
+    heading: Mapped[str] = mapped_column(String(500))
+    normalized: Mapped[str] = mapped_column(String(500), index=True)
+
+    authority: Mapped[Authority] = relationship(back_populates="variants")
+
+
+class BiblioAuthority(Base):
+    """Link between a bibliographic record heading and its authority (Koha's $9)."""
+
+    __tablename__ = "biblio_authorities"
+    __table_args__ = (UniqueConstraint("biblio_id", "authority_id", "role"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    biblio_id: Mapped[int] = mapped_column(ForeignKey("biblios.id", ondelete="CASCADE"), index=True)
+    authority_id: Mapped[int] = mapped_column(ForeignKey("authorities.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(16))  # author | subject | series
+    heading: Mapped[str] = mapped_column(String(500))  # the heading as it appears in the record
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    biblio: Mapped[Biblio] = relationship()
+    authority: Mapped[Authority] = relationship()
+
+
+class LabelLayout(TimestampMixin, Base):
+    """A label sheet geometry (all lengths in millimetres, font size in points)."""
+
+    __tablename__ = "label_layouts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
+    kind: Mapped[str] = mapped_column(String(16), default="any")  # spine | item | patron | any
+    page_size: Mapped[str] = mapped_column(String(16), default="A4")  # A4 | Letter | custom
+    page_width: Mapped[float] = mapped_column(default=210.0)
+    page_height: Mapped[float] = mapped_column(default=297.0)
+    rows: Mapped[int] = mapped_column(Integer, default=7)
+    cols: Mapped[int] = mapped_column(Integer, default=3)
+    margin_top: Mapped[float] = mapped_column(default=15.0)
+    margin_left: Mapped[float] = mapped_column(default=7.0)
+    gutter_x: Mapped[float] = mapped_column(default=2.5)
+    gutter_y: Mapped[float] = mapped_column(default=0.0)
+    label_width: Mapped[float] = mapped_column(default=63.5)
+    label_height: Mapped[float] = mapped_column(default=38.1)
+    padding: Mapped[float] = mapped_column(default=2.0)
+    font_size: Mapped[float] = mapped_column(default=9.0)
+    is_preset: Mapped[bool] = mapped_column(Boolean, default=False)

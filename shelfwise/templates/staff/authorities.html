@@ -1,0 +1,21 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Authorities{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Authorities</h1>
+    <div class="sub">Authorised names, subjects and series with their see-from and see-also references. Record headings link automatically.</div></div>
+  <div class="row tight">
+    <button class="btn" type="button" id="tool-generate"><svg class="icon"><use href="#i-sparkle"></use></svg>Generate from catalogue</button>
+    <button class="btn" type="button" id="tool-import"><svg class="icon"><use href="#i-upload"></use></svg>Import MARC</button>
+    <a class="btn" href="/api/v1/authorities/export?fmt=xml" id="tool-export"><svg class="icon"><use href="#i-download"></use></svg>Export</a>
+    <button class="btn" type="button" id="tool-relink" title="Re-derive every link and rewrite variant headings"><svg class="icon"><use href="#i-refresh"></use></svg>Relink all</button>
+    <button class="btn primary" type="button" id="new-authority"><svg class="icon"><use href="#i-plus"></use></svg>New authority</button>
+  </div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Authority views" id="auth-tabs">
+  <button role="tab" id="tab-list" data-tab="list" aria-selected="true" aria-controls="auth-panel">Authorities</button>
+  <button role="tab" id="tab-unlinked" data-tab="unlinked" aria-selected="false" aria-controls="auth-panel" tabindex="-1">Unlinked headings</button>
+</div>
+<section id="auth-panel" role="tabpanel" aria-labelledby="tab-list"></section>
+{% endblock %}

@@ -113,7 +113,8 @@
       "browse": "براؤز کریں",
       "account": "میرا اکاؤنٹ",
       "staff": "عملہ",
-      "courses": "کورسز"
+      "courses": "کورسز",
+      "browse_headings": "مصنفین اور موضوعات"
     },
     "footer": {
       "powered": "{library} · Shelfwise ILS v{version} کے ذریعے",

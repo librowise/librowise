@@ -1,0 +1,38 @@
+{% extends "staff_base.html" %}
+{% block page_title %}MARC editor{% endblock %}
+{% block content %}
+<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/catalog">Catalogue</a> /
+  <a id="crumb-record" href="/staff/catalog/{{ path_params.biblio_id }}">Record</a> / MARC editor</nav>
+<div class="page-head">
+  <div><h1 id="heading">MARC editor</h1><div class="sub" id="sub">Loading record…</div></div>
+  <div class="row tight">
+    <a class="btn ghost" href="/staff/catalog/{{ path_params.biblio_id }}">Back to record</a>
+    <button class="btn" type="button" id="revert" disabled>Discard changes</button>
+    <button class="btn primary" type="button" id="save"><svg class="icon"><use href="#i-check"></use></svg>Review &amp; save <kbd>Ctrl S</kbd></button>
+  </div>
+</div>
+<div id="notices"></div>
+<div class="tabs" role="tablist" aria-label="Editor view" id="view-tabs">
+  <button role="tab" id="tab-grid" data-view="grid" aria-selected="true" aria-controls="editor-panel">Fields</button>
+  <button role="tab" id="tab-mnemonic" data-view="mnemonic" aria-selected="false" aria-controls="editor-panel" tabindex="-1">Text (MarcEdit)</button>
+  <button role="tab" id="tab-xml" data-view="xml" aria-selected="false" aria-controls="editor-panel" tabindex="-1">MARCXML</button>
+</div>
+<div class="grid split">
+  <section class="card flush" id="editor-panel" role="tabpanel" aria-labelledby="tab-grid"><div class="card-body"><div class="skeleton" style="height:20rem"></div></div></section>
+  <aside class="stack">
+    <div class="card marc-help"><div class="card-head"><h3>Field help</h3></div><div class="card-body small" id="help" aria-live="polite">
+      <p class="muted">Focus a field to see its MARC21 meaning, indicators and subfields.</p></div></div>
+    <div class="card"><div class="card-head"><h3>Checks</h3><span id="check-badge"></span></div><div class="card-body small" id="problems"></div></div>
+    <div class="card pad small stack tight"><strong>Keyboard</strong>
+      <div class="kv"><span>Review &amp; save</span><kbd>Ctrl S</kbd></div>
+      <div class="kv"><span>New field below</span><kbd>Ctrl Enter</kbd></div>
+      <div class="kv"><span>New subfield</span><kbd>Shift Enter</kbd></div>
+      <div class="kv"><span>Delete subfield</span><kbd>Alt Del</kbd></div>
+      <div class="kv"><span>Delete field</span><kbd>Alt Shift Del</kbd></div>
+      <div class="kv"><span>Move field</span><kbd>Alt ↑ / ↓</kbd></div>
+      <div class="kv"><span>Move subfield</span><kbd>Alt Shift ↑ / ↓</kbd></div>
+      <span class="muted">Blank indicators may be typed as space, # or _.</span></div>
+  </aside>
+</div>
+<datalist id="marc-tags"></datalist>
+{% endblock %}

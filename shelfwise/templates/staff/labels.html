@@ -1,0 +1,47 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Labels &amp; cards{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Labels &amp; cards</h1>
+    <div class="sub">Spine labels, barcode labels and patron cards on standard label sheets — start part-way through a used sheet.</div></div>
+</div>
+<div class="grid split">
+  <form class="card pad stack" id="job" method="post" action="/staff/labels/print" target="_blank" novalidate>
+    <fieldset class="stack tight" style="border:0;padding:0;margin:0">
+      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">1</span>What to print</legend>
+      <div class="row tight" id="kind-picker">
+        <label class="checkbox chip"><input type="radio" name="kind" value="spine"> Spine labels</label>
+        <label class="checkbox chip"><input type="radio" name="kind" value="item" checked> Item barcode labels</label>
+        <label class="checkbox chip"><input type="radio" name="kind" value="patron"> Patron cards</label>
+      </div>
+    </fieldset>
+    <fieldset class="stack" style="border:0;padding:0;margin:0">
+      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">2</span>Which ones</legend>
+      <div id="source-fields"></div>
+    </fieldset>
+    <fieldset class="stack" style="border:0;padding:0;margin:0">
+      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">3</span>Sheet</legend>
+      <div class="grid cols-2">
+        <div class="field" style="grid-column:1/-1"><label for="layout_id">Layout</label><select id="layout_id" name="layout_id" required></select>
+          <span class="hint" id="layout-hint"></span></div>
+        <div class="field"><label for="start">Start at label</label><input id="start" name="start" type="number" min="1" value="1" required>
+          <span class="hint">Skip labels already used on a partly used sheet.</span></div>
+        <div class="field"><label for="copies">Copies of each</label><input id="copies" name="copies" type="number" min="1" max="20" value="1" required></div>
+      </div>
+      <div><span class="small muted" id="picker-label">Click the first free label on your sheet:</span>
+        <div class="sheet-picker" id="sheet-picker" role="group" aria-labelledby="picker-label"></div></div>
+      <label class="checkbox small" id="split-wrap" hidden><input type="checkbox" name="split_decimal"> Split Dewey numbers at the decimal point (823 / .912)</label>
+    </fieldset>
+    <div class="row end">
+      <button class="btn" type="button" id="preview-btn"><svg class="icon"><use href="#i-search"></use></svg>Check selection</button>
+      <button class="btn primary" type="submit" id="print-btn"><svg class="icon"><use href="#i-barcode"></use></svg>Open print sheet</button>
+    </div>
+  </form>
+  <aside class="stack">
+    <div class="card"><div class="card-head"><h3>Selection</h3></div><div class="card-body" id="preview-out" aria-live="polite">
+      <p class="small muted">Use “Check selection” to see how many labels and sheets you will print, and any barcodes that were not found.</p></div></div>
+    <div class="card"><div class="card-head"><h3>Sheet layouts</h3><button class="btn sm" type="button" id="new-layout"><svg class="icon"><use href="#i-plus"></use></svg>New</button></div>
+      <div class="card-body" id="layouts"></div></div>
+  </aside>
+</div>
+{% endblock %}

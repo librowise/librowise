@@ -56,6 +56,11 @@ CATALOGUE: list[tuple[str, str, str]] = [
     # experience
     ("analytics:read", "Reports", "View the analytics dashboards"),
     ("kiosks:manage", "Circulation", "Provision and manage self-checkout kiosks"),
+    # cataloguing tools
+    ("authorities:write", "Cataloguing", "Create, edit, merge and delete authority records"),
+    ("items:batch", "Cataloguing", "Batch-modify, withdraw and delete items"),
+    ("inventory", "Cataloguing", "Run inventory / stocktake"),
+    ("labels", "Cataloguing", "Print spine labels, item barcodes and patron cards"),
 ]
 
 PERMISSION_CODES: frozenset[str] = frozenset(code for code, _, _ in CATALOGUE)
@@ -72,6 +77,8 @@ _LIBRARIAN = {
     "serials:read", "serials:write", "courses:read", "courses:write",
     # experience
     "analytics:read", "kiosks:manage",
+    # cataloguing tools
+    "authorities:write", "items:batch", "inventory", "labels",
 }
 
 BUILTIN_ROLE_PERMISSIONS: dict[Role, set[str]] = {

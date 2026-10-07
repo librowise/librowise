@@ -189,8 +189,6 @@ def reindex_all(db: Session) -> int:
             "LEAST(coalesce(array_length(regexp_split_to_array(trim(b.title), '[^[:alnum:]_]+'), 1), 0), 32000) "
             "FROM biblios b WHERE b.deleted_at IS NULL"
         ), {"cfg": get_settings().pg_search_config})
-    else:
-        return int(db.scalar(select(func.count()).select_from(Biblio).where(Biblio.deleted_at.is_(None))) or 0)
     return int(db.scalar(select(func.count()).select_from(Biblio).where(Biblio.deleted_at.is_(None))) or 0)
 
 

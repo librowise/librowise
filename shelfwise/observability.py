@@ -336,7 +336,8 @@ class JsonFormatter(logging.Formatter):
         if uid is not None:
             out["user_id"] = uid
         for k, v in record.__dict__.items():
-            if k not in self.RESERVED and not k.startswith("_"):
+            if k not in self.RESERVED and not k.startswith("_") and k != "color_message" \
+                    and not (k == "request_id" and v == "-"):
                 out[k] = v
         if record.exc_info:
             out["exc"] = self.formatException(record.exc_info)

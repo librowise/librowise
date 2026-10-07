@@ -146,8 +146,8 @@ def execute(job_id: int, worker_id: str) -> str:
             if result is not None and not isinstance(result, dict):
                 result = {"result": result}
             db.flush()
-            job = db.get(Job, job_id)
-            if job is None or job.status != "running" or job.locked_by != worker_id:
+            db.refresh(job, with_for_update=True)  # re-read: was it recovered/re-claimed meanwhile?
+            if job.status != "running" or job.locked_by != worker_id:
                 db.rollback()
                 log.warning("job %s was taken away from %s while running; discarding result", job_id, worker_id)
                 return "lost"

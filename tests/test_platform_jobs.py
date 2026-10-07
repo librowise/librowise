@@ -136,6 +136,28 @@ def test_result_discarded_when_lock_was_lost(db):
     assert jobs.execute(job.id, "w-a") == "lost"
 
 
+@jobs.register_job("test_hijack", max_attempts=1)
+def _hijack(db, payload):
+    from shelfwise.db import SessionLocal
+
+    other = SessionLocal()  # simulates stale-lock recovery + re-claim by another worker mid-run
+    try:
+        other.get(Job, payload["job_id"]).locked_by = "someone-else"
+        other.commit()
+    finally:
+        other.close()
+    return {"ok": True}
+
+
+def test_lock_lost_during_execution_discards_result(db):
+    job = jobs.enqueue(db, "test_hijack")
+    job.payload = {"job_id": job.id}
+    db.commit()
+    assert jobs.run_pending()["lost"] == 1
+    db.expire_all()
+    assert db.get(Job, job.id).status == "running" and db.get(Job, job.id).result is None
+
+
 # ------------------------------------------------------------------ cron
 
 

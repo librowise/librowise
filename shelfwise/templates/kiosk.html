@@ -3,7 +3,7 @@
 {% block body %}
 <div class="kiosk" id="kiosk">
   <header class="kiosk-bar">
-    <div class="kiosk-brand"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span>
+    <div class="kiosk-brand"><img class="brand-logo seal" src="/static/brand/librowise-seal.svg" alt="" width="40" height="40">
       <div><strong id="k-library">{{ library_name }}</strong><div class="small muted" id="k-branch">{{ t('kiosk.title') }}</div></div></div>
     <div class="kiosk-tools">
       {% include "_lang_switch.html" %}

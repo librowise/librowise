@@ -3,7 +3,7 @@
 {% if announcement %}<div class="announcement" role="note">{{ announcement }}</div>{% endif %}
 <header class="opac-header">
   <div class="inner">
-    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span><span class="brand-name">{{ library_name }}</span></a>
+    <a class="brand" href="/"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"><span class="brand-name">{{ library_name }}</span></a>
     <nav aria-label="{{ t('opac.nav.label') }}">
       <a href="/search"{% if page == 'opac-search' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse') }}</a>
       <a href="/browse"{% if page == 'opac-browse' %} aria-current="page"{% endif %}>{{ t('opac.nav.browse_headings') }}</a>

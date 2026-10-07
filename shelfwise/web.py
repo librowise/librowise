@@ -342,7 +342,7 @@ def web_manifest(request: Request, db: Session = Depends(get_db)):
         "description": i18n_mod.translate(lang, "meta.description", library=name),
         "lang": lang, "dir": i18n_mod.text_direction(lang),
         "start_url": "/?source=pwa", "scope": "/", "display": "standalone", "display_override": ["standalone", "minimal-ui"],
-        "orientation": "any", "background_color": "#f6f7f9", "theme_color": "#0c7064", "categories": ["books", "education"],
+        "orientation": "any", "background_color": "#f6f7f9", "theme_color": "#4338ca", "categories": ["books", "education"],
         "icons": [
             {"src": "/static/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
             {"src": "/static/icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"},

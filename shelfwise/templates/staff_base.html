@@ -8,7 +8,7 @@
   <aside class="sidebar" id="sidebar" aria-label="{{ t('nav.staff_navigation') }}">
     <div class="sidebar-head">
       <a class="brand" href="/staff" aria-label="{{ product_name }} · {{ t('nav.hub.home') }}" title="{{ product_name }} — {{ t('ui.brand.tagline') }}">
-        <span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span>
+        <img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32">
         <span class="wordmark">Libro<span>wise</span></span>
       </a>
       <button type="button" class="btn ghost icon-only sidebar-close" data-sidebar-close aria-label="{{ t('ui.shell.close_menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
@@ -55,7 +55,7 @@
   <div class="main">
     <header class="topbar">
       <button type="button" class="btn ghost icon-only menu-toggle" data-sidebar-open aria-controls="sidebar" aria-expanded="false" aria-label="{{ t('common.menu') }}"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
-      <a class="brand brand-compact" href="/staff" aria-label="{{ product_name }}"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-logo"></use></svg></span></a>
+      <a class="brand brand-compact" href="/staff" aria-label="{{ product_name }}"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"></a>
       <button type="button" class="search-trigger" data-open-palette aria-label="{{ t('staff.open_palette') }}" aria-keyshortcuts="Control+K">
         <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span>{{ t('ui.shell.search_placeholder') }}</span><kbd>Ctrl K</kbd>
       </button>

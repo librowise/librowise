@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/librowise-logo-dark.png">
+    <img src="docs/brand/librowise-logo-light.png" alt="Librowise — the modern library system" width="480">
+  </picture>
+</p>
+
 # Shelfwise ILS
 
 **A modern, AI-assisted integrated library system, written in Python. It reimagines [Koha](https://koha-community.org) for the 2020s.**

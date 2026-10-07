@@ -41,19 +41,32 @@ Load order is fixed in `base.html`: `tokens.css` → `app.css` → `ui.css`.
 
 ## 2. Brand
 
-* **Mark** — three books on a shelf, the last one leaning in; the first spine and the shelf read as an
-  “L”. White glyph on the brand gradient (`--brand-1` → `--brand-2`). Sprite symbol `#i-logo`; files:
-  `static/favicon.svg`, `static/icons/icon.svg` (rounded, PWA), `static/icons/maskable.svg` (full bleed,
-  glyph inside the 80 % safe zone), `static/brand/librowise-mark.svg`, `static/brand/librowise-logo.svg`.
-* **Wordmark** — “Libro**wise**” in Inter 760, tracking −0.025 em, “wise” in `--primary`. Markup:
+* **Mark (“2B”)** — an open indigo book with a violet ribbon down the gutter carrying a white AI spark.
+  Use it wherever the product is identified: staff sidebar and top bar, OPAC header, favicon, style guide.
+  Render it as an image (`<img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="">`) — its
+  gradients have `lw-` prefixed ids, so it can also be inlined safely.
+* **Seal (“2F”)** — the same book, ribbon and spark inside a dark-indigo circle
+  (`static/brand/librowise-seal.svg`): sign-in page hero (`.brand-seal`), kiosk header, avatar/profile spots,
+  about pages and certificates.
+* **App icons** — `librowise-icon-light.svg` (also `static/icons/icon.svg`), `librowise-icon-dark.svg`,
+  `librowise-maskable.svg` (also `static/icons/maskable.svg`, glyph inside the 80 % safe zone); favicon =
+  the mark. Raster lockups (1200×300): `librowise-logo-light.png` / `-dark.png`; also
+  `librowise-avatar-512.png` and `librowise-social-1280x640.png` (copies in `docs/brand/`).
+* **Wordmark** — “Libro” in ink (`--wordmark-ink`: #1e1b4b light, #f8fafc dark) + “wise” in indigo
+  (`--wordmark-accent`: #6366f1 light, #a5b4fc dark), Inter 760, letter-spacing −0.035 em. Markup:
   `<span class="wordmark">Libro<span>wise</span></span>`; in templates use `{{ product_name }}` for text.
+  (Logotypes are exempt from WCAG text contrast; everything else is not.)
+* **Palette** — indigo #6366f1 / #4338ca / #312e81 / #1e1b4b, light #818cf8 / #c7d2fe / #e0e7ff / #eef2ff,
+  violet accent #a78bfa → #7c3aed (ribbon, AI). Light theme `--primary` = indigo-700 #4338ca (7.9:1 on
+  white); dark theme `--primary` = indigo-300 #a5b4fc; AI = violet. Sepia and high contrast keep their own
+  primaries (warm brown, yellow) — the brand assets stay indigo in every theme.
 * **Tagline** — “The modern library system” (`ui.brand.tagline`).
 * The OPAC shows the *library's* own name (`library_name` setting) next to the mark; the product brand
   appears in the staff sidebar, footers (“Powered by Librowise”) and as the manifest fallback name.
 
 ## 3. Tokens
 
-Never hard-code colours in components; use semantic tokens. Primitive ramps (`--teal-600`, `--slate-200`, …)
+Never hard-code colours in components; use semantic tokens. Primitive ramps (`--indigo-700`, `--slate-200`, …)
 exist for the style guide and rare fixed-colour needs (e.g. the AI button gradient).
 
 ### Colour (semantic)

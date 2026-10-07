@@ -3,7 +3,7 @@
    motion. Loaded before app.css and ui.css. Documented in docs/DESIGN_SYSTEM.md.
 
    Layers
-     1. Primitives  — font faces, ramps (--teal-600, --slate-200 …) and scales (--space-4, --radius-md …).
+     1. Primitives  — font faces, ramps (--indigo-700, --slate-200 …) and scales (--space-4, --radius-md …).
      2. Semantic    — what components use (--bg, --surface, --text, --primary, --danger-soft …). Each theme
                       (light · dark · sepia · high contrast) re-maps only this layer.
    Rules
@@ -115,8 +115,9 @@
   --z-tooltip: 1100;
 
   /* ---- 1h. Colour ramps (primitives — never referenced by components for colour) */
-  --teal-50: #edf8f6; --teal-100: #d3efe9; --teal-200: #a6ddd3; --teal-300: #6ec6b8; --teal-400: #33a898;
-  --teal-500: #158b7c; --teal-600: #0c7064; --teal-700: #0a5d54; --teal-800: #0b4a44; --teal-900: #0a3c38; --teal-950: #052421;
+  /* brand indigo (Librowise) */
+  --indigo-50: #eef2ff; --indigo-100: #e0e7ff; --indigo-200: #c7d2fe; --indigo-300: #a5b4fc; --indigo-400: #818cf8;
+  --indigo-500: #6366f1; --indigo-600: #4f46e5; --indigo-700: #4338ca; --indigo-800: #3730a3; --indigo-900: #312e81; --indigo-950: #1e1b4b;
   --slate-0: #ffffff; --slate-25: #fbfcfd; --slate-50: #f6f7f9; --slate-100: #eff1f5; --slate-150: #e6e9ef; --slate-200: #dde2e9;
   --slate-300: #c7ced8; --slate-400: #8a94a5; --slate-500: #636d7f; --slate-600: #4b5466; --slate-700: #373f4f;
   --slate-800: #232a37; --slate-850: #1a202b; --slate-900: #131822; --slate-950: #0b0f16;
@@ -124,7 +125,7 @@
   --red-50: #fdeeec; --red-100: #fbd6d1; --red-400: #f87171; --red-600: #b42318; --red-700: #8f1c13;
   --green-50: #eaf6ee; --green-100: #cdebd7; --green-400: #4ade80; --green-600: #14753a; --green-700: #0f5c2d;
   --blue-50: #ebf1fd; --blue-100: #d3e0fb; --blue-400: #6ea8ff; --blue-600: #1d55c9; --blue-700: #1843a0;
-  --violet-50: #f3effe; --violet-100: #e4dafc; --violet-400: #b69dff; --violet-600: #6534d1; --violet-700: #5025aa;
+  --violet-50: #f5f3ff; --violet-100: #ede9fe; --violet-400: #a78bfa; --violet-600: #7c3aed; --violet-700: #6d28d9;
 
   /* ---- 2. Semantic tokens — light theme (default) */
   --bg: #f6f7f9;
@@ -140,9 +141,9 @@
   --text: #111723;
   --text-2: #373f4f;
   --muted: #586274;
-  --primary: #0c7064;
-  --primary-2: #0a5d54;
-  --primary-soft: #e6f4f1;
+  --primary: #4338ca;
+  --primary-2: #3730a3;
+  --primary-soft: #eef2ff;
   --primary-text: #ffffff;
   --accent: #b45309;
   --accent-soft: #fdf5e7;
@@ -155,14 +156,16 @@
   --info: #1d55c9;
   --info-soft: #ebf1fd;
   --focus: #1d5fe0;
-  --ai: #6534d1;
-  --ai-soft: #f3effe;
-  --selection: #cde9e3;
+  --ai: #7c3aed;
+  --ai-soft: #f5f3ff;
+  --selection: #e0e7ff;
   --scrim: rgb(9 13 20 / .45);
-  --brand-1: #0c7064;
-  --brand-2: #4c32b8;
+  --brand-1: #6366f1;
+  --brand-2: #312e81;
   --brand-ink: #ffffff;
-  --chart-1: #0c7064; --chart-2: #b45309; --chart-3: #6534d1; --chart-4: #1d55c9; --chart-5: #be185d;
+  --wordmark-ink: #1e1b4b;
+  --wordmark-accent: #6366f1;  /* logotype colours (exempt from text contrast, WCAG 1.4.3) */
+  --chart-1: #4338ca; --chart-2: #b45309; --chart-3: #7c3aed; --chart-4: #1d55c9; --chart-5: #be185d;
   /* categorical chart palette (validated: lightness band, CVD separation; charts also offer a data table) */
   --viz-1: #2a78d6; --viz-2: #eb6834; --viz-3: #1baf7a; --viz-4: #eda100; --viz-5: #e87ba4; --viz-6: #008300; --viz-7: #4a3aa7; --viz-8: #e34948;
   --viz-seq: #2a78d6; --viz-compare: #8d8b85; --viz-grid: #e1e0d9; --viz-axis: #c3c2b7;
@@ -176,16 +179,16 @@
   --surface-inverse: #e8edf4; --text-inverse: #0b0f16;
   --border: #252e3c; --border-strong: #364254; --border-input: #64718a;
   --text: #e8edf4; --text-2: #c4ccd8; --muted: #97a2b3;
-  --primary: #3fd0bb; --primary-2: #74e0cf; --primary-soft: #0f2d2a; --primary-text: #04201c;
+  --primary: #a5b4fc; --primary-2: #c7d2fe; --primary-soft: #1f1d47; --primary-text: #1e1b4b;
   --accent: #f5a524; --accent-soft: #32240c;
   --success: #4ade80; --success-soft: #10291a; --warning: #fbbf24; --warning-soft: #2e240c;
   --danger: #ff8a80; --danger-soft: #341615; --info: #79b0ff; --info-soft: #11233f;
-  --focus: #79b0ff; --ai: #b69dff; --ai-soft: #231b3d; --selection: #1d4a44; --scrim: rgb(0 0 0 / .6);
-  --brand-1: #128a7a; --brand-2: #5b3fd0; --brand-ink: #ffffff;
+  --focus: #79b0ff; --ai: #c4b5fd; --ai-soft: #251c45; --selection: #312e81; --scrim: rgb(0 0 0 / .6);
+  --brand-1: #6366f1; --brand-2: #312e81; --brand-ink: #ffffff; --wordmark-ink: #f8fafc; --wordmark-accent: #a5b4fc;
   --shadow-xs: 0 1px 1px rgb(0 0 0 / .3); --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
   --shadow: 0 1px 3px rgb(0 0 0 / .45), 0 8px 24px rgb(0 0 0 / .3); --shadow-lg: 0 18px 48px rgb(0 0 0 / .55);
   --shadow-xl: 0 28px 64px rgb(0 0 0 / .6);
-  --chart-1: #3fd0bb; --chart-2: #f5a524; --chart-3: #b69dff; --chart-4: #79b0ff; --chart-5: #f472b6;
+  --chart-1: #a5b4fc; --chart-2: #f5a524; --chart-3: #c4b5fd; --chart-4: #79b0ff; --chart-5: #f472b6;
   --viz-1: #3987e5; --viz-2: #d95926; --viz-3: #199e70; --viz-4: #c98500; --viz-5: #d55181; --viz-6: #1f9a1f; --viz-7: #9085e9; --viz-8: #e66767;
   --viz-seq: #5598e7; --viz-compare: #8d8b85; --viz-grid: #2c3644; --viz-axis: #3c4859; --good: #4ade80;
   color-scheme: dark;
@@ -196,16 +199,16 @@
     --surface-inverse: #e8edf4; --text-inverse: #0b0f16;
     --border: #252e3c; --border-strong: #364254; --border-input: #64718a;
     --text: #e8edf4; --text-2: #c4ccd8; --muted: #97a2b3;
-    --primary: #3fd0bb; --primary-2: #74e0cf; --primary-soft: #0f2d2a; --primary-text: #04201c;
+    --primary: #a5b4fc; --primary-2: #c7d2fe; --primary-soft: #1f1d47; --primary-text: #1e1b4b;
     --accent: #f5a524; --accent-soft: #32240c;
     --success: #4ade80; --success-soft: #10291a; --warning: #fbbf24; --warning-soft: #2e240c;
     --danger: #ff8a80; --danger-soft: #341615; --info: #79b0ff; --info-soft: #11233f;
-    --focus: #79b0ff; --ai: #b69dff; --ai-soft: #231b3d; --selection: #1d4a44; --scrim: rgb(0 0 0 / .6);
-    --brand-1: #128a7a; --brand-2: #5b3fd0; --brand-ink: #ffffff;
+    --focus: #79b0ff; --ai: #c4b5fd; --ai-soft: #251c45; --selection: #312e81; --scrim: rgb(0 0 0 / .6);
+    --brand-1: #6366f1; --brand-2: #312e81; --brand-ink: #ffffff; --wordmark-ink: #f8fafc; --wordmark-accent: #a5b4fc;
     --shadow-xs: 0 1px 1px rgb(0 0 0 / .3); --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
     --shadow: 0 1px 3px rgb(0 0 0 / .45), 0 8px 24px rgb(0 0 0 / .3); --shadow-lg: 0 18px 48px rgb(0 0 0 / .55);
     --shadow-xl: 0 28px 64px rgb(0 0 0 / .6);
-    --chart-1: #3fd0bb; --chart-2: #f5a524; --chart-3: #b69dff; --chart-4: #79b0ff; --chart-5: #f472b6;
+    --chart-1: #a5b4fc; --chart-2: #f5a524; --chart-3: #c4b5fd; --chart-4: #79b0ff; --chart-5: #f472b6;
     --viz-1: #3987e5; --viz-2: #d95926; --viz-3: #199e70; --viz-4: #c98500; --viz-5: #d55181; --viz-6: #1f9a1f; --viz-7: #9085e9; --viz-8: #e66767;
     --viz-seq: #5598e7; --viz-compare: #8d8b85; --viz-grid: #2c3644; --viz-axis: #3c4859; --good: #4ade80;
     color-scheme: dark;
@@ -223,7 +226,7 @@
   --success: #3d6410; --success-soft: #e7ecd2; --warning: #7f4a03; --warning-soft: #f6e3c2;
   --danger: #9b2a17; --danger-soft: #f6ddd2; --info: #1e5687; --info-soft: #e0e5e3;
   --focus: #1e5687; --ai: #66399f; --ai-soft: #ece1f0; --selection: #ecd6ae;
-  --brand-1: #844511; --brand-2: #5b3a8f; --brand-ink: #fffaf0;
+  --brand-1: #844511; --brand-2: #5b3a8f; --brand-ink: #fffaf0; --wordmark-ink: #33281a; --wordmark-accent: #4338ca;
   --chart-1: #844511; --chart-2: #4d7c0f; --chart-3: #6d3fb0; --chart-4: #1e5a8a; --chart-5: #a3324f;
   --viz-grid: #e0d2b4; --viz-axis: #cdbb95; --viz-compare: #8c7a5f; --good: #3f6b0c;
   color-scheme: light;
@@ -240,7 +243,7 @@
   --success: #3cff7a; --success-soft: #002b10; --warning: #ffd400; --warning-soft: #262000;
   --danger: #ff8080; --danger-soft: #2b0000; --info: #7cc4ff; --info-soft: #001a2b;
   --focus: #00e5ff; --ai: #e0b3ff; --ai-soft: #1d0a2b; --selection: #403500; --scrim: rgb(0 0 0 / .8);
-  --brand-1: #000000; --brand-2: #000000; --brand-ink: #ffd400;
+  --brand-1: #000000; --brand-2: #000000; --brand-ink: #ffd400; --wordmark-ink: #ffffff; --wordmark-accent: #a5b4fc;
   --shadow-xs: none; --shadow-sm: none; --shadow: none; --shadow-lg: 0 0 0 2px #ffffff; --shadow-xl: 0 0 0 2px #ffffff;
   --chart-1: #ffd400; --chart-2: #3cff7a; --chart-3: #e0b3ff; --chart-4: #7cc4ff; --chart-5: #ff8080;
   --viz-1: #ffd400; --viz-2: #7cc4ff; --viz-3: #3cff7a; --viz-4: #ff9e3d; --viz-5: #e0b3ff; --viz-6: #ffffff; --viz-7: #ff6b6b; --viz-8: #00e5ff;

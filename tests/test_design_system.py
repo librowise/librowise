@@ -186,7 +186,8 @@ def test_font_brand_and_ui_modules_are_served(client):
     assert client.get("/static/fonts/inter/InterVariable.woff2").content[:4] == b"wOF2"
     assert "SIL Open Font License" in (STATIC / "fonts" / "inter" / "LICENSE.txt").read_text(encoding="utf-8")
     assert "font-src 'self'" in client.get("/").headers["content-security-policy"]
-    for asset in ("css/tokens.css", "css/ui.css", "brand/librowise-logo.svg", "brand/librowise-mark.svg"):
+    for asset in ("css/tokens.css", "css/ui.css", "brand/librowise-mark.svg", "brand/librowise-seal.svg", "brand/librowise-logo-light.png",
+                  "brand/librowise-logo-dark.png", "brand/librowise-maskable.svg"):
         assert client.get(f"/static/{asset}").status_code == 200, asset
     index = (STATIC / "js" / "ui" / "index.js").read_text(encoding="utf-8")
     for module in re.findall(r'from "/static/js/ui/([\w-]+)\.js"', index):

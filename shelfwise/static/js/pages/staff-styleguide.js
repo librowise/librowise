@@ -22,8 +22,8 @@ const code = (text) => html`<pre class="sg-code"><code>${text}</code></pre>`;
 const SEMANTIC = ["bg", "surface", "surface-2", "surface-3", "border", "border-strong", "border-input", "text", "text-2", "muted",
   "primary", "primary-2", "primary-soft", "accent", "success", "success-soft", "warning", "warning-soft", "danger", "danger-soft",
   "info", "info-soft", "ai", "ai-soft", "focus"];
-const RAMPS = ["teal", "slate"];
-const STEPS = { teal: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950], slate: [50, 100, 150, 200, 300, 400, 500, 600, 700, 800, 950] };
+const RAMPS = ["indigo", "slate"];
+const STEPS = { indigo: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950], slate: [50, 100, 150, 200, 300, 400, 500, 600, 700, 800, 950] };
 
 function lum(rgb) {
   const [r, g, b] = rgb.map((c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
@@ -62,12 +62,15 @@ function previewControls() {
 
 function renderBrand() {
   slot("brand").innerHTML = html`
-    ${demo(html`<span class="brand"><span class="brand-mark">${icon("logo")}</span><span class="wordmark">Libro<span>wise</span></span></span>
-      <span class="brand"><span class="brand-mark" style="width:3rem;height:3rem;border-radius:14px"><svg class="icon" style="width:2rem;height:2rem"><use href="#i-logo"></use></svg></span></span>
-      <img src="/static/icons/icon.svg" alt="App icon" width="64" height="64" style="border-radius:14px">
-      <img src="/static/icons/maskable.svg" alt="Maskable icon" width="64" height="64" style="border-radius:50%">
-      <img src="/static/favicon.svg" alt="Favicon" width="32" height="32">
-      <img src="/static/brand/librowise-logo.svg" alt="Librowise logo (light backgrounds)" height="40">
+    ${demo(html`<span class="brand"><img class="brand-logo" src="/static/brand/librowise-mark.svg" alt="" width="32" height="32"><span class="wordmark">Libro<span>wise</span></span></span>
+      <img src="/static/brand/librowise-mark.svg" alt="Librowise mark" width="72" height="72">
+      <img src="/static/brand/librowise-seal.svg" alt="Librowise seal" width="72" height="72">
+      <img src="/static/brand/librowise-icon-light.svg" alt="App icon (light)" width="72" height="72">
+      <img src="/static/brand/librowise-icon-dark.svg" alt="App icon (dark)" width="72" height="72">
+      <img src="/static/brand/librowise-maskable.svg" alt="Maskable PWA icon" width="72" height="72" style="border-radius:50%">
+      <img src="/static/favicon.svg" alt="Favicon" width="32" height="32">`)}
+    ${demo(html`<img class="sg-lockup light" src="/static/brand/librowise-logo-light.png" alt="Librowise logo for light backgrounds" width="300" height="75">
+      <img class="sg-lockup dark" src="/static/brand/librowise-logo-dark.png" alt="Librowise logo for dark backgrounds" width="300" height="75">
       <span class="muted">${t("ui.brand.tagline")}</span>`)}
     <p class="small muted">${t("ui.sg.brand_note")}</p>`;
 }

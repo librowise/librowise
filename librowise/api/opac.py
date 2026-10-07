@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,8 +12,9 @@ from ..ai import recommend
 from ..db import get_db
 from ..deps import current_user, optional_user
 from ..errors import NotFound
-from ..models import Hold, LedgerEntry, Loan, Patron, ReadingList, ReadingListEntry, Review
+from ..models import Branch, Hold, LedgerEntry, Loan, Patron, ReadingList, ReadingListEntry, Review, utcnow
 from ..schemas import HoldIn, ListIn, ReviewIn, biblio_out, hold_out, loan_out, money
+from ..services import calendar as calendar_svc
 from ..services import catalog, circulation
 from ..services import settings as settings_svc
 
@@ -38,7 +41,47 @@ def home(db: Session = Depends(get_db), user: Patron | None = Depends(optional_u
     avail = catalog.availability(db, all_ids)
     by_id = {b.id: biblio_out(b, avail.get(b.id)) for b in catalog.load_biblios(db, all_ids)}
     return {"shelves": [{"key": s["key"], "title": s["title"],
-                         "results": [by_id[i] for i in s["ids"] if i in by_id]} for s in shelves if s["ids"]]}
+                         "results": [by_id[i] for i in s["ids"] if i in by_id]} for s in shelves if s["ids"]],
+            "discover": _discover(db)}
+
+
+def _discover(db: Session) -> dict:
+    """Ways into the collection for the home page: the most-held subjects and authors and the formats.
+
+    Uses the (cached) facets of the empty search, so it costs nothing extra on a warm catalogue."""
+    res = catalog.search(db, None, page=1, per_page=1, sort="newest")
+    facets = res.facets or {}
+    return {"total": res.total,
+            "subjects": [[v, n] for v, n in facets.get("subject", [])[:14]],
+            "authors": [[v, n] for v, n in facets.get("author", [])[:8]],
+            "formats": [[v, n] for v, n in facets.get("material_type", [])]}
+
+
+@router.get("/library")
+def library(db: Session = Depends(get_db)):
+    """Public "visit us" information: every branch with its contact details and whether it is open
+    today and over the next seven days (from the library calendar: weekly closed days and closures)."""
+    today = utcnow().date()
+    out = []
+    for b in db.scalars(select(Branch).order_by(Branch.name)):
+        cal = calendar_svc.for_branch(db, b.id)
+        status = cal.status(today)
+        week = [today + timedelta(days=i) for i in range(7)]
+        closures = []
+        for i in range(1, 45):
+            d = today + timedelta(days=i)
+            s = cal.status(d)
+            if not s.open and not s.weekly:
+                closures.append({"date": d, "reason": s.reason})
+            if len(closures) == 3:
+                break
+        out.append({
+            "id": b.id, "code": b.code, "name": b.name, "address": b.address, "phone": b.phone, "email": b.email,
+            "open_today": status.open, "reason": None if status.weekly else status.reason,
+            "next_open": cal.next_open_day(today), "closed_weekdays": sorted(cal.closed_weekdays),
+            "week": [{"date": d, "open": cal.is_open(d)} for d in week], "closures": closures,
+        })
+    return {"library_name": settings_svc.get(db, "library_name"), "today": today, "branches": out}
 
 
 @router.get("/me/summary")

@@ -1,0 +1,14 @@
+{% extends "staff_base.html" %}
+{% block page_title %}My account &amp; security{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="row">
+    <div class="avatar lg">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
+    <div>
+      <h1>My account &amp; security</h1>
+      <div class="sub">{{ user.full_name }} · {{ user.card_number }} · {{ user.role.value|capitalize }}{% if user.staff_role %} · {{ user.staff_role.name }}{% endif %} · {{ user.home_branch.name }}</div>
+    </div>
+  </div>
+</div>
+<div id="security-root"></div>
+{% endblock %}

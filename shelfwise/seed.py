@@ -228,6 +228,7 @@ def seed(db: Session, *, patrons: int = 60, history_days: int = 365, rng_seed: i
     db.flush()
     seed_circulation_services(db, branches=branches, people=people, rng=rng)
     seed_serials_and_courses(db, rng=rng)
+    seed_identity(db)
     return {
         "titles": len(biblios), "items": db.query(Item).count(), "patrons": len(people) + len(staff),
         "loans": db.query(Loan).count(), "open_loans": db.query(Loan).filter(Loan.returned_at.is_(None)).count(),
@@ -414,4 +415,20 @@ def seed_serials_and_courses(db: Session, *, rng: random.Random | None = None) -
     courses_svc.set_active(db, c3, False, actor=librarian)  # last term's course, items restored
     db.flush()
     return {"subscriptions": 5, "courses": 3}
+
+def seed_identity(db: Session) -> None:
+    """Example custom staff roles (identity & access). Assign them from Staff → Roles & permissions."""
+    from .models import StaffRole
+
+    for name, description, perms in [
+        ("Circulation desk", "Front-desk volunteers and pages: loans, returns and holds — no overrides or waivers.",
+         ["opac", "catalog:read", "circulation", "holds:manage", "patrons:read"]),
+        ("Cataloguer", "Creates and maintains bibliographic records and authorities.",
+         ["opac", "catalog:read", "catalog:write", "authorities:manage", "reports:read"]),
+        ("Branch manager", "Librarian extras: audit log access and staff account oversight.",
+         ["audit:read", "reports:export", "notices:manage"]),
+    ]:
+        if not db.scalar(select(StaffRole.id).where(StaffRole.name == name)):
+            db.add(StaffRole(name=name, description=description, permissions=perms))
+    db.flush()
 

@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import require
 from ..errors import NotFound
-from ..models import Branch, Hold, HoldStatus, Loan, Patron, Role, utcnow
+from ..models import Branch, Hold, HoldStatus, Loan, Patron, utcnow
 from ..schemas import CheckinIn, CheckoutIn, HoldIn, RenewIn, hold_out, item_out, loan_out, money
+from ..security import has_permission
 from ..services import catalog, circulation
 
 router = APIRouter(tags=["circulation"])
@@ -29,8 +30,8 @@ def _patron_by_card(db: Session, card: str) -> Patron:
 
 
 def _can_override(user: Patron, requested: bool) -> bool:
-    if requested and user.role not in (Role.librarian, Role.admin):
-        raise HTTPException(403, "Override requires staff privileges")
+    if requested and not has_permission(user, "circulation:override"):
+        raise HTTPException(403, "Missing permission: circulation:override")
     return requested
 
 

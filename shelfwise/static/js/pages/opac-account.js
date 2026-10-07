@@ -1,6 +1,7 @@
 import { $, $$, api, authors, badge, confirmDialog, cover, date, empty, html, icon, money, relative, skeleton, toast, withBusy, parseDate } from "/static/js/core.js";
 import { bookCard } from "/static/js/pages/opac-home.js";
 import { holdsPanel, messagingCard, onPanelChange, onPanelClick, onPanelSubmit, suggestionsPanel } from "/static/js/pages/opac-account-services.js";
+import { mountSecurity } from "/static/js/security-panel.js";
 
 let summary;
 
@@ -73,7 +74,8 @@ const TABS = {
         <p class="small muted">When off, items are detached from your account as soon as they're returned. Recommendations then use only trending titles.</p>
         <h3 style="margin-top:1rem">Appearance</h3>
         <button class="btn" data-appearance>${icon("palette")}Theme, density & text size</button></div></div>
-      ${await messagingCard()}`;
+      ${await messagingCard()}
+      <div id="security-root" style="margin-top:1.25rem"></div>`;
   },
 };
 
@@ -85,6 +87,7 @@ async function show(tab) {
   } catch (e) { $("#panel").innerHTML = empty(e.message, "alert"); }
   history.replaceState(null, "", `#${tab}`);
   $("#panel [data-appearance]")?.addEventListener("click", () => $("header [data-appearance]").click());
+  if (tab === "settings" && $("#security-root")) mountSecurity($("#security-root")).catch((e) => toast(e.message, "error"));
 }
 
 async function refresh() {

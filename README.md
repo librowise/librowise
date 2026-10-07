@@ -221,3 +221,36 @@ Policies: `fines_skip_closed_days`, `allow_self_registration`, `self_registratio
 - Reserve items by barcode scan or catalogue search, or reserve a whole title. While any active course reserves an item, it can switch to a short-loan item type (the demo data seeds `RES`: 1-day loans, no renewals) and/or a reserve shelf location; the original values are remembered and restored when the last active course releases the item (reserve removed, course deactivated or deleted). Values staff changed by hand in the meantime are left alone. An item can be on reserve for several courses.
 - *End of term*: bulk-deactivate every course in a term (or selected courses) in one step; reactivating re-applies the reserve settings.
 - The OPAC lists active courses (search by code, name, department or instructor) and each course's readings with live availability.
+
+## Identity & access
+
+* **Fine-grained permissions & custom roles** — a catalogue of permission strings (`shelfwise/permissions.py`,
+  `GET /api/v1/admin/permissions`) grouped by area. Built-in roles keep their sets (librarians gain
+  `circulation:override`, `fines:waive/charge`, `patrons:delete`, `catalog:delete`, `reports:export` …; administrators
+  keep `*`). Administrators create **custom staff roles** (Staff → *Roles & permissions*) whose permissions are *added*
+  to the built-in role; assigning one to a patron account turns it into a narrowly-scoped staff account. Delegated
+  managers (`patrons:manage_staff`) can only grant permissions they hold and cannot touch accounts more powerful than
+  themselves. Newly guarded endpoints: overrides, waive/charge, patron erase, record/item delete, CSV export, settings
+  (`settings:manage`), audit log (`audit:read`) and jobs (`jobs:manage`).
+* **Two-factor authentication** — RFC 6238 TOTP (stdlib, ±1 step, replay-protected) with QR enrolment, 10 hashed
+  single-use recovery codes, step-up (password + code) to disable/regenerate, admin reset and a break-glass CLI
+  (`python -m shelfwise reset-2fa --username …`). Sign-in becomes two-step: `POST /auth/login` returns
+  `{mfa_required, mfa_token}` (signed, 5-minute, single-use, 5 attempts) and `POST /auth/mfa` completes it.
+  Policy `require_2fa_for_staff` forces staff to enrol before using staff features.
+* **Sessions & API tokens** — every sign-in is a server-side session (list, revoke, “sign out everywhere”, idle
+  timeout `session_idle_timeout_minutes`, admin revoke). Personal API tokens (`Authorization: Bearer swt_…`) are
+  named, hashed, scoped (effective permissions = account ∩ scopes), expiring and revocable; they can never manage
+  credentials.
+* **Password reset & lockout** — “Forgot password?” e-mails a signed, single-use, 30-minute link (queued as a
+  notice; logged in development) with a uniform response and rate limits. Failed sign-ins lock an account
+  temporarily (`lockout_threshold`, `lockout_minutes`); users see their sign-in history; optional new-device notices
+  (`notify_new_signin`); all auth events are audited.
+* **OpenID Connect SSO** — authorization code + PKCE + state + nonce, discovery + JWKS-verified ID tokens
+  (PyJWT), configured under *Roles & permissions → Single sign-on* (secrets encrypted at rest). Users are matched by
+  linked identity, then verified e-mail; optional domain allow-list, staff/patron restriction and patron
+  auto-creation. Users can link/unlink identities from their security settings. Register
+  `<SHELFWISE_PUBLIC_URL>/api/v1/auth/sso/<id>/callback` at the IdP.
+
+Set `SHELFWISE_PUBLIC_URL` in production so e-mailed links and SSO redirects never depend on the `Host` header.
+TOTP seeds and SSO client secrets are encrypted with a key derived from `SHELFWISE_SECRET_KEY`; rotating that key
+requires users to re-enrol their authenticators.

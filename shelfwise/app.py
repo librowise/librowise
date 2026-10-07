@@ -26,7 +26,9 @@ from .web import router as web_router
 log = logging.getLogger("shelfwise")
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-CSRF_EXEMPT = {"/api/v1/auth/login", "/api/v1/auth/logout"}
+CSRF_EXEMPT = {"/api/v1/auth/login", "/api/v1/auth/logout",
+               # pre-authentication steps (no session yet; protected by single-use tokens / rate limits)
+               "/api/v1/auth/mfa", "/api/v1/auth/password-reset", "/api/v1/auth/password-reset/confirm"}
 
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "

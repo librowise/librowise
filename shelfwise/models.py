@@ -174,9 +174,15 @@ class Patron(TimestampMixin, Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     # OPAC self-registration: None (staff-created) | pending | approved | rejected
     registration_status: Mapped[str | None] = mapped_column(String(16), index=True)
+    # Identity & access (see the "identity & access" section at the end of this module).
+    staff_role_id: Mapped[int | None] = mapped_column(ForeignKey("staff_roles.id", ondelete="SET NULL"), index=True)
+    failed_logins: Mapped[int | None] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime)
+    sessions_revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     category: Mapped[PatronCategory] = relationship(lazy="joined")
     home_branch: Mapped[Branch] = relationship(lazy="joined")
+    staff_role: Mapped[StaffRole | None] = relationship(lazy="select")
 
     @property
     def full_name(self) -> str:
@@ -184,7 +190,8 @@ class Patron(TimestampMixin, Base):
 
     @property
     def is_staff(self) -> bool:
-        return self.role in (Role.librarian, Role.admin)
+        # A custom staff role makes an account a staff account even with the base "patron" role.
+        return self.role in (Role.librarian, Role.admin) or self.staff_role_id is not None
 
 
 # ---------------------------------------------------------------------------------------
@@ -731,3 +738,117 @@ class CourseReserve(TimestampMixin, Base):
 
     course: Mapped[Course] = relationship(back_populates="reserves", lazy="joined")
     course_item: Mapped[CourseItem] = relationship(back_populates="reserves", lazy="joined")
+
+# ---- identity & access ----
+# Custom staff roles, server-side sessions, personal API tokens, TOTP two-factor authentication,
+# one-time tokens (MFA challenges, password resets), login history and SSO identities.
+
+
+class StaffRole(TimestampMixin, Base):
+    """A named, admin-defined set of permissions. Effective permissions are the union of the
+    built-in role (``Patron.role``) and the assigned custom role."""
+
+    __tablename__ = "staff_roles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    description: Mapped[str | None] = mapped_column(String(255))
+    permissions: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class UserSession(Base):
+    """Server-side registry of sign-ins. Session tokens embed ``sid``; revoking the row ends the session."""
+
+    __tablename__ = "user_sessions"
+    __table_args__ = (Index("ix_user_sessions_user_active", "user_id", "revoked_at"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sid: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    method: Mapped[str] = mapped_column(String(40), default="password")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class ApiToken(Base):
+    """Long-lived personal API token for integrations. Only a SHA-256 hash is stored."""
+
+    __tablename__ = "api_tokens"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    prefix: Mapped[str] = mapped_column(String(16))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    scopes: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_used_ip: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class MfaTotp(Base):
+    """RFC 6238 TOTP credential. ``confirmed_at`` is NULL while enrolment is pending."""
+
+    __tablename__ = "mfa_totp"
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), primary_key=True)
+    secret_enc: Mapped[str] = mapped_column(String(255))  # AES-GCM encrypted base32 secret
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_used_step: Mapped[int | None] = mapped_column(Integer)
+
+
+class MfaRecoveryCode(Base):
+    __tablename__ = "mfa_recovery_codes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class AuthToken(Base):
+    """Single-use, short-lived tokens (``mfa`` login challenges, ``reset`` password resets)."""
+
+    __tablename__ = "auth_tokens"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(16), index=True)
+    jti_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class LoginEvent(Base):
+    """Sign-in history (successes and failures), visible to the account holder."""
+
+    __tablename__ = "login_events"
+    __table_args__ = (Index("ix_login_events_user_at", "user_id", "at"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"))
+    username: Mapped[str | None] = mapped_column(String(64))
+    at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    success: Mapped[bool] = mapped_column(Boolean, default=False)
+    method: Mapped[str] = mapped_column(String(40), default="password")
+    reason: Mapped[str | None] = mapped_column(String(64))
+
+
+class UserIdentity(Base):
+    """An external (OpenID Connect) identity linked to a local account."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (UniqueConstraint("provider", "subject"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("patrons.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(40))
+    subject: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)

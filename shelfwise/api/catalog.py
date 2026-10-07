@@ -115,7 +115,7 @@ def update_biblio(biblio_id: int, body: BiblioPatch, request: Request, db: Sessi
 
 @router.delete("/biblios/{biblio_id}", status_code=204)
 def delete_biblio(biblio_id: int, request: Request, db: Session = Depends(get_db),
-                  user: Patron = Depends(require("catalog:write"))):
+                  user: Patron = Depends(require("catalog:delete"))):
     b = catalog.get_biblio(db, biblio_id)
     catalog.delete_biblio(db, b)
     audit.record(db, "delete", "biblio", b.id, actor=user, ip=client_ip(request), title=b.title)
@@ -163,7 +163,7 @@ def update_item(item_id: int, body: ItemPatch, db: Session = Depends(get_db),
 
 
 @router.delete("/items/{item_id}", status_code=204)
-def delete_item(item_id: int, db: Session = Depends(get_db), user: Patron = Depends(require("catalog:write"))):
+def delete_item(item_id: int, db: Session = Depends(get_db), user: Patron = Depends(require("catalog:delete"))):
     from ..models import ItemStatus, utcnow
     item = db.get(Item, item_id)
     if item is None or item.deleted_at is not None:

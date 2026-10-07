@@ -17,6 +17,7 @@ from ..db import get_db
 from ..deps import require
 from ..models import Biblio, Branch, Item, ItemType, Loan, Patron, PatronCategory, utcnow
 from ..schemas import money
+from ..security import has_permission
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -96,7 +97,9 @@ def list_reports(_: Patron = Depends(require("reports:read"))):
 
 @router.get("/run/{name}")
 def run(name: str, days: int = Query(default=30, ge=1, le=3650), fmt: str = Query(default="json", pattern="^(json|csv)$"),
-        db: Session = Depends(get_db), _: Patron = Depends(require("reports:read"))):
+        db: Session = Depends(get_db), user: Patron = Depends(require("reports:read"))):
+    if fmt == "csv" and not has_permission(user, "reports:export"):
+        raise HTTPException(403, "Missing permission: reports:export")
     headers, rows = _report_rows(db, name, days)
     if fmt == "csv":
         buf = io.StringIO()

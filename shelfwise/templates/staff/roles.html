@@ -1,0 +1,18 @@
+{% extends "staff_base.html" %}
+{% block page_title %}Roles &amp; permissions{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Roles &amp; permissions</h1>
+    <div class="sub">Custom staff roles, staff access, per-user security controls and single sign-on.</div>
+  </div>
+</div>
+<div id="roles-denied"></div>
+<div class="tabs" role="tablist" aria-label="Access control sections" id="roles-tabs">
+  <button role="tab" id="tab-roles" data-tab="roles" aria-selected="true" aria-controls="roles-panel">Roles</button>
+  <button role="tab" id="tab-staff" data-tab="staff" aria-selected="false" aria-controls="roles-panel" tabindex="-1">Staff accounts</button>
+  <button role="tab" id="tab-user" data-tab="user" aria-selected="false" aria-controls="roles-panel" tabindex="-1">User access</button>
+  <button role="tab" id="tab-sso" data-tab="sso" aria-selected="false" aria-controls="roles-panel" tabindex="-1">Single sign-on</button>
+</div>
+<section id="roles-panel" role="tabpanel" aria-labelledby="tab-roles"></section>
+{% endblock %}

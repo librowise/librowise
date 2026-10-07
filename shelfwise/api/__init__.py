@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from . import (
+    account_security,
     acquisitions,
     admin,
     ai,
@@ -13,6 +14,8 @@ from . import (
     patrons,
     registration,
     reports,
+    roles,
+    sso,
     suggestions,
 )
 from . import calendar as calendar_api
@@ -26,5 +29,7 @@ for module in (
     calendar_api, hold_actions, notices, registration, suggestions,
     # serials & course reserves
     serials_api, courses_api,
+    # identity & access
+    account_security, roles, sso,
 ):
     api_router.include_router(module.router)

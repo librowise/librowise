@@ -5,14 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="{% block meta_description %}{{ t('meta.description', library=library_name) }}{% endblock %}">
-  <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0c7064" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f16" media="(prefers-color-scheme: dark)">
   <title>{% block title %}{{ library_name }}{% endblock %}</title>
   {% block head_extra %}{% endblock %}
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/static/icons/icon.svg">
+  <link rel="preload" href="/static/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/tokens.css?v={{ version }}">
   <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
+  <link rel="stylesheet" href="/static/css/ui.css?v={{ version }}">
   <script src="/static/js/theme-boot.js?v={{ version }}"></script>
   <script type="application/json" id="boot">{{ {
     "user": ({"id": user.id, "name": user.full_name, "card": user.card_number, "role": user.role.value,

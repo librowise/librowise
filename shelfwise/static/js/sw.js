@@ -9,7 +9,16 @@ const PAGE_CACHE = `sw-pages-${BUILD}`;
 const OFFLINE_URL = "/offline";
 const PRECACHE = [
   OFFLINE_URL,
+  "/static/css/tokens.css?v=__VERSION__",
   "/static/css/app.css?v=__VERSION__",
+  "/static/css/ui.css?v=__VERSION__",
+  "/static/fonts/inter/InterVariable.woff2",
+  "/static/js/ui/empty.js",
+  "/static/js/ui/filters.js",
+  "/static/js/ui/pagination.js",
+  "/static/js/ui/tabs.js",
+  "/static/js/ui/tooltip.js",
+  "/static/js/ui/palette.js",
   "/static/js/theme-boot.js?v=__VERSION__",
   "/static/js/core.js",
   "/static/js/i18n.js",

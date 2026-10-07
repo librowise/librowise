@@ -1,0 +1,69 @@
+#!/bin/sh
+# postinst for librowise: system account, directories, systemd, schema upgrades of existing instances.
+set -e
+
+USER_NAME=librowise
+REGISTRY=/etc/librowise/instances.json
+
+create_account() {
+    if ! getent group "$USER_NAME" >/dev/null; then
+        groupadd --system "$USER_NAME"
+    fi
+    if ! getent passwd "$USER_NAME" >/dev/null; then
+        useradd --system --gid "$USER_NAME" --home-dir /var/lib/librowise --no-create-home \
+            --shell /usr/sbin/nologin --comment "Librowise ILS" "$USER_NAME"
+    fi
+}
+
+create_dirs() {
+    install -d -m 0755 -o root -g root /etc/librowise /var/log/librowise
+    install -d -m 0755 -o "$USER_NAME" -g "$USER_NAME" /var/lib/librowise
+    install -d -m 0750 -o root -g "$USER_NAME" /var/backups/librowise
+}
+
+has_instances() {
+    [ -s "$REGISTRY" ] && /opt/librowise/venv/bin/python -c \
+        'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("instances") else 1)' "$REGISTRY" 2>/dev/null
+}
+
+case "$1" in
+    configure)
+        create_account
+        create_dirs
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        if [ -n "$2" ] && has_instances; then
+            # Upgrade: like koha-common, bring every instance's schema up to date and restart it.
+            echo "Upgrading Librowise instances (backup, migrate, restart)..."
+            if ! /usr/bin/librowise instance upgrade --all; then
+                echo "WARNING: an instance upgrade failed. Fix the problem, then run:" >&2
+                echo "  sudo librowise instance upgrade --all" >&2
+            fi
+        elif [ -z "$2" ]; then
+            cat <<'EOF'
+
+Librowise is installed. Create your first library (like koha-create):
+
+  sudo apt install postgresql caddy        # if not installed yet
+  sudo librowise instance create library --domain catalogue.example.org \
+       --admin-email you@example.org
+
+For a quick local evaluation without PostgreSQL or a web proxy:
+
+  sudo librowise instance create demo --db sqlite --no-proxy --demo-data
+
+Then: librowise instance list | librowise instance doctor NAME
+Documentation: man librowise-instance, /usr/share/doc/librowise/INSTALL.md.gz
+
+EOF
+        fi
+        ;;
+    abort-upgrade | abort-remove | abort-deconfigure) ;;
+    *)
+        echo "postinst called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

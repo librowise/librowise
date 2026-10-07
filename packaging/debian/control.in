@@ -1,0 +1,22 @@
+Package: librowise
+Version: @VERSION@
+Section: web
+Priority: optional
+Architecture: @ARCH@
+Maintainer: @MAINTAINER@
+Installed-Size: @INSTALLED_SIZE@
+Depends: @PYTHON@, passwd, util-linux, ca-certificates
+Recommends: postgresql (>= 14), postgresql-client, caddy | nginx, logrotate, curl
+Suggests: certbot, python3-certbot-nginx
+Homepage: https://github.com/librowise/librowise
+Description: modern, AI-assisted integrated library system (Koha replacement)
+ Librowise is a library management system: catalogue with MARC21 and
+ authorities, circulation, holds, fines, OPAC, serials, course reserves,
+ acquisitions suggestions, reports, SIP2 for self-check machines, SRU and
+ OAI-PMH, with optional Claude-powered AI assistance.
+ .
+ This package installs the application into a self-contained Python
+ environment under /opt/librowise, the `librowise` command and systemd
+ template units. Create a library with `librowise instance create`, which
+ sets up a PostgreSQL database, the services and an HTTPS reverse proxy,
+ like koha-create does for Koha.

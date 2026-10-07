@@ -68,8 +68,22 @@ It runs as one fast Python process with a secure-by-default design and a polishe
 
 ## Quick start
 
+**Production server** (Ubuntu 22.04/24.04, Debian 12/13): PostgreSQL, HTTPS via Caddy, systemd
+services, nightly backups and a first administrator in one command:
+
 ```bash
-git clone https://github.com/<org>/shelfwise.git && cd shelfwise
+curl -fsSL https://raw.githubusercontent.com/librowise/librowise/main/install/install.sh \
+  | sudo bash -s -- --domain catalogue.example.org --email admin@example.org
+```
+
+Then manage libraries like Koha's `koha-*` tools: `librowise instance create|list|doctor|upgrade|backup|remove`.
+Debian packages, Docker, a Windows evaluation installer and manual setups are covered in
+**[docs/INSTALL.md](docs/INSTALL.md)**.
+
+**Development** (any OS):
+
+```bash
+git clone https://github.com/librowise/librowise.git && cd librowise
 python -m venv .venv && . .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 python -m shelfwise seed       # creates shelfwise.db with demo data

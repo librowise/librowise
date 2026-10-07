@@ -78,3 +78,22 @@ jobs:
           curl -fsS http://127.0.0.1:8000/healthz
           docker exec sw python -m shelfwise jobs types
           docker rm -f sw
+
+  deb:
+    # Build the Debian package in ubuntu:24.04, then install it in a clean container: instance
+    # create (SQLite, no proxy), /healthz and /readyz, backup, doctor, remove --purge-data, purge.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint installer and packaging scripts
+        run: shellcheck install/install.sh packaging/*.sh packaging/debian/postinst packaging/debian/prerm packaging/debian/postrm
+      - name: Build librowise_*.deb
+        run: |
+          docker run --rm -v "$PWD":/src -w /src ubuntu:24.04 bash -c             "apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3-venv git && packaging/build-deb.sh --out /src/dist"
+      - name: Smoke test in ubuntu:24.04
+        run: docker run --rm -v "$PWD":/src -w /src ubuntu:24.04 packaging/smoke-test-deb.sh dist/librowise_*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: librowise-deb
+          path: dist/*.deb
+          if-no-files-found: error

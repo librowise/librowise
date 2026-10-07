@@ -1,0 +1,49 @@
+#!/bin/sh
+# postrm for librowise. "remove" keeps all data and configuration; "purge" deletes the instance
+# configuration, data and logs. Backups and PostgreSQL databases are never dropped automatically.
+set -e
+
+cleanup_runtime() {
+    # Byte-code caches written at run time and instance enablement links.
+    if [ -d /opt/librowise ]; then
+        find /opt/librowise -depth -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find /opt/librowise -depth -type d -empty -delete 2>/dev/null || true
+    fi
+    rm -rf /run/librowise
+}
+
+case "$1" in
+    remove)
+        cleanup_runtime
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        ;;
+    purge)
+        cleanup_runtime
+        DBS=""
+        if [ -s /etc/librowise/instances.json ]; then
+            DBS=$(sed -n 's/^ *"name": "\([a-z0-9-]*\)",*$/librowise_\1/p' /etc/librowise/instances.json | tr '-' '_' | tr '\n' ' ')
+        fi
+        rm -f /etc/systemd/system/multi-user.target.wants/librowise@*.target
+        rm -rf /etc/systemd/system/librowise@*.target.wants
+        rm -rf /etc/librowise /var/lib/librowise /var/log/librowise
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        if [ -d /var/backups/librowise ]; then
+            echo "Kept backups in /var/backups/librowise (delete them when no longer needed)."
+        fi
+        if [ -n "$DBS" ]; then
+            echo "Kept PostgreSQL databases/roles: $DBS"
+            echo "Drop them with: sudo -u postgres dropdb NAME && sudo -u postgres dropuser NAME"
+        fi
+        ;;
+    upgrade | failed-upgrade | abort-install | abort-upgrade | disappear) ;;
+    *)
+        echo "postrm called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

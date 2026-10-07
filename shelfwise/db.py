@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -165,10 +165,26 @@ def create_all() -> None:
     Base.metadata.create_all(engine)
     backend = search_backend(engine)
     ddl = FTS_DDL if backend == "fts5" else PG_SEARCH_DDL if backend == "tsvector" else []
-    if ddl:
-        with engine.begin() as conn:
-            for stmt in ddl:
-                conn.execute(text(stmt))
+    with engine.begin() as conn:
+        # create_all() only creates indexes together with new tables; add indexes introduced
+        # since an existing database was created (idempotent, cheap catalogue lookups).
+        existing = _index_names(conn)
+        for table in Base.metadata.sorted_tables:
+            for index in table.indexes:
+                if index.name not in existing:
+                    index.create(conn)
+        for stmt in ddl:
+            conn.execute(text(stmt))
+
+
+def _index_names(conn) -> set[str]:
+    """Names of existing indexes, including expression indexes the inspector does not report."""
+    if conn.dialect.name == "sqlite":
+        return set(conn.scalars(text("SELECT name FROM sqlite_master WHERE type = 'index'")))
+    if conn.dialect.name == "postgresql":
+        return set(conn.scalars(text("SELECT indexname FROM pg_indexes WHERE schemaname = current_schema()")))
+    insp = inspect(conn)
+    return {i["name"] for t in insp.get_table_names() for i in insp.get_indexes(t)}
 
 
 def drop_all() -> None:

@@ -19,16 +19,19 @@ from ..models import Biblio, Hold, HoldStatus, Item, ItemStatus, Loan, utcnow
 def _patron_late_stats(db: Session, patron_ids: set[int]) -> dict[int, tuple[int, int]]:
     if not patron_ids:
         return {}
+    # Large sets use a semi-join on "patrons with open loans" instead of a huge IN (...) list.
+    who = (Loan.patron_id.in_(patron_ids) if len(patron_ids) <= 500 else
+           Loan.patron_id.in_(select(Loan.patron_id).where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))))
     rows = db.execute(
         select(
             Loan.patron_id,
             func.count(Loan.id),
             func.sum(case((Loan.returned_at > Loan.due_at, 1), else_=0)),
         )
-        .where(Loan.patron_id.in_(patron_ids), Loan.returned_at.is_not(None))
+        .where(who, Loan.returned_at.is_not(None))
         .group_by(Loan.patron_id)
     ).all()
-    return {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows}
+    return {pid: (int(total or 0), int(late or 0)) for pid, total, late in rows if pid in patron_ids}
 
 
 def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
@@ -36,15 +39,17 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
 
     A transparent logistic model over: the patron's historical late-return rate (with a
     Bayesian prior), renewals already used, days remaining and current overdue loans.
+    Scoring runs over light tuples; full loan objects are loaded only for the top ``limit``.
     """
     now = utcnow()
-    loans = list(db.scalars(select(Loan).where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))))
+    loans = db.execute(select(Loan.id, Loan.patron_id, Loan.due_at, Loan.renewals)
+                       .where(Loan.returned_at.is_(None), Loan.patron_id.is_not(None))).all()
     stats = _patron_late_stats(db, {l.patron_id for l in loans if l.patron_id})
     overdue_now: dict[int, int] = defaultdict(int)
     for l in loans:
         if l.due_at < now:
             overdue_now[l.patron_id] += 1
-    out = []
+    scored = []
     for l in loans:
         if l.due_at < now:
             continue
@@ -53,13 +58,19 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
         days_left = (l.due_at - now).days
         z = (-2.2 + 4.0 * late_rate + 0.6 * l.renewals + 0.9 * min(overdue_now[l.patron_id], 3)
              - 0.05 * days_left)
-        p = 1 / (1 + math.exp(-z))
+        scored.append((1 / (1 + math.exp(-z)), l, late_rate, days_left))
+    scored.sort(key=lambda r: -r[0])
+    top = scored[:limit]
+    full = {l.id: l for l in db.scalars(select(Loan).where(Loan.id.in_([r[1].id for r in top])))} if top else {}
+    out = []
+    for p, l, late_rate, days_left in top:
+        loan = full[l.id]
         out.append({
             "loan_id": l.id,
-            "patron": l.patron.full_name if l.patron else None,
+            "patron": loan.patron.full_name if loan.patron else None,
             "patron_id": l.patron_id,
-            "title": l.item.biblio.title,
-            "barcode": l.item.barcode,
+            "title": loan.item.biblio.title,
+            "barcode": loan.item.barcode,
             "due_at": l.due_at,
             "risk": round(p, 3),
             "level": "high" if p >= 0.5 else "medium" if p >= 0.25 else "low",
@@ -70,8 +81,7 @@ def overdue_risk(db: Session, limit: int = 50) -> list[dict]:
                 "days_left": days_left,
             },
         })
-    out.sort(key=lambda r: -r["risk"])
-    return out[:limit]
+    return out
 
 
 # ------------------------------------------------------------------ acquisitions & weeding

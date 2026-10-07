@@ -9,23 +9,27 @@ Search is dispatched on the database dialect (see :func:`shelfwise.db.search_bac
 
 Both match the last query term as a prefix. Filtering, counting, sorting and pagination all run
 in SQL, so a search touches only one page of rows in Python no matter how large the catalogue
-is. Scalar facets (format, language, decade) are exact; subject and author facets are computed
-over the best ``FACET_SAMPLE`` matches to bound their cost.
+is. Subjects and authors are also kept in ``biblio_facets`` (maintained with the full-text index),
+which turns subject/author filters into index lookups. Scalar facets (format, language, decade)
+are exact; subject and author facets are computed over the best ``FACET_SAMPLE`` matches.
+Records must be written through this module (or followed by ``reindex_all``) to be searchable.
 """
 
 from __future__ import annotations
 
 import re
+import threading
 import time
+from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 
-from sqlalchemy import Float, Integer, and_, case, exists, func, literal, or_, select, text, true
+from sqlalchemy import Float, Integer, and_, delete, exists, func, insert, literal, or_, select, text
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..db import search_backend
 from ..errors import Conflict, NotFound
-from ..models import Biblio, Item, ItemStatus, utcnow
+from ..models import Biblio, BiblioFacet, Item, ItemStatus, utcnow
 
 # ------------------------------------------------------------------ ISBN helpers
 
@@ -108,7 +112,21 @@ def _index_fields(biblio: Biblio) -> dict:
     }
 
 
+def _facet_rows(biblio: Biblio) -> list[dict]:
+    rows, seen = [], set()
+    for kind, values in (("s", biblio.subjects), ("a", biblio.authors)):
+        for v in values or []:
+            v = str(v).strip()
+            if v and (kind, v.lower()) not in seen:
+                seen.add((kind, v.lower()))
+                rows.append({"biblio_id": biblio.id, "kind": kind, "value": v, "value_norm": v.lower()})
+    return rows
+
+
 def index_biblio(db: Session, biblio: Biblio) -> None:
+    db.execute(delete(BiblioFacet).where(BiblioFacet.biblio_id == biblio.id))
+    if biblio.deleted_at is None and (rows := _facet_rows(biblio)):
+        db.execute(insert(BiblioFacet), rows)
     backend = search_backend(db)
     if backend == "fts5":
         db.execute(text("DELETE FROM biblio_fts WHERE rowid = :id"), {"id": biblio.id})
@@ -143,7 +161,8 @@ def index_biblio(db: Session, biblio: Biblio) -> None:
 
 
 def reindex_all(db: Session) -> int:
-    """Rebuild the full-text index in bulk (one INSERT … SELECT; seconds for 100k records)."""
+    """Rebuild the full-text index and facet table in bulk (INSERT … SELECT; seconds for 100k records)."""
+    _reindex_facets(db)
     backend = search_backend(db)
     if backend == "fts5":
         db.execute(text("DELETE FROM biblio_fts"))
@@ -170,8 +189,31 @@ def reindex_all(db: Session) -> int:
             "FROM biblios b WHERE b.deleted_at IS NULL"
         ), {"cfg": get_settings().pg_search_config})
     else:
-        return 0
+        return int(db.scalar(select(func.count()).select_from(Biblio).where(Biblio.deleted_at.is_(None))) or 0)
     return int(db.scalar(select(func.count()).select_from(Biblio).where(Biblio.deleted_at.is_(None))) or 0)
+
+
+def _reindex_facets(db: Session) -> int:
+    db.execute(delete(BiblioFacet))
+    backend = search_backend(db)
+    if backend in ("fts5", "tsvector"):
+        for kind, col in (("s", "subjects"), ("a", "authors")):
+            if backend == "fts5":
+                sql = (f"INSERT INTO biblio_facets (biblio_id, kind, value, value_norm) "
+                       f"SELECT DISTINCT b.id, '{kind}', trim(je.value), py_lower(trim(je.value)) "
+                       f"FROM biblios b, json_each(b.{col}) je "
+                       f"WHERE b.deleted_at IS NULL AND je.type = 'text' AND trim(je.value) <> ''")
+            else:
+                sql = (f"INSERT INTO biblio_facets (biblio_id, kind, value, value_norm) "
+                       f"SELECT DISTINCT b.id, '{kind}', trim(x), lower(trim(x)) FROM biblios b, "
+                       f"json_array_elements_text(CASE WHEN json_typeof(b.{col}) = 'array' THEN b.{col} "
+                       f"ELSE '[]'::json END) AS x WHERE b.deleted_at IS NULL AND trim(x) <> ''")
+            db.execute(text(sql))
+    else:
+        for b in db.scalars(select(Biblio).where(Biblio.deleted_at.is_(None))):
+            if rows := _facet_rows(b):
+                db.execute(insert(BiblioFacet), rows)
+    return int(db.scalar(select(func.count()).select_from(BiblioFacet)) or 0)
 
 
 # ------------------------------------------------------------------ CRUD
@@ -333,8 +375,9 @@ class SearchResult:
 
 
 def _match(db: Session, q: str | None):
-    """A subquery (id, score[, title_len]) of text matches, plus its best-first ORDER BY, or None
-    when ``q`` contains no searchable terms."""
+    """``(ids, scored, order)`` for a text query: an id-only subquery of matches (cheap: for
+    counting, filtering and facets), a scored subquery and its best-first ORDER BY (for the page).
+    None when ``q`` contains no searchable terms."""
     if not q or not q.strip():
         return None
     backend = search_backend(db)
@@ -342,26 +385,30 @@ def _match(db: Session, q: str | None):
         m = fts_query(q)
         if not m:
             return None
+        ids = (text("SELECT rowid AS id FROM biblio_fts WHERE biblio_fts MATCH :m").bindparams(m=m)
+               .columns(id=Integer).subquery("fts_ids"))
         sub = (text(f"SELECT rowid AS id, bm25(biblio_fts, {FTS_WEIGHTS}) AS score FROM biblio_fts "
                     "WHERE biblio_fts MATCH :m").bindparams(m=m)
                .columns(id=Integer, score=Float).subquery("fts"))
-        return sub, [sub.c.score.asc(), sub.c.id.asc()]
+        return ids, sub, [sub.c.score.asc(), sub.c.id.asc()]
     if backend == "tsvector":
         tsq = pg_tsquery(q)
         if not tsq:
             return None
         expr, binds = tsq
+        ids = (text(f"SELECT s.biblio_id AS id FROM biblio_search s, (SELECT {expr} AS query) AS tq "
+                    "WHERE s.document @@ tq.query").bindparams(**binds).columns(id=Integer).subquery("tsv_ids"))
         sub = (text(f"SELECT s.biblio_id AS id, ts_rank_cd(s.document, tq.query) AS score, s.title_len "
                     f"FROM biblio_search s, (SELECT {expr} AS query) AS tq WHERE s.document @@ tq.query")
                .bindparams(**binds).columns(id=Integer, score=Float, title_len=Integer).subquery("tsv"))
-        return sub, [sub.c.score.desc(), sub.c.title_len.asc(), sub.c.id.asc()]
+        return ids, sub, [sub.c.score.desc(), sub.c.title_len.asc(), sub.c.id.asc()]
     # Portable fallback for other databases
     like = f"%{q.strip()}%"
     sub = (select(Biblio.id.label("id"), literal(0.0).label("score"))
            .where(Biblio.deleted_at.is_(None),
                   or_(Biblio.title.ilike(like), Biblio.description.ilike(like), Biblio.isbn == q.strip()))
            .subquery("lk"))
-    return sub, [sub.c.id.asc()]
+    return sub, sub, [sub.c.id.asc()]
 
 
 def _candidate_ids(db: Session, q: str | None, limit: int = CANDIDATE_LIMIT) -> list[int] | None:
@@ -369,21 +416,15 @@ def _candidate_ids(db: Session, q: str | None, limit: int = CANDIDATE_LIMIT) -> 
     m = _match(db, q)
     if m is None:
         return None
-    sub, order = m
+    _ids, sub, order = m
     return list(db.scalars(select(sub.c.id).order_by(*order).limit(limit)))
 
 
-def _lower(db: Session, expr):
-    # SQLite's lower() only folds ASCII; a Python UDF (registered on connect) handles Unicode.
-    return func.py_lower(expr) if search_backend(db) == "fts5" else func.lower(expr)
-
-
-def _json_values(db: Session, column):
-    """Table-valued expansion of a JSON array column (column ``value``)."""
-    if search_backend(db) == "tsvector":
-        safe = case((func.json_typeof(column) == "array", column), else_=text("'[]'::json"))
-        return func.json_array_elements_text(safe).table_valued("value")
-    return func.json_each(column).table_valued("value")
+def _facet_values(db: Session, kind: str, values: list[str], *, like: bool = False):
+    """Ids of records having a subject/author (``kind`` s/a) equal to — or containing — a value."""
+    norm = BiblioFacet.value_norm
+    cond = norm.contains(values[0].lower(), autoescape=True) if like else norm == values[0].lower()
+    return select(BiblioFacet.biblio_id).where(BiblioFacet.kind == kind, cond)
 
 
 def _apply_filters(db: Session, stmt, filters: SearchFilters):
@@ -398,12 +439,9 @@ def _apply_filters(db: Session, stmt, filters: SearchFilters):
     if filters.year_to:
         stmt = stmt.where(Biblio.pub_year <= filters.year_to)
     if filters.subject:
-        vals = _json_values(db, Biblio.subjects)
-        stmt = stmt.where(exists(select(1).select_from(vals).where(_lower(db, vals.c.value) == filters.subject.lower())))
+        stmt = stmt.where(Biblio.id.in_(_facet_values(db, "s", [filters.subject])))
     if filters.author:
-        vals = _json_values(db, Biblio.authors)
-        stmt = stmt.where(exists(select(1).select_from(vals).where(
-            _lower(db, vals.c.value).contains(filters.author.lower(), autoescape=True))))
+        stmt = stmt.where(Biblio.id.in_(_facet_values(db, "a", [filters.author], like=True)))
     if filters.available_only or filters.branch_id:
         conds = [Item.biblio_id == Biblio.id, Item.deleted_at.is_(None)]
         if filters.available_only:
@@ -426,6 +464,43 @@ def _order(sort: str, match_order: list | None) -> list:
     return [Biblio.created_at.desc(), Biblio.id.desc()]  # newest additions
 
 
+# ------------------------------------------------------------------ facet/total cache
+# Totals and facets of searches that do not depend on item status are cached per process,
+# keyed by a catalogue signature (max id, max updated_at — two index lookups), so repeated
+# browsing of a large catalogue only pays for the page query. Any record change invalidates.
+
+_CACHE_TTL = 60.0
+_CACHE_MAX = 256
+_cache: OrderedDict = OrderedDict()
+_cache_lock = threading.Lock()
+
+
+def _catalogue_signature(db: Session) -> tuple:
+    return (db.scalar(select(func.max(Biblio.id))), db.scalar(select(func.max(Biblio.updated_at))))
+
+
+def _cache_get(key):
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit is None or time.monotonic() - hit[0] > _CACHE_TTL:
+            return None
+        _cache.move_to_end(key)
+        return hit[1]
+
+
+def _cache_put(key, value) -> None:
+    with _cache_lock:
+        _cache[key] = (time.monotonic(), value)
+        _cache.move_to_end(key)
+        while len(_cache) > _CACHE_MAX:
+            _cache.popitem(last=False)
+
+
+def clear_search_cache() -> None:
+    with _cache_lock:
+        _cache.clear()
+
+
 def search(
     db: Session,
     q: str | None,
@@ -436,32 +511,98 @@ def search(
     sort: str = "relevance",
     facets: bool = True,
 ) -> SearchResult:
+    """Ranked, filtered, faceted search. Per request: one grouped query (total + scalar facets),
+    one ordered id query (page + facet sample) and two facet GROUP BYs on ``biblio_facets``."""
     started = time.perf_counter()
     filters = filters or SearchFilters()
     m = _match(db, q)
-    stmt = select(Biblio.id).where(Biblio.deleted_at.is_(None))
-    match_order = None
+    base = select(Biblio.id).where(Biblio.deleted_at.is_(None))
+    stmt, ranked, match_order = base, base, None
     if m is not None:
-        sub, match_order = m
-        stmt = stmt.join(sub, sub.c.id == Biblio.id)
+        ids_sub, scored, match_order = m
+        stmt = base.where(Biblio.id.in_(select(ids_sub.c.id)))  # unscored: counting/facets
+        ranked = base.join(scored, scored.c.id == Biblio.id)  # scored: ordering
     stmt = _apply_filters(db, stmt, filters)
+    ranked = _apply_filters(db, ranked, filters)
     order = _order(sort, match_order)
+    if match_order is None or sort != "relevance":
+        ranked = stmt  # ordering does not need the score
 
-    total = int(db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())) or 0)
-    ids: list[int] = []
-    facet_data: dict[str, list[tuple[str, int]]] = {}
-    if total:
-        start = max(page - 1, 0) * per_page
-        ids = list(db.scalars(stmt.order_by(*order).offset(start).limit(per_page)))
-        if facets:
-            facet_data = _facets(db, stmt, order, total)
+    cache_key = None
+    if not (filters.available_only or filters.branch_id):
+        cache_key = (db.get_bind().url.render_as_string(hide_password=True), (q or "").strip().lower(),
+                     tuple(sorted(vars(filters).items())), sort, facets, _catalogue_signature(db))
+    cached = _cache_get(cache_key) if cache_key else None
+
+    start = max(page - 1, 0) * per_page
+    if cached is not None:
+        total, facet_data = cached
+        ids = list(db.scalars(ranked.order_by(*order).offset(start).limit(per_page))) if total else []
+    else:
+        total, facet_data, ids = _run(db, stmt, ranked, order, start, per_page, facets)
+        if cache_key:
+            _cache_put(cache_key, (total, facet_data))
     took = (time.perf_counter() - started) * 1000
     _observe_search("keyword" if m is not None else "browse", took / 1000)
     return SearchResult(total=total, ids=ids, facets=facet_data, took_ms=round(took, 2))
 
 
+def _run(db: Session, stmt, ranked, order, start: int, per_page: int, facets: bool):
+    if not facets:
+        total = int(db.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
+        ids = list(db.scalars(ranked.order_by(*order).offset(start).limit(per_page))) if total else []
+        return total, {}, ids
+    # Total and the scalar facets in one pass over the matching rows.
+    decade = (Biblio.pub_year // 10) * 10
+    grouped = db.execute(stmt.with_only_columns(Biblio.material_type, Biblio.language, decade, func.count())
+                         .group_by(Biblio.material_type, Biblio.language, decade)).all()
+    total = sum(int(r[3]) for r in grouped)
+    if not total:
+        return 0, {}, []
+    types, langs, decades = Counter(), Counter(), Counter()
+    for mt, lang, dec, n in grouped:
+        if mt is not None:
+            types[mt] += n
+        if lang is not None:
+            langs[lang] += n
+        if dec is not None:
+            decades[int(dec)] += n
+    # Best matches in the requested order: the page (when shallow) and the facet sample.
+    head = list(db.scalars(ranked.order_by(*order).limit(FACET_SAMPLE)))
+    if start + per_page <= len(head) or len(head) >= total:
+        ids = head[start:start + per_page]
+    else:
+        ids = list(db.scalars(ranked.order_by(*order).offset(start).limit(per_page)))
+    facet_data = {
+        "material_type": _top(types, 8),
+        "language": _top(langs, 8),
+        "subject": _array_facet(db, "s", head, 15),
+        "author": _array_facet(db, "a", head, 10),
+        "decade": [(f"{d}s", int(n)) for d, n in sorted(decades.items(), reverse=True)[:10]],
+    }
+    return total, facet_data, ids
+
+
+def _top(counter: Counter, n: int) -> list[tuple[str, int]]:
+    return [(k, int(v)) for k, v in sorted(counter.items(), key=lambda kv: (-kv[1], str(kv[0])))[:n]]
+
+
+def _array_facet(db: Session, kind: str, ids: list[int], limit: int) -> list[tuple[str, int]]:
+    if not ids:
+        return []
+    n = func.count().label("n")
+    counts: Counter = Counter()
+    for i in range(0, len(ids), 5000):
+        rows = db.execute(select(BiblioFacet.value, n).where(BiblioFacet.kind == kind,
+                                                             BiblioFacet.biblio_id.in_(ids[i:i + 5000]))
+                          .group_by(BiblioFacet.value)).all()
+        for value, c in rows:
+            counts[value] += int(c)
+    return _top(counts, limit)
+
+
 def filter_ids(db: Session, filters: SearchFilters | None, ids) -> set[int]:
-    """The subset of ``ids`` that are live records matching ``filters`` (one bounded query)."""
+    """The subset of ``ids`` that are live records matching ``filters`` (bounded queries)."""
     ids = list(dict.fromkeys(ids))
     if not ids:
         return set()
@@ -472,37 +613,21 @@ def filter_ids(db: Session, filters: SearchFilters | None, ids) -> set[int]:
     return out
 
 
-def _facets(db: Session, stmt, order: list, total: int) -> dict[str, list[tuple[str, int]]]:
-    matched = stmt.order_by(None).subquery("matched")
-    count = func.count().label("n")
-
-    def scalar_facet(col, limit):
-        rows = db.execute(select(col, count).join(matched, matched.c.id == Biblio.id)
-                          .where(col.is_not(None)).group_by(col).order_by(count.desc(), col).limit(limit)).all()
-        return [(v, int(n)) for v, n in rows]
-
-    decade_col = (Biblio.pub_year // 10) * 10
-    decades = db.execute(select(decade_col.label("d"), count).join(matched, matched.c.id == Biblio.id)
-                         .where(Biblio.pub_year.is_not(None)).group_by(decade_col)
-                         .order_by(decade_col.desc()).limit(10)).all()
-
-    sample = matched if total <= FACET_SAMPLE else stmt.order_by(*order).limit(FACET_SAMPLE).subquery("sample")
-
-    def array_facet(column, limit):
-        vals = _json_values(db, column)
-        rows = db.execute(select(vals.c.value, count).select_from(Biblio)
-                          .join(sample, sample.c.id == Biblio.id).join(vals, true())
-                          .where(vals.c.value.is_not(None))
-                          .group_by(vals.c.value).order_by(count.desc(), vals.c.value).limit(limit)).all()
-        return [(v, int(n)) for v, n in rows]
-
-    return {
-        "material_type": scalar_facet(Biblio.material_type, 8),
-        "language": scalar_facet(Biblio.language, 8),
-        "subject": array_facet(Biblio.subjects, 15),
-        "author": array_facet(Biblio.authors, 10),
-        "decade": [(f"{int(d)}s", int(n)) for d, n in decades],
-    }
+def ensure_search_index(db: Session) -> int:
+    """Rebuild the search tables if records exist but the index is empty (fresh PostgreSQL after
+    a data migration, or a database created before ``biblio_facets`` existed). Returns the number
+    of records indexed (0 when nothing was needed)."""
+    if db.scalar(select(Biblio.id).where(Biblio.deleted_at.is_(None)).limit(1)) is None:
+        return 0
+    backend = search_backend(db)
+    table = {"fts5": "biblio_fts", "tsvector": "biblio_search"}.get(backend)
+    fts_empty = table is not None and db.execute(text(f"SELECT 1 FROM {table} LIMIT 1")).first() is None
+    facets_empty = db.scalar(select(BiblioFacet.id).limit(1)) is None
+    if fts_empty:
+        return reindex_all(db)
+    if facets_empty:
+        return _reindex_facets(db)
+    return 0
 
 
 def _observe_search(kind: str, seconds: float) -> None:

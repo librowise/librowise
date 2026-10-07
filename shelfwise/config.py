@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     schedules: dict[str, str] = {
         "nightly": "0 2 * * *",
         "deliver_notices": "*/5 * * * *",
+        "maintenance": "30 3 * * *",
     }
     schedule_misfire_grace: int = 3600  # run a missed slot if the scheduler sees it within this many seconds
     require_worker: bool = False  # /readyz fails when no worker heartbeat is fresh

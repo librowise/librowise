@@ -12,14 +12,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import __version__
 from .api import api_router
+from .api.system import ops_router, readiness
 from .config import BASE_DIR, get_settings
-from .db import create_all, get_engine
+from .db import create_all
 from .errors import DomainError
+from .observability import MetricsMiddleware, configure_logging
 from .security import CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE, csrf_valid
 from .web import router as web_router
 
@@ -38,13 +39,31 @@ CSP = (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_all()
+    _prepare_search()
     log.info("Shelfwise %s ready", __version__)
     yield
 
 
+def _prepare_search() -> None:
+    """Backfill empty search tables (e.g. after a migration) and warm the semantic index in the
+    background so the first AI search does not pay for the build."""
+    from .ai import semantic
+    from .db import session_scope
+    from .services.catalog import ensure_search_index
+
+    try:
+        with session_scope() as db:
+            if n := ensure_search_index(db):
+                log.info("search index rebuilt for %s records", n)
+    except Exception:  # pragma: no cover - never block start-up on search maintenance
+        log.exception("search index check failed")
+    if get_settings().environment not in ("test", "development"):
+        semantic.index.prefetch()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
@@ -116,16 +135,16 @@ def create_app() -> FastAPI:
 
     @app.get("/readyz", include_in_schema=False)
     def readyz():
-        try:
-            with get_engine().connect() as conn:
-                conn.execute(text("SELECT 1"))
-        except Exception:  # pragma: no cover
-            return JSONResponse({"status": "unavailable"}, status_code=503)
-        return {"status": "ready"}
+        ok, checks = readiness()
+        if not ok:
+            return JSONResponse({"status": "unavailable", "checks": checks}, status_code=503)
+        return {"status": "ready", "checks": checks}
 
     app.include_router(api_router)
+    app.include_router(ops_router)  # /metrics
     app.include_router(web_router)
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+    app.add_middleware(MetricsMiddleware)  # outermost: request ids, access log, metrics
     return app
 
 

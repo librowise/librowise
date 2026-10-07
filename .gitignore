@@ -17,3 +17,6 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+# runtime data (semantic-index snapshots, local backups)
+var/
+backups/

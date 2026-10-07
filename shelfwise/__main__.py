@@ -24,7 +24,13 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--host", default="127.0.0.1")
     p_run.add_argument("--port", type=int, default=8000)
     p_run.add_argument("--reload", action="store_true")
+    from .cli_ops import add_parsers as add_ops_parsers
+    from .cli_ops import dispatch as ops_dispatch
+
+    add_ops_parsers(sub)  # worker, jobs, backup, restore, generate
     args = parser.parse_args(argv)
+    if (rc := ops_dispatch(args)) is not None:
+        return rc
 
     from .db import create_all, drop_all, session_scope
 

@@ -209,7 +209,7 @@ def test_pages_render(client, lib, db, res):
     staff = login(client, "librarian")
     for path in ("/staff/courses", f"/staff/courses/{c.id}"):
         r = client.get(path, headers=staff)
-        assert r.status_code == 200 and 'data-page="staff-courses"' in r.text
+        assert r.status_code == 200 and 'data-page="staff-course' in r.text  # list: staff-courses, detail: staff-course
     client.cookies.clear()
     for path in ("/courses", f"/courses/{c.id}"):
         r = client.get(path)

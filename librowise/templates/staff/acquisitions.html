@@ -1,47 +1,29 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Acquisitions{% endblock %}
+{#- Acquisitions: KPI row → budgets (stacked meters: received · ordered · draft) → orders (status views,
+    filters, data table, order side panel with the draft → ordered → received lifecycle) → AI demand signals.
+    The body is rendered in one pass once its data has arrived (no layout shift); the skeleton has its shape. -#}
+{% block page_title %}{{ t('coll.acq.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Acquisitions</h1>
-    <div class="sub">Budgets, vendors and purchase orders — with AI demand signals from the hold queue.</div>
-  </div>
-  <div class="row tight">
-    <button class="btn" id="new-vendor"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New vendor</button>
-    <button class="btn" id="new-budget"><svg class="icon" aria-hidden="true"><use href="#i-wallet"></use></svg>New budget</button>
-    <button class="btn primary" id="new-order"><svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>New order</button>
+<div class="coll coll-acq" id="acq" data-can-write="{{ 1 if can(user, 'acquisitions:write') else 0 }}" data-can-suggestions="{{ 1 if can(user, 'suggestions:manage') else 0 }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('coll.acq.title') }}</h1>
+      <p class="ph-sub">{{ t('coll.acq.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn" id="vendors-btn"><svg class="icon" aria-hidden="true"><use href="#i-truck"></use></svg>{{ t('coll.acq.vendors') }}</button>
+      {% if can(user, 'acquisitions:write') %}
+      <button type="button" class="btn" id="new-budget"><svg class="icon" aria-hidden="true"><use href="#i-wallet"></use></svg>{{ t('coll.acq.new_budget') }}</button>
+      <button type="button" class="btn primary" id="new-order"><svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>{{ t('coll.acq.new_order') }}</button>
+      {% endif %}
+    </div>
+  </header>
+  <div id="acq-body" aria-busy="true">
+    <div class="kpi-row" aria-hidden="true">{% for _ in range(4) %}<div class="card kpi-tile kpi-sk"><div class="skeleton sk-line w-50"></div><div class="skeleton kpi-sk-value"></div><div class="skeleton sk-line w-70"></div></div>{% endfor %}</div>
+    <div class="budget-grid" aria-hidden="true">{% for _ in range(3) %}<div class="card budget-card skeleton"></div>{% endfor %}</div>
+    <div class="skeleton" style="height:24rem;border-radius:10px;margin-top:1.5rem" aria-hidden="true"></div>
+    <p class="sr-only" role="status">{{ t('common.loading') }}</p>
   </div>
 </div>
-
-<div class="grid cols-4" id="acq-stats" style="margin-bottom:1.25rem"></div>
-
-<section aria-labelledby="budgets-h" style="margin-bottom:1.25rem">
-  <h2 id="budgets-h">Budgets</h2>
-  <div class="grid auto" id="acq-budgets"></div>
-</section>
-
-<section class="card panel-ai" aria-labelledby="suggest-h" style="margin-bottom:1.25rem">
-  <div class="card-head">
-    <h2 id="suggest-h"><svg class="icon" aria-hidden="true" style="color:var(--ai)"><use href="#i-sparkle"></use></svg> AI purchase suggestions</h2>
-    <span class="small muted">Titles whose hold queues outstrip available copies</span>
-  </div>
-  <div class="card-body" id="acq-suggest"></div>
-</section>
-
-<section class="card flush" aria-labelledby="orders-h">
-  <div class="card-head" style="padding-bottom:var(--pad)">
-    <h2 id="orders-h">Purchase orders</h2>
-    <div class="row tight">
-      <label for="orders-status" class="sr-only">Filter orders by status</label>
-      <select id="orders-status" style="width:auto">
-        <option value="">All statuses</option>
-        <option value="ordered">Ordered</option>
-        <option value="draft">Draft</option>
-        <option value="received">Received</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-    </div>
-  </div>
-  <div class="card-body" id="acq-orders"></div>
-</section>
 {% endblock %}

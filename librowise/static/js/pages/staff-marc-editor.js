@@ -1,7 +1,13 @@
-// Staff: MARC editor — field/subfield grid, MarcEdit text and MARCXML views, live checks, diff-before-save.
-import { $, $$, BOOT, api, debounce, empty, esc, html, icon, modal, num, raw, relative, toast, withBusy } from "/static/js/core.js";
+// Staff › Catalogue › Record › MARC editor — keyboard-first field/subfield grid, MarcEdit text and MARCXML
+// views, live checks (errors shown in the checks panel *and* inline under the field), field help from the
+// MARC 21 dictionary, and a diff of catalogue fields and MARC lines before saving.
+import { $, $$, BOOT, api, debounce, esc, html, icon, modal, num, relative, toast, withBusy } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
+import { errorState } from "/static/js/ui/empty.js";
+import { alertBox, recNo } from "/static/js/pages/lib/collection.js";
 
-const S = { id: +BOOT.path_params.biblio_id, grid: null, view: "grid", dict: {}, dirty: false, updatedAt: null, focus: null, problems: { errors: [], warnings: [] } };
+const S = { id: +BOOT.path_params.biblio_id, grid: null, view: "grid", dict: {}, dirty: false, updatedAt: null, focus: null,
+  problems: { errors: [], warnings: [] }, meta: null };
 const isControl = (tag) => /^\d{3}$/.test(tag) && tag < "010";
 const blankIn = (v) => (v === " " || v === undefined || v === null ? "" : v);
 const blankOut = (v) => (!v || v === "#" || v === "_" || v === "\\" ? " " : v);
@@ -9,45 +15,54 @@ const panel = () => $("#editor-panel");
 
 // ------------------------------------------------------------------ grid rendering
 
-function subLabel(tag, code) {
-  return S.dict[tag]?.subfields?.[code] || "";
+const subLabel = (tag, code) => S.dict[tag]?.subfields?.[code] || "";
+function fieldLabel(tag) {
+  const d = S.dict[tag];
+  if (d) return `${d.label}${d.repeatable ? "" : ` · ${t("coll.marc.not_repeatable")}`}`;
+  return /^\d{3}$/.test(tag) ? t("coll.marc.local_field") : t("coll.marc.enter_tag");
 }
 
 function fieldRow(f, i) {
   const d = S.dict[f.tag];
-  const label = d ? `${d.label}${d.repeatable ? "" : " · not repeatable"}` : (/^\d{3}$/.test(f.tag) ? "Local or unlisted field" : "Enter a 3-digit tag");
+  const n = S.grid.fields.length;
   const actions = html`<div class="marc-actions">
-    <button type="button" class="btn ghost sm" data-act="up" aria-label="Move field ${f.tag} up" title="Move up (Alt+↑)" ${i === 0 ? "disabled" : ""}>${icon("arrow-up")}</button>
-    <button type="button" class="btn ghost sm" data-act="down" aria-label="Move field ${f.tag} down" title="Move down (Alt+↓)" ${i === S.grid.fields.length - 1 ? "disabled" : ""}>${icon("arrow-down")}</button>
-    <button type="button" class="btn ghost sm" data-act="add-field" aria-label="Add a field after ${f.tag}" title="New field below (Ctrl+Enter)">${icon("plus")}</button>
-    <button type="button" class="btn ghost sm danger" data-act="del-field" aria-label="Delete field ${f.tag}" title="Delete field (Alt+Shift+Del)">${icon("trash")}</button></div>`;
-  const tagInput = html`<input class="marc-tag" data-k="tag" value="${f.tag}" maxlength="3" inputmode="numeric" list="marc-tags" autocomplete="off" spellcheck="false" aria-label="Tag of field ${i + 1}">`;
+    <button type="button" class="btn ghost sm icon-only" data-act="up" aria-label="${t("coll.marc.move_up", { tag: f.tag })}" data-tip="${t("coll.marc.move_up_tip")}" ${i === 0 ? "disabled" : ""}>${icon("arrow-up")}</button>
+    <button type="button" class="btn ghost sm icon-only" data-act="down" aria-label="${t("coll.marc.move_down", { tag: f.tag })}" data-tip="${t("coll.marc.move_down_tip")}" ${i === n - 1 ? "disabled" : ""}>${icon("arrow-down")}</button>
+    <button type="button" class="btn ghost sm icon-only" data-act="add-field" aria-label="${t("coll.marc.add_after", { tag: f.tag })}" data-tip="${t("coll.marc.add_after_tip")}">${icon("plus")}</button>
+    <button type="button" class="btn ghost sm icon-only danger" data-act="del-field" aria-label="${t("coll.marc.delete_field", { tag: f.tag })}" data-tip="${t("coll.marc.delete_field_tip")}">${icon("trash")}</button></div>`;
+  const tagInput = html`<input class="marc-tag" data-k="tag" value="${f.tag}" maxlength="3" inputmode="numeric" list="marc-tags" autocomplete="off" spellcheck="false" aria-label="${t("coll.marc.tag_of", { n: i + 1 })}">`;
+  const label = html`<div class="marc-label">${fieldLabel(f.tag)}${f.tag === "008" ? ` · ${t("coll.marc.chars_008", { n: (f.value || "").length })}` : ""}</div>`;
   if (isControl(f.tag)) {
     return html`<div class="marc-field control" data-f="${i}">${tagInput}
-      <input class="marc-value" data-k="value" value="${f.value || ""}" spellcheck="false" aria-label="${f.tag} ${d?.label || "control field"} value">
-      ${actions}<div class="marc-label">${label}${f.tag === "008" ? ` · ${(f.value || "").length}/40 characters` : ""}</div></div>`;
+      <input class="marc-value" data-k="value" value="${f.value || ""}" spellcheck="false" aria-label="${t("coll.marc.control_value", { tag: f.tag, label: d?.label || "" })}">
+      ${actions}${label}</div>`;
   }
   return html`<div class="marc-field" data-f="${i}">${tagInput}
-    <div class="marc-inds"><input data-k="ind1" value="${blankIn(f.ind1)}" maxlength="1" spellcheck="false" placeholder="_" aria-label="${f.tag} first indicator" title="${d?.ind1 || "First indicator"}">
-      <input data-k="ind2" value="${blankIn(f.ind2)}" maxlength="1" spellcheck="false" placeholder="_" aria-label="${f.tag} second indicator" title="${d?.ind2 || "Second indicator"}"></div>
+    <div class="marc-inds"><input data-k="ind1" value="${blankIn(f.ind1)}" maxlength="1" spellcheck="false" placeholder="_" aria-label="${t("coll.marc.ind1_of", { tag: f.tag })}" data-tip="${d?.ind1 || t("coll.marc.ind1")}">
+      <input data-k="ind2" value="${blankIn(f.ind2)}" maxlength="1" spellcheck="false" placeholder="_" aria-label="${t("coll.marc.ind2_of", { tag: f.tag })}" data-tip="${d?.ind2 || t("coll.marc.ind2")}"></div>
     <div class="marc-subfields">${(f.subfields || []).map((s, j) => html`<div class="marc-sf" data-s="${j}"><span class="dollar" aria-hidden="true">$</span>
-        <input class="marc-code" data-k="code" value="${s.code}" maxlength="1" spellcheck="false" aria-label="${f.tag} subfield ${j + 1} code" title="${subLabel(f.tag, s.code)}">
+        <input class="marc-code" data-k="code" value="${s.code}" maxlength="1" spellcheck="false" aria-label="${t("coll.marc.code_of", { tag: f.tag, n: j + 1 })}">
         <input class="marc-sfval" data-k="value" value="${s.value}" aria-label="${f.tag} $${s.code} ${subLabel(f.tag, s.code)}">
-        <button type="button" class="btn ghost sm" data-act="del-sf" aria-label="Remove subfield $${s.code} of ${f.tag}" title="Remove subfield (Alt+Del)">${icon("x")}</button></div>`)}
-      <div><button type="button" class="btn ghost sm" data-act="add-sf" title="New subfield (Shift+Enter)">${icon("plus")}Subfield</button></div></div>
-    ${actions}<div class="marc-label">${label}</div></div>`;
+        <button type="button" class="btn ghost sm icon-only" data-act="del-sf" aria-label="${t("coll.marc.remove_sf", { code: s.code, tag: f.tag })}" data-tip="${t("coll.marc.remove_sf_tip")}">${icon("x")}</button></div>`)}
+      <div><button type="button" class="btn ghost sm add-sf" data-act="add-sf">${icon("plus")}${t("coll.marc.subfield")}</button></div></div>
+    ${actions}${label}</div>`;
+}
+
+function notices() {
+  const m = S.meta;
+  return html`${m.origin === "generated" ? alertBox(t("coll.marc.generated_notice"), "info") : ""}
+    ${m.holdings_fields ? alertBox(html`${t("coll.marc.holdings_notice", { n: num(m.holdings_fields) })} <a href="/staff/catalog/${S.id}#items">${t("coll.marc.items_link")}</a>`, "info") : ""}`;
 }
 
 function renderGrid(focus) {
   const g = S.grid;
-  panel().innerHTML = html`<div class="card-body stack">
-      <div class="marc-leader"><label for="leader" class="small" style="font-weight:600">Leader</label>
+  panel().innerHTML = html`<div class="card-body marc-top">${notices()}
+      <div class="marc-leader"><label for="leader">${t("coll.marc.leader")}</label>
         <input id="leader" data-leader value="${g.leader}" maxlength="24" spellcheck="false" aria-describedby="leader-hint">
-        <span class="tiny muted" id="leader-hint">24 positions · 05 status · 06 type · 07 level · 09 coding (a = Unicode)</span></div>
-    </div>
+        <span class="small muted" id="leader-hint">${t("coll.marc.leader_hint")}</span></div></div>
     <div class="marc-fields" id="grid">${g.fields.map(fieldRow)}</div>
-    <div class="card-body row between"><button type="button" class="btn sm" data-act="append-field">${icon("plus")}Add field</button>
-      <span class="tiny muted">${num(g.fields.length)} fields</span></div>`;
+    <div class="card-body marc-foot"><button type="button" class="btn sm" data-act="append-field">${icon("plus")}${t("coll.marc.add_field")}</button>
+      <span class="small muted">${t("coll.marc.n_fields", { count: g.fields.length, n: num(g.fields.length) })}</span></div>`;
   markInvalid();
   if (focus) restoreFocus(focus);
 }
@@ -89,16 +104,15 @@ function onInput(e) {
       else { f.subfields = [{ code: "a", value: f.value || "" }]; f.ind1 = " "; f.ind2 = " "; delete f.value; }
       renderGrid({ f: p.f, k: "tag" });
     } else {
-      const d = S.dict[f.tag];
       const lbl = $(".marc-label", el.closest("[data-f]"));
-      if (lbl) lbl.textContent = d ? `${d.label}${d.repeatable ? "" : " · not repeatable"}` : "Local or unlisted field";
+      if (lbl) lbl.textContent = fieldLabel(f.tag);
     }
     showHelp(p);
   } else if (p.k === "ind1" || p.k === "ind2") {
     f[p.k] = blankOut(el.value);
   } else if (p.s !== null) {
     f.subfields[p.s][p.k] = el.value;
-    if (p.k === "code") { el.title = subLabel(f.tag, el.value); showHelp(p); }
+    if (p.k === "code") showHelp(p);
   } else {
     f.value = el.value;
   }
@@ -117,6 +131,7 @@ function act(action, p) {
   } else if (action === "del-field") {
     fields.splice(p.f, 1);
     focus = { f: Math.min(p.f, fields.length - 1), k: "tag" };
+    toast(t("coll.marc.field_deleted", { tag: f.tag || "???" }), "info", { action: { label: t("ui.undo"), run: () => { fields.splice(p.f, 0, f); renderGrid({ f: p.f, k: "tag" }); markDirty(); } } });
   } else if (action === "up" || action === "down") {
     const to = p.f + (action === "up" ? -1 : 1);
     if (to < 0 || to >= fields.length) return;
@@ -142,11 +157,23 @@ function act(action, p) {
   markDirty();
 }
 
-// ------------------------------------------------------------------ help & checks
+// ------------------------------------------------------------------ aside: checks, help, keys
+
+function asideHtml() {
+  const keys = [["coll.marc.key_save", "Ctrl S"], ["coll.marc.key_new_field", "Ctrl Enter"], ["coll.marc.key_new_sf", "Shift Enter"],
+    ["coll.marc.key_del_sf", "Alt Del"], ["coll.marc.key_del_field", "Alt Shift Del"], ["coll.marc.key_move_field", "Alt ↑ / ↓"], ["coll.marc.key_move_sf", "Alt Shift ↑ / ↓"]];
+  return html`<section class="card" aria-labelledby="checks-h"><div class="card-head"><h2 id="checks-h">${t("coll.marc.checks")}</h2><span id="check-badge"></span></div>
+      <div class="card-body" id="problems" aria-live="polite"></div></section>
+    <section class="card marc-help" aria-labelledby="help-h"><div class="card-head"><h2 id="help-h">${t("coll.marc.field_help")}</h2></div>
+      <div class="card-body small" id="help" aria-live="polite"><p class="muted">${t("coll.marc.help_idle")}</p></div></section>
+    <details class="card marc-keys"><summary class="card-head"><h2>${icon("keyboard")} ${t("coll.marc.keyboard")}</h2></summary>
+      <div class="card-body"><dl class="key-list">${keys.map(([k, v]) => html`<div><dt>${t(k)}</dt><dd><kbd>${v}</kbd></dd></div>`)}</dl>
+        <p class="small muted">${t("coll.marc.blank_hint")}</p></div></details>`;
+}
 
 function showHelp(p) {
   const box = $("#help");
-  if (!p) return;
+  if (!p || !box) return;
   if (p === "leader") {
     const d = S.dict.LDR;
     box.innerHTML = html`<strong>LDR — ${d.label}</strong><p>${d.help}</p>`;
@@ -155,50 +182,63 @@ function showHelp(p) {
   const f = S.grid.fields[p.f];
   if (!f) return;
   const d = S.dict[f.tag];
-  if (!d) { box.innerHTML = html`<strong class="mono">${f.tag || "???"}</strong><p class="muted">${/^\d{3}$/.test(f.tag) ? "Not in the built-in dictionary (local or rarely used field)." : "Type a three-digit tag — suggestions appear as you type."}</p>`; return; }
+  if (!d) { box.innerHTML = html`<strong class="mono">${f.tag || "???"}</strong><p class="muted">${/^\d{3}$/.test(f.tag) ? t("coll.marc.not_in_dict") : t("coll.marc.type_tag")}</p>`; return; }
   const code = p.s !== null && f.subfields ? f.subfields[p.s]?.code : null;
   box.innerHTML = html`<strong><span class="mono">${f.tag}</span> — ${d.label}</strong>
-    <div class="row tight" style="margin:.35rem 0">${d.repeatable ? raw('<span class="badge info">Repeatable</span>') : raw('<span class="badge warn">Not repeatable</span>')}${d.control ? raw('<span class="badge">Control field</span>') : ""}</div>
+    <div class="row tight help-pills">${d.repeatable ? html`<span class="badge pill info">${t("coll.marc.repeatable")}</span>` : html`<span class="badge pill warning">${t("coll.marc.not_repeatable_cap")}</span>`}
+      ${d.control ? html`<span class="badge pill neutral">${t("coll.marc.control_field")}</span>` : ""}</div>
     ${d.help ? html`<p>${d.help}</p>` : ""}
-    ${d.ind1 || d.ind2 ? html`<dl><dt>Ind 1</dt><dd>${d.ind1 || "Undefined (blank)"}</dd><dt>Ind 2</dt><dd>${d.ind2 || "Undefined (blank)"}</dd></dl>` : ""}
-    ${Object.keys(d.subfields).length ? html`<dl>${Object.entries(d.subfields).map(([c, l]) => html`<dt ${c === code ? raw('style="text-decoration:underline"') : ""}>$${c}</dt><dd>${l}</dd>`)}</dl>` : ""}`;
+    ${d.ind1 || d.ind2 ? html`<dl><dt>${t("coll.marc.ind1_short")}</dt><dd>${d.ind1 || t("coll.marc.undefined_ind")}</dd><dt>${t("coll.marc.ind2_short")}</dt><dd>${d.ind2 || t("coll.marc.undefined_ind")}</dd></dl>` : ""}
+    ${Object.keys(d.subfields).length ? html`<dl>${Object.entries(d.subfields).map(([c, l]) => html`<dt class="${c === code ? "current" : ""}">$${c}</dt><dd class="${c === code ? "current" : ""}">${l}</dd>`)}</dl>` : ""}`;
 }
 
 function clientErrors() {
   const errs = [];
-  if ((S.grid.leader || "").length !== 24) errs.push({ part: "leader", message: "Leader must be 24 characters" });
+  if ((S.grid.leader || "").length !== 24) errs.push({ part: "leader", message: t("coll.marc.err_leader") });
   S.grid.fields.forEach((f, i) => {
-    if (!/^\d{3}$/.test(f.tag)) errs.push({ field: i, part: "tag", message: `Tag “${f.tag}” must be three digits` });
-    (f.subfields || []).forEach((s, j) => { if (!/^[a-z0-9]$/.test(s.code)) errs.push({ field: i, subfield: j, part: "code", message: `${f.tag}: bad subfield code “${s.code}”` }); });
+    if (!/^\d{3}$/.test(f.tag)) errs.push({ field: i, part: "tag", message: t("coll.marc.err_tag", { tag: f.tag }) });
+    (f.subfields || []).forEach((s, j) => { if (!/^[a-z0-9]$/.test(s.code)) errs.push({ field: i, subfield: j, part: "code", message: t("coll.marc.err_code", { tag: f.tag, code: s.code }) }); });
   });
   return errs;
 }
 
 function markInvalid() {
-  $$("#editor-panel [aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+  $$("#editor-panel [aria-invalid]").forEach((el) => { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-errormessage"); });
+  $$("#editor-panel .marc-err").forEach((el) => el.remove());
   if (S.view !== "grid") return;
-  for (const e of S.problems.errors) {
-    let el = null;
-    if (e.part === "leader") el = $("#leader");
-    else if (e.field !== null && e.field !== undefined) {
+  const add = (row, el, msg, kind, n) => {
+    const id = `merr-${n}`;
+    row.insertAdjacentHTML("beforeend", html`<div class="marc-err ${kind}" id="${id}">${icon(kind === "error" ? "alert" : "info")}<span>${msg}</span></div>`);
+    if (el && kind === "error") { el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-errormessage", id); }
+  };
+  let n = 0;
+  for (const [kind, list] of [["error", S.problems.errors], ["warning", S.problems.warnings]]) {
+    for (const e of list) {
+      n++;
+      if (e.part === "leader") { const lead = $("#leader"); if (lead) add(lead.closest(".marc-leader"), lead, e.message, kind, n); continue; }
+      if (e.field === null || e.field === undefined) continue;
       const row = $(`#grid [data-f="${e.field}"]`);
       if (!row) continue;
+      let el;
       if (e.subfield !== null && e.subfield !== undefined) el = $(`[data-s="${e.subfield}"] [data-k="${e.part === "code" ? "code" : "value"}"]`, row);
       else el = $(`[data-k="${["tag", "ind1", "ind2", "value"].includes(e.part) ? e.part : "tag"}"]`, row);
+      add(row, el, e.message, kind, n);
     }
-    el?.setAttribute("aria-invalid", "true");
   }
 }
 
 function renderProblems() {
   const { errors, warnings } = S.problems;
-  $("#check-badge").innerHTML = errors.length ? html`<span class="badge bad">${errors.length} error${errors.length > 1 ? "s" : ""}</span>`
-    : warnings.length ? html`<span class="badge warn">${warnings.length} warning${warnings.length > 1 ? "s" : ""}</span>` : html`<span class="badge ok">Valid</span>`;
-  const item = (p, kind) => html`<li class="${kind}"><button type="button" data-goto="${p.field ?? ""}" data-sub="${p.subfield ?? ""}" data-part="${p.part || ""}">${p.line ? `Line ${p.line}: ` : ""}${p.message}</button></li>`;
+  const badge = $("#check-badge");
+  if (!badge) return;
+  badge.innerHTML = errors.length ? html`<span class="badge pill danger"><span class="dot" aria-hidden="true"></span>${t("coll.marc.n_errors", { count: errors.length, n: num(errors.length) })}</span>`
+    : warnings.length ? html`<span class="badge pill warning"><span class="dot" aria-hidden="true"></span>${t("coll.marc.n_warnings", { count: warnings.length, n: num(warnings.length) })}</span>`
+      : html`<span class="badge pill success"><span class="dot" aria-hidden="true"></span>${t("coll.marc.valid")}</span>`;
+  const item = (p, kind) => html`<li class="${kind}"><button type="button" data-goto="${p.field ?? ""}" data-sub="${p.subfield ?? ""}" data-part="${p.part || ""}">${p.line ? `${t("coll.marc.line", { n: p.line })} ` : ""}${p.message}</button></li>`;
   $("#problems").innerHTML = errors.length || warnings.length
-    ? html`${errors.length ? html`<strong class="small">Errors — fix before saving</strong><ul class="problems">${errors.map((p) => item(p, "error"))}</ul>` : ""}
-      ${warnings.length ? html`<strong class="small">Warnings</strong><ul class="problems">${warnings.map((p) => item(p, "warning"))}</ul>` : ""}`
-    : html`<p class="muted">${icon("check")} No problems found. Required: a 245 field with $a.</p>`;
+    ? html`${errors.length ? html`<h3 class="coll-label">${t("coll.marc.errors_fix")}</h3><ul class="problems">${errors.map((p) => item(p, "error"))}</ul>` : ""}
+      ${warnings.length ? html`<h3 class="coll-label">${t("coll.marc.warnings")}</h3><ul class="problems">${warnings.map((p) => item(p, "warning"))}</ul>` : ""}`
+    : html`<p class="small muted">${icon("check-circle")} ${t("coll.marc.no_problems")}</p>`;
   markInvalid();
 }
 
@@ -223,8 +263,7 @@ async function gridFromView() {
   if (r.errors.length) {
     S.problems = { errors: r.errors, warnings: [] };
     renderProblems();
-    const err = new Error(`${r.errors.length} line(s) could not be read — see Checks`);
-    throw err;
+    throw new Error(t("coll.marc.unreadable", { count: r.errors.length, n: num(r.errors.length) }));
   }
   return r.grid;
 }
@@ -239,32 +278,32 @@ async function switchView(view) {
   if (view === "grid") { renderGrid(); scheduleCheck(); return; }
   const r = await api("/marc/convert", { method: "POST", body: { from: "grid", to: view, grid: S.grid } });
   panel().innerHTML = html`<div class="card-body stack tight">
-    <label for="marc-text" class="small" style="font-weight:600">${view === "xml" ? "MARCXML (one record)" : "MarcEdit mnemonic — one field per line: =245  10$aTitle"}</label>
-    <textarea id="marc-text" class="marc-text" spellcheck="false" wrap="off">${r.text}</textarea>
-    <span class="tiny muted">${view === "xml" ? "Paste a MARCXML record to replace this one." : "Blanks are shown as \\ in indicators and fixed fields; a literal $ is written {dollar}."} Switch back to Fields to see checks and help.</span></div>`;
+    <label for="marc-text">${view === "xml" ? t("coll.marc.xml_label") : t("coll.marc.text_label")}</label>
+    <textarea id="marc-text" class="marc-text" spellcheck="false" wrap="off" aria-describedby="marc-text-hint">${r.text}</textarea>
+    <span class="small muted" id="marc-text-hint">${view === "xml" ? t("coll.marc.xml_hint") : t("coll.marc.text_hint")} ${t("coll.marc.switch_back")}</span></div>`;
   $("#marc-text").addEventListener("input", () => { S.dirty = true; $("#revert").disabled = false; });
   S.problems = r.validation;
   renderProblems();
 }
 
 function selectTab(view) {
-  $$("#view-tabs [role=tab]").forEach((t) => { const on = t.dataset.view === view; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; });
+  $$("#view-tabs [role=tab]").forEach((tb) => { const on = tb.dataset.view === view; tb.setAttribute("aria-selected", String(on)); tb.tabIndex = on ? 0 : -1; });
   panel().setAttribute("aria-labelledby", `tab-${view}`);
 }
 
 // ------------------------------------------------------------------ save
 
 function diffView(rows) {
-  if (!rows.length) return html`<p class="small muted">No MARC changes.</p>`;
+  if (!rows.length) return html`<p class="small muted">${t("coll.marc.no_marc_changes")}</p>`;
   return html`<div class="diff" role="list">${rows.map((r) => {
     if (r.op === "skip") return html`<div class="skip" role="listitem">…</div>`;
     const cls = r.op === "+" ? "add" : r.op === "-" ? "del" : "";
-    const sr = r.op === "+" ? "Added: " : r.op === "-" ? "Removed: " : "";
-    return html`<div class="${cls}" role="listitem"><span class="sr-only">${sr}</span><span aria-hidden="true">${r.op === " " ? " " : r.op}</span> ${r.text}</div>`;
+    const sr = r.op === "+" ? t("coll.marc.added") : r.op === "-" ? t("coll.marc.removed") : "";
+    return html`<div class="${cls}" role="listitem">${sr ? html`<span class="sr-only">${sr} </span>` : ""}<span aria-hidden="true">${r.op === " " ? " " : r.op}</span> ${r.text}</div>`;
   })}</div>`;
 }
 
-const fmt = (v) => (Array.isArray(v) ? v.join("; ") : v === null || v === undefined || v === "" ? "—" : String(v));
+const fmtVal = (v) => (Array.isArray(v) ? v.join("; ") : v === null || v === undefined || v === "" ? "—" : String(v));
 
 async function reviewAndSave(btn) {
   let grid;
@@ -274,22 +313,24 @@ async function reviewAndSave(btn) {
     S.problems = { errors: p.errors, warnings: p.warnings };
     if (S.view !== "grid") { S.grid = grid; await switchView("grid"); }
     renderProblems();
-    toast(`Fix ${p.errors.length} error(s) before saving`, "error");
+    toast(t("coll.marc.fix_first", { count: p.errors.length, n: num(p.errors.length) }), "error");
+    $("#problems button")?.focus();
     return;
   }
-  if (p.unchanged) { toast("Nothing has changed", "info"); return; }
-  const ok = await modal({ title: "Review changes", wide: true, submit: "Save record", body: html`<div class="stack">
-    ${p.warnings.length ? html`<div class="alert warn">${icon("alert")}<div>${p.warnings.map((w) => html`<div>${w.message}</div>`)}</div></div>` : ""}
-    <div><strong class="small">Catalogue fields that will change</strong>
-      ${p.field_changes.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
-        ${p.field_changes.map((c) => html`<tr><td>${c.field.replace("_", " ")}</td><td class="small change-before">${fmt(c.before)}</td><td class="small change-after">${fmt(c.after)}</td></tr>`)}</tbody></table></div>`
-        : html`<p class="small muted">None — only MARC detail changes.</p>`}</div>
-    <div><strong class="small">MARC changes</strong>${diffView(p.marc_diff)}</div>
-    <p class="tiny muted">Items are not affected. 005 is updated automatically.</p></div>` });
+  if (p.unchanged) { toast(t("coll.marc.nothing_changed"), "info"); return; }
+  const ok = await modal({ title: t("coll.marc.review_title"), size: "lg", submit: t("coll.marc.save_record"), body: html`<div class="stack">
+    ${p.warnings.length ? alertBox(html`${p.warnings.map((w) => html`<div>${w.message}</div>`)}`, "warn") : ""}
+    <div><h3 class="coll-label">${t("coll.marc.catalogue_changes")}</h3>
+      ${p.field_changes.length ? html`<div class="table-wrap" tabindex="0" role="region" aria-label="${t("coll.marc.catalogue_changes")}"><table class="table compact"><caption class="sr-only">${t("coll.marc.catalogue_changes")}</caption>
+        <thead><tr><th scope="col">${t("coll.dupes.field")}</th><th scope="col">${t("coll.marc.before")}</th><th scope="col">${t("coll.marc.after")}</th></tr></thead><tbody>
+        ${p.field_changes.map((c) => html`<tr><td>${t(`coll.field.${c.field}`, {}, c.field.replace(/_/g, " "))}</td><td class="small"><del class="change-before">${fmtVal(c.before)}</del></td><td class="small"><ins class="change-after">${fmtVal(c.after)}</ins></td></tr>`)}</tbody></table></div>`
+        : html`<p class="small muted">${t("coll.marc.only_marc")}</p>`}</div>
+    <div><h3 class="coll-label">${t("coll.marc.marc_changes")}</h3>${diffView(p.marc_diff)}</div>
+    <p class="small muted">${t("coll.marc.items_untouched")}</p></div>` });
   if (!ok) return;
   try {
     const r = await api(`/biblios/${S.id}/marc`, { method: "PUT", body: { grid, expected_updated_at: S.updatedAt } });
-    toast(r.changed_fields.length ? `Saved · updated ${r.changed_fields.join(", ")}` : "Saved", "success");
+    toast(r.changed_fields.length ? t("coll.marc.saved_fields", { fields: r.changed_fields.map((f) => t(`coll.field.${f}`, {}, f)).join(", ") }) : t("coll.marc.saved"), "success");
     await load();
   } catch (e) {
     toast(e.message, "error");
@@ -301,19 +342,20 @@ async function reviewAndSave(btn) {
 
 async function load() {
   const data = await api(`/biblios/${S.id}/marc`);
+  S.meta = data;
   S.grid = data.grid;
   S.updatedAt = data.updated_at;
   S.dirty = false;
   $("#revert").disabled = true;
-  document.title = `MARC · ${data.title} · Staff`;
-  $("#heading").textContent = data.title;
+  document.title = `${t("nav.detail.marc_editor")} · ${data.title}`;
   $("#crumb-record").textContent = data.title;
-  $("#sub").textContent = `Record #${data.biblio_id} · ${data.origin === "stored" ? "stored MARC" : "generated from catalogue fields"} · ${data.items} item(s) · updated ${relative(data.updated_at)}`;
-  $("#notices").innerHTML = html`${data.origin === "generated" ? html`<div class="alert info" style="margin-bottom:1rem">${icon("info")}<div>This record has no stored MARC yet, so one was generated from its catalogue fields. Saving stores it.</div></div>` : ""}
-    ${data.holdings_fields ? html`<div class="alert info" style="margin-bottom:1rem">${icon("barcode")}<div>${data.holdings_fields} holdings field(s) (952) are hidden here — items are managed on the <a href="/staff/catalog/${S.id}">record page</a> and are never changed by this editor.</div></div>` : ""}`;
+  $("#sub").innerHTML = html`<strong>${data.title}</strong> · <span class="mono">${recNo(data.biblio_id)}</span> · ${data.origin === "stored" ? t("coll.marc.stored") : t("coll.marc.generated")}
+    · ${t("coll.marc.n_items", { count: data.items, n: num(data.items) })} · ${t("coll.rec.updated", { when: relative(data.updated_at) })}`;
   S.view = "grid";
   selectTab("grid");
+  panel().removeAttribute("aria-busy");
   renderGrid();
+  if (!$("#problems")) $("#marc-aside").innerHTML = asideHtml();
   scheduleCheck();
 }
 
@@ -321,10 +363,11 @@ export default async function init() {
   try {
     const d = await api("/marc/dictionary");
     S.dict = d.fields;
-    $("#marc-tags").innerHTML = Object.entries(S.dict).filter(([t]) => t !== "LDR").map(([t, x]) => `<option value="${esc(t)}">${esc(x.label)}</option>`).join("");
+    $("#marc-tags").innerHTML = Object.entries(S.dict).filter(([k]) => k !== "LDR").map(([k, x]) => `<option value="${esc(k)}">${esc(x.label)}</option>`).join("");
     await load();
   } catch (e) {
-    panel().innerHTML = empty(e.message, "alert");
+    panel().removeAttribute("aria-busy");
+    panel().innerHTML = errorState(e, { retry: false });
     return;
   }
   panel().addEventListener("input", onInput);
@@ -347,20 +390,28 @@ export default async function init() {
     else if (e.shiftKey && !e.altKey && key === "Enter" && p.s !== null) action = "add-sf";
     else if (e.altKey && key === "Delete") action = e.shiftKey ? "del-field" : (p.s !== null ? "del-sf" : "del-field");
     else if (e.altKey && (key === "ArrowUp" || key === "ArrowDown")) action = e.shiftKey ? (key === "ArrowUp" ? "sf-up" : "sf-down") : (key === "ArrowUp" ? "up" : "down");
+    else if (key === "Enter" && !e.shiftKey) {
+      // Enter moves to the next input (spreadsheet-like), never submits anything.
+      e.preventDefault();
+      const inputs = $$("#editor-panel input");
+      inputs[inputs.indexOf(e.target) + 1]?.focus();
+      return;
+    }
     if (action) { e.preventDefault(); act(action, p); }
   });
-  $("#view-tabs").addEventListener("click", (e) => { const t = e.target.closest("[role=tab]"); if (t) switchView(t.dataset.view); });
+  $("#view-tabs").addEventListener("click", (e) => { const tb = e.target.closest("[role=tab]"); if (tb) switchView(tb.dataset.view); });
   $("#view-tabs").addEventListener("keydown", (e) => {
-    const tabs = $$("#view-tabs [role=tab]");
-    const i = tabs.indexOf(document.activeElement);
-    const next = { ArrowRight: i + 1, ArrowLeft: i - 1 }[e.key];
+    const list = $$("#view-tabs [role=tab]");
+    const i = list.indexOf(document.activeElement);
+    const rtl = getComputedStyle($("#view-tabs")).direction === "rtl";
+    const next = { [rtl ? "ArrowLeft" : "ArrowRight"]: i + 1, [rtl ? "ArrowRight" : "ArrowLeft"]: i - 1, Home: 0, End: list.length - 1 }[e.key];
     if (i < 0 || next === undefined) return;
     e.preventDefault();
-    const t = tabs[(next + tabs.length) % tabs.length];
-    t.focus();
-    switchView(t.dataset.view);
+    const tb = list[(next + list.length) % list.length];
+    tb.focus();
+    switchView(tb.dataset.view);
   });
-  $("#problems").addEventListener("click", (e) => {
+  $("#marc-aside").addEventListener("click", (e) => {
     const b = e.target.closest("[data-goto]");
     if (!b || S.view !== "grid") return;
     if (b.dataset.part === "leader") { $("#leader")?.focus(); return; }
@@ -369,11 +420,11 @@ export default async function init() {
   });
   $("#save").addEventListener("click", (e) => reviewAndSave(e.currentTarget).catch((err) => { if (!err.toasted) toast(err.message, "error"); }));
   $("#revert").addEventListener("click", async () => {
-    if (!(await modal({ title: "Discard changes?", body: "<p>Your unsaved edits will be lost and the stored record reloaded.</p>", submit: "Discard", danger: true }))) return;
+    if (!(await modal({ title: t("coll.marc.discard_title"), body: html`<p>${t("coll.marc.discard_text")}</p>`, submit: t("coll.marc.discard"), danger: true, size: "sm" }))) return;
     await load();
   });
   document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); $("#save").click(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && !document.querySelector("dialog[open]")) { e.preventDefault(); $("#save").click(); }
   });
   window.addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
 }

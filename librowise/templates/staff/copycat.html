@@ -1,29 +1,39 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Copy cataloguing{% endblock %}
+{#- Copy cataloguing: search remote SRU catalogues (Library of Congress…), check the MARC and import in one step. -#}
+{% block page_title %}{{ t('nav.copycat') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Copy cataloguing</h1>
-    <div class="sub">Search the Library of Congress and other SRU catalogues, check the MARC record and import it in one step.</div>
-  </div>
-  <div class="row tight">
-    <a class="btn" href="/staff/interop#targets"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>Targets</a>
-    <a class="btn" href="/staff/catalog/new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Original record</a>
-  </div>
+<div class="coll coll-copycat">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('nav.copycat') }}</h1>
+      <p class="ph-sub">{{ t('coll.cc.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <a class="btn" href="/staff/interop#targets"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>{{ t('coll.cc.targets') }}</a>
+      <a class="btn" href="/staff/catalog/new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('ui.catalog.new') }}</a>
+    </div>
+  </header>
+  <form id="cc-form" class="card pad cc-search" role="search" aria-label="{{ t('coll.cc.search_remote') }}" novalidate>
+    <div class="cc-row">
+      <div class="segmented" role="radiogroup" aria-label="{{ t('coll.cc.search_by') }}">
+        <label><input type="radio" name="kind" value="title" checked><span>{{ t('coll.field.title') }}</span></label>
+        <label><input type="radio" name="kind" value="isbn"><span>{{ t('coll.field.isbn') }}</span></label>
+        <label><input type="radio" name="kind" value="author"><span>{{ t('coll.cc.author') }}</span></label>
+        <label><input type="radio" name="kind" value="cql"><span>{{ t('coll.cc.cql') }}</span></label>
+      </div>
+      <span class="select-chip"><label class="sr-only" for="cc-target">{{ t('coll.cc.catalogue') }}</label><select id="cc-target" name="target_id" disabled><option>{{ t('common.loading') }}</option></select></span>
+      <span class="select-chip"><label class="sr-only" for="cc-max">{{ t('coll.cc.show') }}</label>
+        <select id="cc-max" name="max"><option value="10">{{ t('coll.cc.n_results', n=10) }}</option><option value="20">{{ t('coll.cc.n_results', n=20) }}</option><option value="50">{{ t('coll.cc.n_results', n=50) }}</option></select></span>
+    </div>
+    <div class="input-group cc-query">
+      <label class="sr-only" for="cc-q">{{ t('coll.cc.terms') }}</label>
+      <input id="cc-q" name="q" type="search" required maxlength="300" autocomplete="off" data-search-focus aria-keyshortcuts="/" placeholder="{{ t('coll.cc.ph_title') }}">
+      <button class="btn primary" id="cc-go"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>{{ t('common.search') }}</button>
+    </div>
+  </form>
+  <div class="cc-summary small muted" id="cc-summary" aria-live="polite">&nbsp;</div>
+  <div id="cc-results" class="cc-results"></div>
+  <div id="cc-pager" class="cc-pager"></div>
 </div>
-<form id="cc-form" class="card pad row" role="search" aria-label="Search remote catalogues" novalidate>
-  <div class="field"><label for="cc-target">Catalogue</label><select id="cc-target" name="target_id"></select></div>
-  <div class="field"><label for="cc-kind">Search by</label>
-    <select id="cc-kind" name="kind">
-      <option value="title">Title</option><option value="isbn">ISBN</option><option value="author">Author</option><option value="cql">CQL query</option>
-    </select></div>
-  <div class="field grow" style="min-width:240px"><label for="cc-q">Search terms</label>
-    <input id="cc-q" name="q" type="search" required maxlength="300" autocomplete="off" data-search-focus placeholder="e.g. The Hobbit"></div>
-  <div class="field"><label for="cc-max">Show</label>
-    <select id="cc-max" name="max"><option value="10">10 results</option><option value="20">20 results</option><option value="50">50 results</option></select></div>
-  <div class="field"><span class="hint" aria-hidden="true">&nbsp;</span><button class="btn primary" id="cc-go">Search</button></div>
-</form>
-<div class="row between" style="margin:1rem 0 .5rem"><span id="cc-summary" class="muted small" aria-live="polite"></span></div>
-<div id="cc-results" class="stack" aria-live="polite"></div>
-<nav class="pager" id="cc-pager" aria-label="Result pages"></nav>
 {% endblock %}

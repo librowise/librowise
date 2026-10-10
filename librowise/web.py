@@ -86,6 +86,9 @@ PAGE_TABS: dict[str, tuple[str, str]] = {
     "staff-marc-editor": ("catalog", "MARC editor"),
     "staff-patron": ("patrons", "Patron"),
     "staff-labels-print": ("labels", "Print"),
+    "staff-serial": ("serials", "Subscription"),
+    "staff-serial-claims": ("serials", "Claim letters"),
+    "staff-course": ("courses", "Course"),
 }
 
 NAV_PERMISSIONS: dict[str, str] = {
@@ -273,11 +276,11 @@ for _entry in [("serials", "/staff/serials", "Serials", "inbox"), ("courses", "/
     STAFF_NAV.insert(len(STAFF_NAV) - 1, _entry)  # keep Administration last
 router.add_api_route("/staff/serials", _staff("staff-serials", "staff/serials.html"), methods=["GET"],
                      response_class=HTMLResponse)
-router.add_api_route("/staff/serials/claims/{batch}", _staff("staff-serials", "staff/serial_claims.html"), methods=["GET"])
-router.add_api_route("/staff/serials/{subscription_id}", _staff("staff-serials", "staff/serial.html"), methods=["GET"])
+router.add_api_route("/staff/serials/claims/{batch}", _staff("staff-serial-claims", "staff/serial_claims.html"), methods=["GET"])
+router.add_api_route("/staff/serials/{subscription_id}", _staff("staff-serial", "staff/serial.html"), methods=["GET"])
 router.add_api_route("/staff/courses", _staff("staff-courses", "staff/courses.html"), methods=["GET"],
                      response_class=HTMLResponse)
-router.add_api_route("/staff/courses/{course_id}", _staff("staff-courses", "staff/course.html"), methods=["GET"])
+router.add_api_route("/staff/courses/{course_id}", _staff("staff-course", "staff/course.html"), methods=["GET"])
 
 
 @router.get("/courses", response_class=HTMLResponse)

@@ -1,10 +1,12 @@
 // Serials: create / edit subscription dialog with a live preview of the next predicted issues.
-import { $, $$, api, date, debounce, html, icon, money, qs } from "/static/js/core.js";
+import { $, api, date, debounce, html, icon, money, num, qs } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
+import { combobox } from "/static/js/ui/combobox.js";
 import { errorBox, formModal, isoDay, optInt, paise, str } from "/static/js/pages/lib/sc-ui.js";
 
 const LEVELS = ["X", "Y", "Z"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_BASED = new Set(["daily", "weekly", "fortnightly", "every_n_days", "every_n_weeks"]);
+const weekday = (i) => new Intl.DateTimeFormat(document.documentElement.lang || "en", { weekday: "short" }).format(new Date(Date.UTC(2024, 0, 1 + i)));
 
 let refCache = null;
 /** Reference data for the form: lookups, vendors, budgets and serial metadata (cached per page). */
@@ -16,8 +18,7 @@ export async function loadRefs() {
     api("/acquisitions/budgets").catch(() => ({ results: [] })),
     api("/serials/meta"),
   ]);
-  refCache = { branches: lookups.branches || [], itemTypes: lookups.item_types || [], vendors: vendors.results,
-    budgets: budgets.results, meta };
+  refCache = { branches: lookups.branches || [], itemTypes: lookups.item_types || [], vendors: vendors.results, budgets: budgets.results, meta };
   return refCache;
 }
 
@@ -26,85 +27,84 @@ function levelRow(key, lvl) {
   const v = lvl || { start: 1, increment: 1, max: null, reset: 1, yearly: false, labels: [] };
   return html`<tr data-level="${key}">
     <th scope="row"><label class="checkbox"><input type="checkbox" name="lvl_${key}_on" ${on ? "checked" : ""}> {${key}}</label></th>
-    <td><input type="number" name="lvl_${key}_start" value="${v.start}" min="0" aria-label="${key} start value"></td>
-    <td><input type="number" name="lvl_${key}_increment" value="${v.increment}" min="1" aria-label="${key} increment"></td>
-    <td><input type="number" name="lvl_${key}_max" value="${v.max ?? ""}" min="1" placeholder="—" aria-label="${key} rollover after"></td>
-    <td><input type="number" name="lvl_${key}_reset" value="${v.reset}" min="0" aria-label="${key} reset to"></td>
-    <td class="center"><input type="checkbox" name="lvl_${key}_yearly" ${v.yearly ? "checked" : ""} aria-label="${key} restarts each year"></td>
-    <td><input type="text" name="lvl_${key}_labels" value="${(v.labels || []).join(", ")}" placeholder="e.g. Spring, Summer…" aria-label="${key} labels"></td>
+    <td><input type="number" name="lvl_${key}_start" value="${v.start}" min="0" aria-label="${t("coll.sf.lvl_start", { key })}"></td>
+    <td><input type="number" name="lvl_${key}_increment" value="${v.increment}" min="1" aria-label="${t("coll.sf.lvl_increment", { key })}"></td>
+    <td><input type="number" name="lvl_${key}_max" value="${v.max ?? ""}" min="1" placeholder="—" aria-label="${t("coll.sf.lvl_max", { key })}"></td>
+    <td><input type="number" name="lvl_${key}_reset" value="${v.reset}" min="0" aria-label="${t("coll.sf.lvl_reset", { key })}"></td>
+    <td class="center"><input type="checkbox" name="lvl_${key}_yearly" ${v.yearly ? "checked" : ""} aria-label="${t("coll.sf.lvl_yearly", { key })}"></td>
+    <td><input type="text" name="lvl_${key}_labels" value="${(v.labels || []).join(", ")}" placeholder="${t("coll.sf.labels_ph")}" aria-label="${t("coll.sf.lvl_labels", { key })}"></td>
   </tr>`;
 }
 
 function body(sub, refs) {
   const s = sub || {};
   const opt = (rows, sel, label = (r) => r.name) => rows.map((r) => html`<option value="${r.id}" ${r.id === sel ? "selected" : ""}>${label(r)}</option>`);
-  const mag = refs.itemTypes.find((t) => t.code === "MAG");
+  const mag = refs.itemTypes.find((x) => x.code === "MAG");
   const itemTypeSel = s.item_type_id ?? mag?.id;
   const freq = s.frequency || "monthly";
-  return html`<div class="grid split sc-form">
+  const fyLabel = (b) => `${b.name} · ${t("coll.acq.fy", { year: String(b.fiscal_year) })}`;
+  return html`<div class="sc-form-layout">
   <div class="stack">
-    <fieldset class="stack tight"><legend>Serial record</legend>
-      ${sub ? html`<p style="margin:0"><strong>${s.biblio.title}</strong> ${s.biblio.issn ? html`<span class="muted small">ISSN ${s.biblio.issn}</span>` : ""}</p>
+    <fieldset class="sc-fieldset"><legend>${t("coll.sf.record")}</legend>
+      ${sub ? html`<p><strong>${s.biblio.title}</strong> ${s.biblio.issn ? html`<span class="muted small">ISSN ${s.biblio.issn}</span>` : ""}</p>
         <input type="hidden" name="biblio_id" value="${s.biblio.id}">`
-      : html`<div class="field"><label for="sf-bq">Find a serial record</label>
-          <div class="input-group"><input id="sf-bq" type="search" placeholder="Title or ISSN" autocomplete="off" data-no-submit>
-          <button type="button" class="btn" id="sf-bsearch">${icon("search")}<span class="sr-only">Search records</span></button></div></div>
-        <div id="sf-bresults" class="row tight" role="list"></div>
+      : html`<div class="field"><label for="sf-bq">${t("coll.sf.find_record")}</label>
+          <input id="sf-bq" placeholder="${t("coll.sf.find_record_ph")}" autocomplete="off" aria-describedby="sf-bchosen"></div>
         <input type="hidden" name="biblio_id" id="sf-biblio">
         <div id="sf-bchosen" class="small" aria-live="polite"></div>
-        <label class="checkbox"><input type="checkbox" name="new_biblio" id="sf-newb"> Create a new serial record</label>
-        <div class="grid cols-3 hidden" id="sf-newfields">
-          <div class="field"><label for="sf-nt">Title</label><input id="sf-nt" name="nb_title" maxlength="500"></div>
-          <div class="field"><label for="sf-ni">ISSN</label><input id="sf-ni" name="nb_issn" maxlength="20" class="mono"></div>
-          <div class="field"><label for="sf-np">Publisher</label><input id="sf-np" name="nb_publisher" maxlength="255"></div>
+        <label class="checkbox"><input type="checkbox" name="new_biblio" id="sf-newb"> ${t("coll.sf.new_record")}</label>
+        <div class="form-grid three" id="sf-newfields" hidden>
+          <div class="field"><label for="sf-nt">${t("coll.field.title")}</label><input id="sf-nt" name="nb_title" maxlength="500"></div>
+          <div class="field"><label for="sf-ni">${t("coll.field.issn")}</label><input id="sf-ni" name="nb_issn" maxlength="20" class="mono"></div>
+          <div class="field"><label for="sf-np">${t("coll.field.publisher")}</label><input id="sf-np" name="nb_publisher" maxlength="255"></div>
         </div>`}
     </fieldset>
 
-    <fieldset class="grid cols-3"><legend>Ordering</legend>
-      <div class="field"><label for="sf-vendor">Vendor</label><select id="sf-vendor" name="vendor_id"><option value="">— None —</option>${opt(refs.vendors, s.vendor?.id)}</select></div>
-      <div class="field"><label for="sf-budget">Budget</label><select id="sf-budget" name="budget_id"><option value="">— None —</option>${opt(refs.budgets, s.budget?.id, (b) => `${b.name} · FY ${b.fiscal_year}`)}</select></div>
-      <div class="field"><label for="sf-branch">Receiving branch</label><select id="sf-branch" name="branch_id" required>${opt(refs.branches, s.branch?.id)}</select></div>
-      <div class="field"><label for="sf-vref">Vendor's reference</label><input id="sf-vref" name="vendor_reference" maxlength="64" value="${s.vendor_reference || ""}"></div>
-      <div class="field"><label for="sf-price">Annual cost (₹)</label><input id="sf-price" name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${s.price ?? ""}"></div>
-      <div class="field"><label for="sf-grace">Grace period (days)</label><input id="sf-grace" name="grace_days" type="number" min="0" max="365" value="${s.grace_days ?? 7}" required>
-        <span class="hint">Late after expected date + grace</span></div>
-    </fieldset>
+    <fieldset class="sc-fieldset"><legend>${t("coll.sf.ordering")}</legend><div class="form-grid three">
+      <div class="field"><label for="sf-vendor">${t("coll.acq.col_vendor")}</label><select id="sf-vendor" name="vendor_id"><option value="">${t("coll.sf.none")}</option>${opt(refs.vendors, s.vendor?.id)}</select></div>
+      <div class="field"><label for="sf-budget">${t("coll.acq.col_budget")}</label><select id="sf-budget" name="budget_id"><option value="">${t("coll.sf.none")}</option>${opt(refs.budgets, s.budget?.id, fyLabel)}</select></div>
+      <div class="field"><label for="sf-branch">${t("coll.acq.receiving_branch")}</label><select id="sf-branch" name="branch_id" required>${opt(refs.branches, s.branch?.id)}</select></div>
+      <div class="field"><label for="sf-vref">${t("coll.sf.vendor_ref")}</label><input id="sf-vref" name="vendor_reference" maxlength="64" value="${s.vendor_reference || ""}"></div>
+      <div class="field"><label for="sf-price">${t("coll.sf.annual_cost")}</label><input id="sf-price" name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${s.price ?? ""}"></div>
+      <div class="field"><label for="sf-grace">${t("coll.sf.grace")}</label><input id="sf-grace" name="grace_days" type="number" min="0" max="365" value="${s.grace_days ?? 7}" required aria-describedby="sf-grace-h">
+        <div class="field-help" id="sf-grace-h">${t("coll.sf.grace_help")}</div></div>
+    </div></fieldset>
 
-    <fieldset class="grid cols-3"><legend>Period &amp; frequency</legend>
-      <div class="field"><label for="sf-start">Start date</label><input id="sf-start" name="start_date" type="date" required value="${s.start_date || isoDay()}"></div>
-      <div class="field"><label for="sf-end">End date</label><input id="sf-end" name="end_date" type="date" value="${s.end_date || ""}"></div>
-      <div class="field"><label for="sf-first">First issue expected</label><input id="sf-first" name="first_issue_on" type="date" value="${s.first_issue_on || ""}">
-        <span class="hint">Defaults to the start date</span></div>
-      <div class="field"><label for="sf-freq">Frequency</label><select id="sf-freq" name="frequency">${refs.meta.frequencies.map((f) =>
-        html`<option value="${f.key}" ${f.key === freq ? "selected" : ""}>${f.label}</option>`)}</select></div>
-      <div class="field" id="sf-interval-f"><label for="sf-interval">N (interval)</label><input id="sf-interval" name="frequency_interval" type="number" min="1" max="366" value="${s.frequency_interval || 1}"></div>
-      <fieldset class="field sc-weekdays" id="sf-skip-f"><legend>Not published on</legend>
-        <div class="row tight">${WEEKDAYS.map((d, i) => html`<label class="checkbox small"><input type="checkbox" name="skip" value="${i}" ${(s.skip_weekdays || []).includes(i) ? "checked" : ""}>${d}</label>`)}</div></fieldset>
-    </fieldset>
+    <fieldset class="sc-fieldset"><legend>${t("coll.sf.period")}</legend><div class="form-grid three">
+      <div class="field"><label for="sf-start">${t("coll.sf.start")}</label><input id="sf-start" name="start_date" type="date" required value="${s.start_date || isoDay()}"></div>
+      <div class="field"><label for="sf-end">${t("coll.sf.end")}</label><input id="sf-end" name="end_date" type="date" value="${s.end_date || ""}"></div>
+      <div class="field"><label for="sf-first">${t("coll.sf.first")}</label><input id="sf-first" name="first_issue_on" type="date" value="${s.first_issue_on || ""}" aria-describedby="sf-first-h">
+        <div class="field-help" id="sf-first-h">${t("coll.sf.first_help")}</div></div>
+      <div class="field"><label for="sf-freq">${t("coll.sf.frequency")}</label><select id="sf-freq" name="frequency">${refs.meta.frequencies.map((f) =>
+        html`<option value="${f.key}" ${f.key === freq ? "selected" : ""}>${t(`coll.freq.${f.key}`, { n: "N" }, f.label)}</option>`)}</select></div>
+      <div class="field" id="sf-interval-f"><label for="sf-interval">${t("coll.sf.interval")}</label><input id="sf-interval" name="frequency_interval" type="number" min="1" max="366" value="${s.frequency_interval || 1}"></div>
+      <fieldset class="field plain-fieldset" id="sf-skip-f"><legend class="label-like">${t("coll.sf.skip")}</legend>
+        <div class="row tight">${[0, 1, 2, 3, 4, 5, 6].map((i) => html`<label class="checkbox small"><input type="checkbox" name="skip" value="${i}" ${(s.skip_weekdays || []).includes(i) ? "checked" : ""}>${weekday(i)}</label>`)}</div></fieldset>
+    </div></fieldset>
 
-    <fieldset class="stack tight"><legend>Numbering</legend>
-      <div class="grid cols-2">
-        <div class="field"><label for="sf-preset">Start from a preset</label><select id="sf-preset"><option value="">Custom…</option>${refs.meta.presets.map((p) =>
-          html`<option value="${p.key}">${p.label}</option>`)}</select></div>
-        <div class="field"><label for="sf-pattern">Pattern</label><input id="sf-pattern" name="numbering_pattern" required maxlength="160" class="mono" value="${s.numbering_pattern || "Vol. {X}, No. {Y}"}">
-          <span class="hint">Placeholders: {X} {Y} {Z} {YEAR} {MONTH} {MON} {DAY}</span></div>
+    <fieldset class="sc-fieldset"><legend>${t("coll.sf.numbering")}</legend>
+      <div class="form-grid">
+        <div class="field"><label for="sf-preset">${t("coll.sf.preset")}</label><select id="sf-preset"><option value="">${t("coll.sf.custom")}</option>${refs.meta.presets.map((p) =>
+          html`<option value="${p.key}">${t(`coll.sf.preset_${p.key}`, {}, p.label)}</option>`)}</select></div>
+        <div class="field"><label for="sf-pattern">${t("coll.sf.pattern")}</label><input id="sf-pattern" name="numbering_pattern" required maxlength="160" class="mono" value="${s.numbering_pattern || "Vol. {X}, No. {Y}"}" aria-describedby="sf-pattern-h">
+          <div class="field-help" id="sf-pattern-h">${t("coll.sf.pattern_help")}</div></div>
       </div>
-      <div class="table-wrap"><table class="table sc-levels"><caption class="sr-only">Numbering levels</caption>
-        <thead><tr><th scope="col">Level</th><th scope="col">Start</th><th scope="col">Add</th><th scope="col">Rollover after</th><th scope="col">Reset to</th><th scope="col">Yearly</th><th scope="col">Labels</th></tr></thead>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="${t("coll.sf.levels")}"><table class="table sc-levels"><caption class="sr-only">${t("coll.sf.levels")}</caption>
+        <thead><tr><th scope="col">${t("coll.sf.level")}</th><th scope="col">${t("coll.sf.l_start")}</th><th scope="col">${t("coll.sf.l_add")}</th><th scope="col">${t("coll.sf.l_max")}</th><th scope="col">${t("coll.sf.l_reset")}</th><th scope="col">${t("coll.sf.l_yearly")}</th><th scope="col">${t("coll.sf.l_labels")}</th></tr></thead>
         <tbody>${LEVELS.map((k) => levelRow(k, sub ? s.numbering?.[k] : { X: { start: 1, increment: 1, reset: 1 }, Y: { start: 1, increment: 1, max: 12, reset: 1 } }[k]))}</tbody></table></div>
-      <p class="tiny muted" style="margin:0">The innermost level advances every issue; when it passes “rollover after” it resets and the next level out advances. “Yearly” restarts a level each January.</p>
+      <p class="small muted">${t("coll.sf.levels_help")}</p>
     </fieldset>
 
-    <fieldset class="grid cols-3"><legend>Receiving</legend>
-      <label class="checkbox" style="grid-column:1/-1"><input type="checkbox" name="create_items" ${s.create_items === false ? "" : "checked"}> Create an item (with barcode) for each received issue</label>
-      <div class="field"><label for="sf-itype">Item type</label><select id="sf-itype" name="item_type_id"><option value="">—</option>${opt(refs.itemTypes, itemTypeSel)}</select></div>
-      <div class="field"><label for="sf-loc">Shelf location</label><input id="sf-loc" name="shelf_location" maxlength="64" value="${s.shelf_location ?? "Periodicals"}"></div>
-      <div class="field"><label for="sf-call">Call number prefix</label><input id="sf-call" name="call_number" maxlength="48" value="${s.call_number || ""}" placeholder="Defaults to classification"></div>
-    </fieldset>
-    <div class="field"><label for="sf-notes">Notes</label><textarea id="sf-notes" name="notes" maxlength="4000">${s.notes || ""}</textarea></div>
+    <fieldset class="sc-fieldset"><legend>${t("coll.sf.receiving")}</legend><div class="form-grid three">
+      <label class="checkbox span-all"><input type="checkbox" name="create_items" ${s.create_items === false ? "" : "checked"}> ${t("coll.sf.create_items")}</label>
+      <div class="field"><label for="sf-itype">${t("coll.items.type")}</label><select id="sf-itype" name="item_type_id"><option value="">—</option>${opt(refs.itemTypes, itemTypeSel)}</select></div>
+      <div class="field"><label for="sf-loc">${t("coll.items.shelf_location")}</label><input id="sf-loc" name="shelf_location" maxlength="64" value="${s.shelf_location ?? t("coll.sf.periodicals")}"></div>
+      <div class="field"><label for="sf-call">${t("coll.sf.cn_prefix")}</label><input id="sf-call" name="call_number" maxlength="48" value="${s.call_number || ""}" placeholder="${t("coll.sf.cn_prefix_ph")}"></div>
+    </div></fieldset>
+    <div class="field"><label for="sf-notes">${t("coll.items.notes")}</label><textarea id="sf-notes" name="notes" maxlength="4000">${s.notes || ""}</textarea></div>
   </div>
   <aside class="card pad sc-preview" aria-labelledby="sf-prev-h">
-    <h3 id="sf-prev-h" style="margin-top:0">${icon("clock")} Next 6 predicted issues</h3>
+    <h3 id="sf-prev-h">${icon("clock")} ${t("coll.sf.next_six")}</h3>
     <div id="sf-preview" aria-live="polite"></div>
   </aside>
   </div>`;
@@ -142,11 +142,8 @@ function payload(fd) {
     call_number: str(fd, "call_number") || null, price: fd.get("price") === "" ? null : paise(fd.get("price")),
     vendor_reference: str(fd, "vendor_reference") || null, notes: str(fd, "notes") || null,
   };
-  if (fd.get("new_biblio")) {
-    out.new_biblio = { title: str(fd, "nb_title"), issn: str(fd, "nb_issn") || null, publisher: str(fd, "nb_publisher") || null };
-  } else {
-    out.biblio_id = optInt(fd.get("biblio_id"));
-  }
+  if (fd.get("new_biblio")) out.new_biblio = { title: str(fd, "nb_title"), issn: str(fd, "nb_issn") || null, publisher: str(fd, "nb_publisher") || null };
+  else out.biblio_id = optInt(fd.get("biblio_id"));
   return out;
 }
 
@@ -156,22 +153,22 @@ function wire(dlg, refs) {
   let seq = 0;
   const syncVisibility = () => {
     const f = $("#sf-freq", dlg).value;
-    $("#sf-interval-f", dlg).classList.toggle("hidden", !f.startsWith("every_n_"));
-    $("#sf-skip-f", dlg).classList.toggle("hidden", !DAY_BASED.has(f));
+    $("#sf-interval-f", dlg).hidden = !f.startsWith("every_n_");
+    $("#sf-skip-f", dlg).hidden = !DAY_BASED.has(f);
     $("#sf-itype", dlg).required = form.elements.create_items.checked;
   };
   const refresh = debounce(async () => {
     const mine = ++seq;
     const fd = new FormData(form);
-    if (!fd.get("start_date")) { box.innerHTML = html`<p class="muted small">Enter a start date to see predictions.</p>`; return; }
+    if (!fd.get("start_date")) { box.innerHTML = html`<p class="muted small">${t("coll.sf.need_start")}</p>`; return; }
     try {
       const r = await api("/serials/preview", { method: "POST", body: { ...patternFrom(fd), count: 6 } });
       if (mine !== seq) return;
-      if (r.irregular) { box.innerHTML = html`<p class="muted small">Irregular serials are not predicted — add each issue by hand when it is announced.</p>`; return; }
+      if (r.irregular) { box.innerHTML = html`<p class="muted small">${t("coll.sf.irregular")}</p>`; return; }
       box.innerHTML = r.issues.length ? html`<ol class="sc-predicted">${r.issues.map((i) => html`<li>
-          <strong>${i.enumeration}</strong><span class="small muted">${i.chronology} · expected ${date(i.expected_on)}</span></li>`)}</ol>
-        <p class="tiny muted" style="margin:.5rem 0 0">≈ ${r.per_year} issue${r.per_year === 1 ? "" : "s"} in the first year.</p>`
-        : html`<p class="muted small">No issues fall between today and the end date.</p>`;
+          <strong>${i.enumeration}</strong><span class="small muted">${i.chronology} · ${t("coll.ser.expected_on", { date: date(i.expected_on) })}</span></li>`)}</ol>
+        <p class="small muted">${t("coll.sf.per_year", { count: r.per_year, n: num(r.per_year) })}</p>`
+        : html`<p class="muted small">${t("coll.sf.none_in_range")}</p>`;
     } catch (e) {
       if (mine === seq) box.innerHTML = errorBox(e.message);
     }
@@ -195,30 +192,17 @@ function wire(dlg, refs) {
   dlg.addEventListener("input", (e) => { if (!e.target.closest("#sf-bq")) refresh(); });
   dlg.addEventListener("change", () => { syncVisibility(); refresh(); });
 
-  // record search (create mode only)
   const bq = $("#sf-bq", dlg);
   if (bq) {
-    const results = $("#sf-bresults", dlg);
-    const search = async () => {
-      const q = bq.value.trim();
-      if (!q) return;
-      try {
-        const r = await api(`/search?${qs({ q, material_type: "serial", per_page: 8 })}`);
-        results.innerHTML = r.results.length ? html`${r.results.map((b) => html`<button type="button" class="chip" role="listitem" data-pick="${b.id}" data-title="${b.title}">${b.title}</button>`)}`
-          : html`<span class="small muted">No serial records match. Tick “Create a new serial record” below.</span>`;
-      } catch (e) { results.innerHTML = errorBox(e.message); }
-    };
-    bq.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); search(); } });
-    $("#sf-bsearch", dlg).addEventListener("click", search);
-    results.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-pick]");
-      if (!b) return;
-      $("#sf-biblio", dlg).value = b.dataset.pick;
-      $("#sf-bchosen", dlg).innerHTML = html`${icon("check")} Linked to <strong>${b.dataset.title}</strong>`;
-      $$("[data-pick]", results).forEach((x) => x.setAttribute("aria-pressed", x === b));
+    combobox(bq, {
+      minChars: 2,
+      source: async (q, signal) => (await api(`/search?${qs({ q, material_type: "serial", per_page: 8 })}`, { signal })).results,
+      render: (b) => html`<span class="combo-main">${b.title}<span class="sub">${b.issn || b.publisher || ""}</span></span>`,
+      value: (b) => b.title,
+      onSelect: (b) => { $("#sf-biblio", dlg).value = b.id; $("#sf-bchosen", dlg).innerHTML = html`${icon("check")} ${t("coll.sf.linked_to", { title: b.title })}`; },
     });
     $("#sf-newb", dlg).addEventListener("change", (e) => {
-      $("#sf-newfields", dlg).classList.toggle("hidden", !e.target.checked);
+      $("#sf-newfields", dlg).hidden = !e.target.checked;
       $("#sf-nt", dlg).required = e.target.checked;
       if (e.target.checked && !$("#sf-nt", dlg).value) $("#sf-nt", dlg).value = bq.value.trim();
     });
@@ -230,14 +214,13 @@ function wire(dlg, refs) {
 /** Open the subscription dialog. Resolves with the saved subscription or null. */
 export async function subscriptionForm(sub = null) {
   const refs = await loadRefs();
-  return formModal({ title: sub ? `Edit subscription — ${sub.biblio.title}` : "New subscription", body: body(sub, refs),
-    submit: sub ? "Save changes" : "Create subscription", wide: true },
+  return formModal({ title: sub ? t("coll.sf.edit_title", { title: sub.biblio.title }) : t("coll.sf.new_title"), body: body(sub, refs),
+    submit: sub ? t("coll.auth.save") : t("coll.sf.create"), size: "xl" },
   (fd) => {
     const data = payload(fd);
-    if (!sub && !data.biblio_id && !data.new_biblio) throw new Error("Choose a serial record or create a new one");
-    return sub ? api(`/serials/subscriptions/${sub.id}`, { method: "PUT", body: data })
-      : api("/serials/subscriptions", { method: "POST", body: data });
-  }, (dlg) => { dlg.classList.add("sc-xwide"); wire(dlg, refs); });
+    if (!sub && !data.biblio_id && !data.new_biblio) throw new Error(t("coll.sf.need_record"));
+    return sub ? api(`/serials/subscriptions/${sub.id}`, { method: "PUT", body: data }) : api("/serials/subscriptions", { method: "POST", body: data });
+  }, (dlg) => wire(dlg, refs));
 }
 
 export const priceLabel = (v) => (v === null || v === undefined ? "—" : money(v));

@@ -1,6 +1,24 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Record{% endblock %}
+{#- DETAIL PAGE template (docs/DESIGN_SYSTEM.md §6): header with cover, title, status and actions → tabs
+    (Overview · Items · Holds · MARC · History · Similar & duplicates). Rendered by staff-record.js; the
+    skeleton below has the header's size so nothing moves when the record arrives. -#}
+{% block page_title %}{{ t('nav.detail.record') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.record') }}</span></li>{% endblock %}
 {% block content %}
-<div id="record"><div class="skeleton" style="height:12rem"></div></div>
+<div class="coll coll-record" id="record" aria-busy="true" data-can-write="{{ 1 if can(user, 'catalog:write') else 0 }}"
+     data-can-delete="{{ 1 if can(user, 'catalog:delete') else 0 }}" data-can-holds="{{ 1 if can(user, 'holds:manage') else 0 }}">
+  <header class="detail-head is-loading" aria-hidden="true">
+    <div class="skeleton dh-cover-sk"></div>
+    <div class="dh-main">
+      <div class="skeleton sk-line w-30"></div>
+      <div class="skeleton dh-title-sk"></div>
+      <div class="skeleton sk-line w-50"></div>
+      <div class="dh-pills"><span class="skeleton sk-pill"></span><span class="skeleton sk-pill"></span></div>
+    </div>
+  </header>
+  <div class="skeleton dh-tabs-sk" aria-hidden="true"></div>
+  <div class="skeleton dh-body-sk" aria-hidden="true"></div>
+  <p class="sr-only" role="status">{{ t('common.loading') }}</p>
+</div>
 {% endblock %}

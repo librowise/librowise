@@ -1,10 +1,16 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Subscription{% endblock %}
+{#- One subscription: detail header (status, frequency, actions), issue grid (keyboard-first: ↑/↓, R receive,
+    C claim, M missing, Space select), subscription facts, routing list and recent claims. -#}
+{% block page_title %}{{ t('nav.detail.serial') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
+{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.serial') }}</span></li>{% endblock %}
 {% block content %}
-<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/serials">← All subscriptions</a></nav>
-<div id="sub-detail">
-  <div class="skeleton" style="height:2.2rem;width:55%"></div>
-  <div class="skeleton" style="height:1rem;width:35%;margin-top:.8rem"></div>
-  <div class="skeleton" style="height:16rem;margin-top:1.5rem"></div>
+<div class="coll coll-serial" id="sub-detail" aria-busy="true" data-can-write="{{ 1 if can(user, 'serials:write') else 0 }}">
+  <header class="detail-head no-cover is-loading" aria-hidden="true">
+    <div class="dh-main"><div class="skeleton sk-line w-30"></div><div class="skeleton dh-title-sk"></div><div class="skeleton sk-line w-50"></div></div>
+  </header>
+  <div class="skeleton" style="height:2.4rem;border-radius:8px;margin-bottom:1rem" aria-hidden="true"></div>
+  <div class="skeleton" style="height:26rem;border-radius:10px" aria-hidden="true"></div>
+  <p class="sr-only" role="status">{{ t('common.loading') }}</p>
 </div>
 {% endblock %}

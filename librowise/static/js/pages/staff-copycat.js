@@ -1,80 +1,73 @@
-// Staff: copy cataloguing — search remote SRU catalogues (Library of Congress…) and import MARC records.
-import { $, api, badge, confirmDialog, empty, html, icon, num, qs, skeleton, toast, withBusy } from "/static/js/core.js";
+// Staff › Catalogue › Copy cataloguing — search remote SRU catalogues (Library of Congress…), check the MARC record
+// and import it in one step. Records already in the catalogue (same ISBN) are flagged before importing.
+import { $, $$, api, confirmDialog, html, icon, num, qs, toast, withBusy } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { pagination, wirePagination } from "/static/js/ui/pagination.js";
+import { recNo } from "/static/js/pages/lib/collection.js";
 
-const PLACEHOLDERS = {
-  title: "e.g. The Hobbit",
-  isbn: "e.g. 9780261103344",
-  author: "e.g. Tolkien, J. R. R.",
-  cql: 'e.g. dc.title="hobbit" and dc.creator=tolkien',
-};
-const state = { results: [], targetId: null, start: 1 };
+const PLACEHOLDER = { title: "coll.cc.ph_title", isbn: "coll.cc.ph_isbn", author: "coll.cc.ph_author", cql: "coll.cc.ph_cql" };
+const state = { results: [], targetId: null, start: 1, per: 10, total: 0 };
+const form = () => $("#cc-form");
+const kind = () => form().elements.kind.value;
 
-const authorsText = (list) => (list || []).join("; ");
-
-function marcView(fields) {
-  return html`<pre class="cc-marc">${fields.map((f) => html`<span class="cc-tag">${f.tag}</span> ${f.ind ? html`<span class="cc-ind">${f.ind}</span> ` : ""}${f.value}
+const marcView = (fields) => html`<pre class="cc-marc" tabindex="0">${fields.map((f) => html`<span class="cc-tag">${f.tag}</span> ${f.ind ? html`<span class="cc-ind">${f.ind}</span> ` : ""}${f.value}
 `)}</pre>`;
+
+function actionsHtml(r, i) {
+  if (r.imported) return html`<span class="badge pill success"><span class="dot" aria-hidden="true"></span>${t("coll.cc.imported")}</span>
+    <a class="btn sm primary" href="/staff/catalog/${r.imported}?add=1#items">${icon("plus")}${t("coll.cc.open_add_items")}</a>`;
+  return html`${r.existing_biblio_id ? html`<a class="btn sm" href="/staff/catalog/${r.existing_biblio_id}">${icon("book")}${t("coll.cc.open_existing", { no: recNo(r.existing_biblio_id) })}</a>` : ""}
+    <button type="button" class="btn sm ${r.existing_biblio_id ? "" : "primary"}" data-import="${i}">${icon("download")}${r.existing_biblio_id ? t("coll.cc.import_anyway") : t("coll.cc.import")}</button>`;
 }
 
 function resultCard(r, i) {
-  const meta = [r.publisher, r.pub_year, r.edition].filter(Boolean).join(" · ");
+  const meta = [r.publisher, r.pub_year, r.edition, r.pages ? t("coll.cc.pages", { n: num(r.pages) }) : ""].filter(Boolean).join(" · ");
   const ids = [r.isbn && `ISBN ${r.isbn}`, r.lccn && `LCCN ${r.lccn}`, r.classification && `DDC ${r.classification}`].filter(Boolean);
-  return html`<article class="card pad cc-result" aria-labelledby="cc-t-${i}">
-    <div class="row between" style="align-items:flex-start">
-      <div class="grow stack tight">
-        <h2 class="cc-title" id="cc-t-${i}">${r.title}${r.subtitle ? html`<span class="muted">: ${r.subtitle}</span>` : ""}</h2>
-        ${r.authors.length ? html`<div class="small">${authorsText(r.authors)}</div>` : ""}
-        ${meta ? html`<div class="small muted">${meta}${r.pages ? ` · ${r.pages} pages` : ""}</div>` : ""}
-        ${ids.length ? html`<div class="tiny muted mono">${ids.join(" · ")}</div>` : ""}
-        ${r.subjects.length ? html`<div class="row tight">${r.subjects.slice(0, 4).map((s) => html`<span class="badge">${s}</span>`)}</div>` : ""}
-      </div>
-      <div class="row tight cc-actions" data-actions="${i}">
-        ${r.existing_biblio_id ? html`<a class="btn sm" href="/staff/catalog/${r.existing_biblio_id}">${badge("ok", "Already catalogued")}<span>Open</span></a>` : ""}
-        <button class="btn sm ${r.existing_biblio_id ? "" : "primary"}" data-import="${i}">${icon("download")}${r.existing_biblio_id ? "Import copy" : "Import"}</button>
-      </div>
+  return html`<article class="card cc-result" aria-labelledby="cc-t-${i}">
+    <div class="cc-main">
+      <h2 class="cc-title" id="cc-t-${i}">${r.title}${r.subtitle ? html`<span class="cc-sub">: ${r.subtitle}</span>` : ""}</h2>
+      ${r.authors.length ? html`<p class="cc-authors">${r.authors.join("; ")}</p>` : ""}
+      ${meta ? html`<p class="small muted">${meta}</p>` : ""}
+      ${ids.length ? html`<p class="small mono cc-ids">${ids.join(" · ")}</p>` : ""}
+      ${r.subjects.length ? html`<ul class="tag-list" role="list">${r.subjects.slice(0, 5).map((s) => html`<li><span class="tag static">${s}</span></li>`)}</ul>` : ""}
+      ${r.existing_biblio_id && !r.imported ? html`<p class="cc-dupe">${icon("alert")}${t("coll.cc.already")}</p>` : ""}
     </div>
-    <details class="cc-details"><summary>MARC record · ${num(r.fields.length)} fields</summary>${marcView(r.fields)}</details>
+    <div class="cc-actions" data-actions="${i}">${actionsHtml(r, i)}</div>
+    <details class="cc-details"><summary>${t("coll.cc.marc_preview", { count: r.fields.length, n: num(r.fields.length) })}</summary>${marcView(r.fields)}</details>
   </article>`;
 }
 
-function renderPager(total, start, per) {
-  const pager = $("#cc-pager");
-  pager.innerHTML = "";
-  if (total <= per) return;
-  const page = Math.floor((start - 1) / per) + 1;
-  const pages = Math.ceil(Math.min(total, 1000) / per);
-  pager.innerHTML = html`<button class="btn sm" data-page="${start - per}" ${start <= 1 ? "disabled" : ""}>Previous</button>
-    <span class="muted small">Page ${page} of ${num(pages)}</span>
-    <button class="btn sm" data-page="${start + per}" ${page >= pages ? "disabled" : ""}>Next</button>`;
-}
-
 async function search(start = 1) {
-  const form = $("#cc-form");
   const q = $("#cc-q").value.trim();
-  if (!q) { $("#cc-q").focus(); toast("Enter something to search for", "error"); return; }
-  const params = { target_id: $("#cc-target").value, kind: $("#cc-kind").value, q, max: $("#cc-max").value };
+  if (!q) { $("#cc-q").focus(); $("#cc-summary").textContent = t("coll.cc.need_terms"); return; }
+  const params = { target_id: $("#cc-target").value, kind: kind(), q, max: $("#cc-max").value };
   history.replaceState(null, "", `?${qs({ ...params, start: start > 1 ? start : undefined })}`);
   state.targetId = Number(params.target_id);
   state.start = start;
-  const results = $("#cc-results");
-  results.setAttribute("aria-busy", "true");
-  results.innerHTML = `<div class="card pad">${skeleton(6)}</div>`;
-  $("#cc-summary").textContent = "Searching…";
+  state.per = Number(params.max);
+  const box = $("#cc-results");
+  box.setAttribute("aria-busy", "true");
+  box.innerHTML = html`${Array.from({ length: 3 }, () => html`<div class="card cc-result cc-sk" aria-hidden="true"><div class="skeleton sk-line w-70"></div><div class="skeleton sk-line w-50"></div><div class="skeleton sk-line w-30"></div></div>`)}`;
+  $("#cc-summary").textContent = t("coll.cc.searching");
   try {
-    const r = await withBusy($("#cc-go", form), () => api(`/copycat/search?${qs({ ...params, start })}`));
+    const r = await withBusy($("#cc-go"), () => api(`/copycat/search?${qs({ ...params, start })}`));
     state.results = r.results;
-    const shown = r.results.length ? `${num(start)}–${num(start + r.results.length - 1)} of ` : "";
-    $("#cc-summary").textContent = `${shown}${num(r.total)} records at ${r.target.name} · query: ${r.query}`;
-    results.innerHTML = r.results.length ? html`${r.results.map(resultCard)}`
-      : empty("No records found. Try fewer words, the ISBN, or another catalogue.", "search");
-    renderPager(r.total, start, Number(params.max));
+    state.total = r.total;
+    $("#cc-summary").textContent = r.results.length
+      ? t("coll.cc.summary", { from: num(start), to: num(start + r.results.length - 1), total: num(r.total), target: r.target.name })
+      : t("coll.cc.summary_none", { target: r.target.name });
+    box.innerHTML = r.results.length ? html`${r.results.map(resultCard)}`
+      : emptyState({ art: "search", title: t("coll.cc.none_title"), body: t("coll.cc.none_body"), actions: html`<a class="btn" href="/staff/catalog/new">${icon("plus")}${t("ui.catalog.new")}</a>` });
+    const page = Math.floor((start - 1) / state.per) + 1;
+    $("#cc-pager").innerHTML = r.total > state.per ? pagination({ page, perPage: state.per, total: Math.min(r.total, 1000) }) : "";
   } catch (e) {
     state.results = [];
     $("#cc-summary").textContent = "";
-    results.innerHTML = empty(e.message, "alert");
+    box.innerHTML = errorState(e, { retry: true });
     $("#cc-pager").innerHTML = "";
   } finally {
-    results.removeAttribute("aria-busy");
+    box.removeAttribute("aria-busy");
   }
 }
 
@@ -83,61 +76,55 @@ async function importRecord(i, btn) {
   if (!r) return;
   let allowDuplicate = false;
   if (r.existing_biblio_id) {
-    if (!(await confirmDialog("Import a duplicate?", "A record with this ISBN is already in the catalogue. Import another bibliographic record anyway?", "Import anyway", false))) return;
+    if (!(await confirmDialog(t("coll.cc.dup_title"), t("coll.cc.dup_text", { no: recNo(r.existing_biblio_id) }), t("coll.cc.import_anyway"), false))) return;
     allowDuplicate = true;
   }
   try {
-    const b = await withBusy(btn, () => api("/copycat/import", {
-      method: "POST", body: { marcxml: r.marcxml, target_id: state.targetId, allow_duplicate: allowDuplicate },
-    }));
-    r.existing_biblio_id = b.id;
-    $(`[data-actions="${i}"]`).innerHTML = html`${badge("ok", "Imported")}
-      <a class="btn sm primary" href="/staff/catalog/${b.id}">${icon("arrow-right")}Open record &amp; add items</a>`;
-    toast(`Imported “${b.title}”`, "success");
+    const b = await withBusy(btn, () => api("/copycat/import", { method: "POST", body: { marcxml: r.marcxml, target_id: state.targetId, allow_duplicate: allowDuplicate } }));
+    r.imported = b.id;
+    $(`[data-actions="${i}"]`).innerHTML = actionsHtml(r, i);
+    $(`[data-actions="${i}"] a`)?.focus();
+    toast(t("coll.cc.imported_toast", { title: b.title }), "success");
   } catch (e) {
-    if (e.data?.existing_biblio_id) {
-      $(`[data-actions="${i}"]`).insertAdjacentHTML("afterbegin",
-        html`<a class="btn sm" href="/staff/catalog/${e.data.existing_biblio_id}">${badge("ok", "Already catalogued")}<span>Open</span></a>`);
-    }
+    if (e.data?.existing_biblio_id) { r.existing_biblio_id = e.data.existing_biblio_id; $(`[data-actions="${i}"]`).innerHTML = actionsHtml(r, i); }
   }
 }
 
 export default async function init() {
-  const form = $("#cc-form");
   let targets = [];
+  const disable = () => $$("input,select,button", form()).forEach((el) => { el.disabled = true; });
   try {
-    targets = (await api("/copycat/targets")).results.filter((t) => t.enabled);
+    targets = (await api("/copycat/targets")).results.filter((x) => x.enabled);
   } catch (e) {
-    $("#cc-results").innerHTML = empty(e.status === 403 ? "Copy cataloguing needs cataloguing permission." : e.message, "alert");
-    form.querySelectorAll("input,select,button").forEach((el) => { el.disabled = true; });
+    $("#cc-results").innerHTML = e.status === 403 ? emptyState({ art: "error", title: t("coll.cc.no_permission") }) : errorState(e, { retry: false });
+    disable();
     return;
   }
   if (!targets.length) {
-    $("#cc-results").innerHTML = empty("No copy-cataloguing targets are enabled. An administrator can add one under Interoperability → Copy-cataloguing targets.", "globe");
-    form.querySelectorAll("input,select,button").forEach((el) => { el.disabled = true; });
+    $("#cc-results").innerHTML = emptyState({ art: "inbox", title: t("coll.cc.no_targets_title"), body: t("coll.cc.no_targets_body"),
+      actions: html`<a class="btn primary" href="/staff/interop#targets">${icon("settings")}${t("coll.cc.targets")}</a>` });
+    disable();
     return;
   }
-  $("#cc-target").innerHTML = html`${targets.map((t) => html`<option value="${t.id}">${t.name}</option>`)}`;
-
+  const sel = $("#cc-target");
+  sel.innerHTML = html`${targets.map((x) => html`<option value="${x.id}">${x.name}</option>`)}`;
+  sel.disabled = false;
   const params = new URLSearchParams(location.search);
-  for (const k of ["target_id", "kind", "q", "max"]) {
-    const el = form.elements[k];
-    if (el && params.has(k) && [...(el.options || [{ value: params.get(k) }])].some((o) => o.value === params.get(k))) el.value = params.get(k);
-  }
-  const kind = $("#cc-kind");
-  const syncPlaceholder = () => { $("#cc-q").placeholder = PLACEHOLDERS[kind.value] || ""; $("#cc-q").inputMode = kind.value === "isbn" ? "numeric" : "text"; };
-  kind.addEventListener("change", syncPlaceholder);
-  syncPlaceholder();
-
-  form.addEventListener("submit", (e) => { e.preventDefault(); search(1); });
-  $("#cc-pager").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-page]");
-    if (b && !b.disabled) { search(Math.max(1, Number(b.dataset.page))); $("#cc-summary").scrollIntoView({ block: "start" }); }
-  });
+  if (params.get("target_id") && targets.some((x) => String(x.id) === params.get("target_id"))) sel.value = params.get("target_id");
+  if (params.get("kind")) { const radio = $(`input[name=kind][value="${CSS.escape(params.get("kind"))}"]`, form()); if (radio) radio.checked = true; }
+  if (["10", "20", "50"].includes(params.get("max"))) $("#cc-max").value = params.get("max");
+  if (params.get("q")) $("#cc-q").value = params.get("q");
+  const sync = () => { $("#cc-q").placeholder = t(PLACEHOLDER[kind()]); $("#cc-q").inputMode = kind() === "isbn" ? "numeric" : "text"; };
+  form().addEventListener("change", (e) => { if (e.target.name === "kind") { sync(); $("#cc-q").focus(); } });
+  sync();
+  form().addEventListener("submit", (e) => { e.preventDefault(); search(1); });
+  wirePagination($("#cc-pager"), ({ page }) => { search((page - 1) * state.per + 1); $("#cc-summary").scrollIntoView({ block: "start" }); },
+    () => ({ page: Math.floor((state.start - 1) / state.per) + 1, perPage: state.per, total: state.total }));
   $("#cc-results").addEventListener("click", (e) => {
     const b = e.target.closest("[data-import]");
     if (b) importRecord(Number(b.dataset.import), b);
+    if (e.target.closest("[data-retry]")) search(state.start);
   });
   if (params.get("q")) search(Math.max(1, Number(params.get("start")) || 1));
-  else $("#cc-results").innerHTML = empty("Search by title, ISBN or author to find a record to copy.", "search");
+  else $("#cc-results").innerHTML = emptyState({ art: "search", title: t("coll.cc.start_title"), body: t("coll.cc.start_body") });
 }

@@ -11,7 +11,7 @@ from __future__ import annotations
 import secrets
 from datetime import date, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -160,11 +160,15 @@ def list_registrations(db: Session, status: str | None = PENDING, limit: int = 2
     for p in patrons:
         row = registration_out(p, regs.get(p.id))
         if p.registration_status == PENDING:  # help staff spot people who already hold a card
-            dupes = db.scalars(select(Patron).where(
-                Patron.id != p.id, Patron.deleted_at.is_(None),
-                func.lower(Patron.last_name) == p.last_name.lower(),
-                func.lower(Patron.first_name) == p.first_name.lower()).limit(5)).all()
-            row["duplicates"] = [{"id": d.id, "card_number": d.card_number, "full_name": d.full_name} for d in dupes]
+            same_name = and_(func.lower(Patron.last_name) == p.last_name.lower(),
+                             func.lower(Patron.first_name) == p.first_name.lower())
+            match = or_(same_name, Patron.phone == p.phone) if p.phone else same_name
+            dupes = db.scalars(select(Patron).where(Patron.id != p.id, Patron.deleted_at.is_(None), match)
+                               .limit(5)).all()
+            row["duplicates"] = [{"id": d.id, "card_number": d.card_number, "full_name": d.full_name,
+                                  "match": "phone" if p.phone and d.phone == p.phone
+                                  and d.full_name.lower() != p.full_name.lower() else "name",
+                                  "is_active": d.is_active} for d in dupes]
         out.append(row)
     return out
 
@@ -172,6 +176,15 @@ def list_registrations(db: Session, status: str | None = PENDING, limit: int = 2
 def pending_count(db: Session) -> int:
     return db.scalar(select(func.count()).select_from(Patron).where(
         Patron.registration_status == PENDING, Patron.deleted_at.is_(None))) or 0
+
+
+def status_counts(db: Session) -> dict[str, int]:
+    """Number of registrations per status (pending / approved / rejected) — for the review queue's filters."""
+    rows = db.execute(select(Patron.registration_status, func.count()).where(
+        Patron.registration_status.is_not(None), Patron.deleted_at.is_(None)).group_by(Patron.registration_status)).all()
+    counts = {PENDING: 0, APPROVED: 0, REJECTED: 0}
+    counts.update({status: n for status, n in rows if status})
+    return counts
 
 
 def login_block_message(patron: Patron) -> str | None:

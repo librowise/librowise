@@ -298,7 +298,7 @@
 .view-tab[aria-pressed="true"] { background: var(--surface); color: var(--text); border-color: var(--border-strong); box-shadow: var(--shadow-xs); }
 .view-tab .n { color: var(--muted); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
 .view-item { display: inline-flex; align-items: center; }
-.view-rm { border: 0; background: none; color: var(--muted); cursor: pointer; padding: .25rem; border-radius: 50%; line-height: 0; margin-inline-start: -.2rem; }
+.view-rm { border: 0; background: none; color: var(--muted); cursor: pointer; padding: .25rem; border-radius: 50%; line-height: 0; margin-inline-start: -.2rem; min-width: 24px; min-height: 24px; display: inline-grid; place-items: center; } /* WCAG 2.5.8 target size */
 .view-rm:hover { color: var(--danger); background: var(--surface-2); }
 .view-rm .icon { width: .8rem; height: .8rem; }
 

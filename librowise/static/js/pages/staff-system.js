@@ -1,180 +1,318 @@
-// Staff: System — health, job queue (filter, retry, cancel, enqueue), schedules, workers,
-// database information, request latency and the (read-only) backup list.
-import { $, api, badge, confirmDialog, datetime, empty, esc, html, num, qs, relative, toast, withBusy } from "/static/js/core.js";
+// Staff › Administration › System — health tiles, the background job queue (filter, details, retry, cancel,
+// run now), schedules, workers, database, request latency and the read-only backup list.
+import { $, api, datetime, html, icon, num, relative, toast } from "/static/js/core.js";
+import { locale, t } from "/static/js/i18n.js";
+import { dataTable } from "/static/js/ui/data-table.js";
+import { confirmDialog } from "/static/js/ui/dialog.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { selectChip, urlState, wireFilterBar } from "/static/js/ui/filters.js";
+import { sidePanel } from "/static/js/ui/panel.js";
+import { statTile } from "/static/js/ui/stat.js";
+import { statusPill, statusText } from "/static/js/ui/status.js";
+import { bytes, cronText, dl, duration, jobDescription, jobLabel, pill, rowMenu, wireKit } from "/static/js/pages/lib/admin-kit.js";
+import { editDialog, humanize } from "/static/js/pages/lib/settings-ui.js";
 
-const JOB_BADGE = { queued: "queued", running: "info", succeeded: "ok", failed: "warn", dead: "bad", cancelled: "" };
-const state = { status: "", type: "", page: 1, types: [] };
+const STATUSES = ["queued", "running", "failed", "dead", "succeeded", "cancelled"];
+const filters = urlState({ status: "", type: "", page: 1, per_page: 10 });
+const state = { overview: null, jobs: [], table: null };
+const firstLine = (s) => (s || "").trim().split("\n").filter(Boolean).pop() || "";
+const when = (v) => (v ? html`<span title="${datetime(v)}">${relative(v)}</span>` : html`<span class="muted">—</span>`);
 
-const bytes = (n) => {
-  if (n === null || n === undefined) return "—";
-  const u = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  let v = Number(n);
-  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(i ? 1 : 0)} ${u[i]}`;
-};
-const secs = (s) => (s === null || s === undefined ? "—" : s < 120 ? `${Math.round(s)} s` : s < 7200 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
-const jobBadge = (s) => badge(JOB_BADGE[s] ?? "", s);
-const firstLine = (t) => (t || "").trim().split("\n").filter(Boolean).pop() || "";
+/** Connection URL for people: percent-decoded, any password masked. */
+export function displayUrl(url) {
+  let s = String(url || "");
+  try { s = decodeURIComponent(s); } catch { /* keep as is */ }
+  return s.replace(/(\/\/[^:/@]+):[^@/]*@/, "$1:••••••@");
+}
+
+// ------------------------------------------------------------------ health
 
 function healthTiles(o) {
   const w = o.checks.worker || {};
   const db = o.checks.database || {};
   const q = o.queue.by_status;
   const alive = o.workers.filter((x) => x.alive).length;
+  const waiting = (q.queued || 0) + (q.failed || 0);
   return html`
-    <div class="card stat ${o.ready ? "" : "alert"}"><span class="label">Readiness</span><span class="value">${o.ready ? "Ready" : "Unavailable"}</span>
-      <span class="delta">Database ${db.ok ? `OK · ${db.latency_ms} ms` : "unreachable"}</span></div>
-    <div class="card stat ${w.required && !w.ok ? "alert" : ""}"><span class="label">Workers</span><span class="value">${num(alive)}</span>
-      <span class="delta">${w.heartbeat_age_seconds === null ? "No running worker" : `Last heartbeat ${secs(w.heartbeat_age_seconds)} ago`}${w.required ? " · required" : ""}</span></div>
-    <div class="card stat ${q.dead ? "alert" : ""}"><span class="label">Queue</span><span class="value">${num(q.queued + q.failed)}</span>
-      <span class="delta">${num(q.running)} running · ${num(q.dead)} dead · lag ${secs(o.queue.lag_seconds)}</span></div>
-    <div class="card stat"><span class="label">Database</span><span class="value">${bytes(o.database.size_bytes)}</span>
-      <span class="delta">${o.database.dialect} ${o.database.server_version || ""} · v${o.version} · up ${secs(o.uptime_seconds)}</span></div>`;
+    ${statTile({ label: t("admin.system.kpi.readiness"), icon: "activity", tone: o.ready ? "" : "danger",
+      value: o.ready ? t("admin.system.ready") : t("admin.system.not_ready"),
+      foot: db.ok ? t("admin.system.db_answered", { ms: num(db.latency_ms) }) : t("admin.system.db_down") })}
+    ${statTile({ label: t("admin.system.kpi.workers"), icon: "monitor", tone: w.required && !w.ok ? "danger" : alive ? "" : "warning", value: alive,
+      foot: w.heartbeat_age_seconds === null || w.heartbeat_age_seconds === undefined ? t("admin.system.no_worker")
+        : t("admin.system.heartbeat", { ago: duration(w.heartbeat_age_seconds) }) })}
+    ${statTile({ label: t("admin.system.kpi.queue"), icon: "layers", tone: q.dead ? "danger" : "", value: waiting,
+      foot: t("admin.system.queue_foot", { running: num(q.running || 0), dead: num(q.dead || 0), lag: duration(o.queue.lag_seconds || 0) }) })}
+    ${statTile({ label: t("admin.system.kpi.database"), icon: "table", value: bytes(o.database.size_bytes),
+      foot: t("admin.system.db_foot", { engine: engineName(o.database.dialect), version: o.version, uptime: duration(o.uptime_seconds, "long") }) })}`;
 }
 
-function jobsTable(data) {
-  if (!data.results.length) return empty("No jobs match these filters.", "inbox");
-  const pages = Math.max(1, Math.ceil(data.total / data.per_page));
-  return html`<div class="table-wrap"><table class="table"><thead><tr>
-      <th>#</th><th>Type</th><th>Status</th><th class="num">Attempts</th><th>Run at</th><th>Finished</th><th>Details</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${data.results.map((j) => html`<tr>
-      <td class="mono">${j.id}</td>
-      <td><strong>${j.type}</strong>${j.schedule ? html`<div class="tiny muted">schedule: ${j.schedule}</div>` : ""}</td>
-      <td>${jobBadge(j.status)}${j.locked_by ? html`<div class="tiny muted mono">${j.locked_by}</div>` : ""}</td>
-      <td class="num">${j.attempts}/${j.max_attempts}</td>
-      <td class="small">${datetime(j.run_at)}</td>
-      <td class="small muted">${j.finished_at ? relative(j.finished_at) : "—"}</td>
-      <td class="small" style="max-width:26rem">${j.last_error
-        ? html`<details><summary class="mono tiny">${firstLine(j.last_error).slice(0, 120)}</summary><pre class="tiny sys-pre">${j.last_error}</pre></details>`
-        : j.result ? html`<span class="mono tiny">${JSON.stringify(j.result).slice(0, 160)}</span>` : ""}</td>
-      <td class="nowrap">${["failed", "dead", "cancelled"].includes(j.status) ? html`<button class="btn sm" data-retry="${j.id}">Retry</button>` : ""}
-        ${["queued", "failed"].includes(j.status) ? html`<button class="btn sm ghost" data-cancel="${j.id}">Cancel</button>` : ""}</td>
-    </tr>`)}</tbody></table></div>
-    ${pages > 1 ? html`<nav class="pager" aria-label="Job pages">
-      <button class="btn sm" data-page="${data.page - 1}" ${data.page <= 1 ? "disabled" : ""}>&larr; Newer</button>
-      <span class="small muted">Page ${num(data.page)} of ${num(pages)} · ${num(data.total)} jobs</span>
-      <button class="btn sm" data-page="${data.page + 1}" ${data.page >= pages ? "disabled" : ""}>Older &rarr;</button></nav>` : ""}`;
+const engineName = (d) => ({ sqlite: "SQLite", postgresql: "PostgreSQL", mysql: "MySQL" }[d] || humanize(d));
+
+// ------------------------------------------------------------------ jobs
+
+function jobMenu(j) {
+  return rowMenu({ label: t("admin.system.job_n", { name: jobLabel(j.type), id: j.id }), items: [
+    { id: "details", label: t("admin.system.view_details"), icon: "info" },
+    { id: "retry", label: t("admin.system.retry"), icon: "refresh", hidden: !["failed", "dead", "cancelled"].includes(j.status) },
+    { id: "cancel", label: t("admin.system.cancel_job"), icon: "x-circle", danger: true, hidden: !["queued", "failed"].includes(j.status) },
+  ] });
 }
 
-function schedulesTable(rows) {
-  if (!rows.length) return empty("No schedules configured (LIBROWISE_SCHEDULES).", "clock");
-  return html`<div class="table-wrap"><table class="table"><thead><tr><th>Schedule</th><th>Cron</th><th>Next run</th><th>Last slot</th></tr></thead><tbody>
-    ${rows.map((s) => html`<tr><td><strong>${s.name}</strong>${s.registered ? "" : html` ${badge("bad", "no handler")}`}</td>
-      <td class="mono small">${s.cron}</td><td class="small">${s.next_run ? datetime(s.next_run) : "—"}</td>
-      <td class="small">${s.last_slot ? html`${datetime(s.last_slot)} ${s.last_status ? jobBadge(s.last_status) : ""}` : html`<span class="muted">never</span>`}</td></tr>`)}
-  </tbody></table></div>`;
+function outcome(j) {
+  if (j.last_error) return html`<span class="sys-error" title="${firstLine(j.last_error)}">${firstLine(j.last_error)}</span>`;
+  if (j.result && typeof j.result === "object") {
+    const n = Object.keys(j.result).length;
+    return n ? html`<span class="muted">${t("admin.system.result_n", { count: n })}</span>` : "";
+  }
+  return j.result ? String(j.result) : html`<span class="muted">—</span>`;
 }
 
-function workersTable(rows) {
-  if (!rows.length) return html`${empty("No worker has reported yet.", "clock")}<p class="tiny muted" style="margin:.5rem 0 0">Start one with <code>python -m librowise worker --concurrency 2</code>.</p>`;
-  return html`<div class="table-wrap"><table class="table"><thead><tr><th>Worker</th><th>Status</th><th class="num">Done</th><th class="num">Failed</th><th>Heartbeat</th></tr></thead><tbody>
-    ${rows.map((w) => html`<tr><td><span class="mono small">${w.worker_id}</span><div class="tiny muted">concurrency ${w.concurrency} · started ${relative(w.started_at)}</div></td>
-      <td>${w.stopping ? badge("", "stopped") : w.alive ? badge("ok", w.current_jobs.length ? `busy (${w.current_jobs.length})` : "idle") : badge("bad", "stale")}</td>
-      <td class="num">${num(w.jobs_succeeded)}</td><td class="num">${num(w.jobs_failed)}</td><td class="small muted">${secs(w.age_seconds)} ago</td></tr>`)}
-  </tbody></table></div>`;
-}
-
-function dbInfo(d, o) {
-  const kv = (k, v) => html`<div class="kv"><span class="muted">${k}</span><strong>${v}</strong></div>`;
-  return html`<div class="stack tight">
-    ${kv("Engine", `${d.dialect} ${d.server_version || ""}`)}${kv("Connection", html`<span class="mono tiny">${d.url}</span>`)}
-    ${kv("Size", bytes(d.size_bytes))}${kv("Search backend", d.search_backend)}
-    ${kv("Pool (in use / size)", `${num(d.pool.checkedout)} / ${num(d.pool.size)}`)}
-    ${Object.entries(d.rows).map(([k, v]) => kv(`Rows: ${k}`, num(v)))}
-    ${kv("Rate limiting", o.rate_limit_backend)}${kv("Log format", o.log_format)}
-    ${kv("Metrics endpoint", o.metrics_token_configured ? "/metrics (token or admin session)" : "/metrics (admin session only)")}
-  </div>`;
-}
-
-function latencyTable(l) {
-  if (!l.routes.length) return empty("No requests measured yet.", "chart");
-  return html`<div class="table-wrap"><table class="table"><thead><tr><th>Route</th><th class="num">Requests</th><th class="num" title="Histogram bucket upper bound">p50</th><th class="num" title="Histogram bucket upper bound">p95</th></tr></thead><tbody>
-    ${l.routes.map((r) => html`<tr><td class="mono tiny">${r.method} ${r.route}</td><td class="num">${num(r.count)}</td>
-      <td class="num">${r.p50_ms === null ? ">10 s" : `≤ ${r.p50_ms} ms`}</td><td class="num">${r.p95_ms === null ? ">10 s" : `≤ ${r.p95_ms} ms`}</td></tr>`)}
-  </tbody></table></div>`;
-}
-
-function backupsTable(rows) {
-  if (!rows.length) return empty("No backups found in the backup directory.", "inbox");
-  return html`<div class="table-wrap"><table class="table"><thead><tr><th>File</th><th>Created</th><th class="num">Size</th><th>Checksum</th></tr></thead><tbody>
-    ${rows.map((b) => html`<tr><td class="mono small">${b.name}</td><td class="small">${datetime(b.created_at)}</td><td class="num">${bytes(b.size)}</td>
-      <td class="mono tiny">${b.sha256 ? `${b.sha256.slice(0, 16)}…` : badge("warn", "no manifest")}</td></tr>`)}
-  </tbody></table></div>`;
+function jobsTable(el) {
+  const s = filters.get();
+  return dataTable(el, {
+    id: "system-jobs", caption: t("admin.system.jobs_title"), rowKey: (j) => j.id, rowLabel: (j) => jobLabel(j.type),
+    perPage: s.per_page, perPageOptions: [10, 25, 50, 100],
+    columns: [
+      { key: "type", label: t("admin.system.col.job"), primary: true, hideable: false, csv: (j) => jobLabel(j.type),
+        render: (j) => html`<div class="dt-cell-stack"><button type="button" class="link-btn as-row-title" data-job-details>${jobLabel(j.type)}</button>
+          <span class="sub">${j.schedule ? t("admin.system.job_meta_scheduled", { id: j.id }) : t("admin.system.job_meta", { id: j.id })}</span></div>` },
+      { key: "status", label: t("admin.system.col.status"), csv: (j) => statusText(j.status), render: (j) => statusPill("job", j.status) },
+      { key: "attempts", label: t("admin.system.col.attempts"), align: "num", csv: (j) => j.attempts, render: (j) => t("admin.system.attempts_of", { n: num(j.attempts), m: num(j.max_attempts) }) },
+      { key: "run_at", label: t("admin.system.col.run_at"), csv: (j) => j.run_at, render: (j) => when(j.run_at) },
+      { key: "finished_at", label: t("admin.system.col.finished"), csv: (j) => j.finished_at || "", render: (j) => when(j.finished_at) },
+      { key: "outcome", label: t("admin.system.col.outcome"), cardHidden: true, csv: (j) => firstLine(j.last_error) || "", render: outcome },
+      { key: "actions", label: t("admin.common.actions"), labelHidden: true, hideable: false, csv: false, cellClass: "as-cell-actions", headClass: "as-cell-actions", render: jobMenu },
+    ],
+    onPage: ({ page, perPage }) => { filters.set({ page, per_page: perPage }); loadJobs(); },
+    exportName: "librowise-jobs",
+    empty: { art: "done", title: t("admin.system.no_jobs_title"), body: t("admin.system.no_jobs_body") },
+  });
 }
 
 async function loadJobs() {
-  const data = await api(`/system/jobs?${qs({ status: state.status, type: state.type, page: state.page })}`);
-  $("#sys-jobs").innerHTML = jobsTable(data);
+  const s = filters.get();
+  const table = state.table;
+  table.setLoading();
+  try {
+    const data = await api(`/system/jobs?${new URLSearchParams(Object.entries({ status: s.status, type: s.type, page: s.page, per_page: s.per_page }).filter(([, v]) => v !== ""))}`);
+    state.jobs = data.results;
+    table.setRows(data.results, { total: data.total, page: data.page, perPage: data.per_page });
+  } catch (err) { table.setError(err, loadJobs); }
 }
 
-async function load() {
-  const o = await api("/system/overview");
-  $("#sys-health").innerHTML = healthTiles(o);
-  const q = o.queue.by_status;
-  $("#sys-queue-summary").textContent = `${num(q.queued)} queued · ${num(q.running)} running · ${num(q.failed)} retrying · ${num(q.dead)} dead`;
-  if (!state.types.length) {
-    state.types = o.job_types;
-    const opts = o.job_types.map((t) => `<option value="${esc(t.type)}">${esc(t.type)}</option>`).join("");
-    $("#sys-type").insertAdjacentHTML("beforeend", opts);
-    $("#sys-enqueue-type").innerHTML = o.job_types.map((t) => `<option value="${esc(t.type)}" title="${esc(t.description)}">${esc(t.type)}</option>`).join("");
-  }
-  $("#sys-tz").textContent = o.schedules[0] ? `times in your local zone · schedules run in ${o.schedules[0].timezone}` : "";
-  $("#sys-schedules").innerHTML = schedulesTable(o.schedules);
-  $("#sys-workers").innerHTML = workersTable(o.workers);
-  $("#sys-db").innerHTML = dbInfo(o.database, o);
-  $("#sys-latency").innerHTML = latencyTable(o.latency);
-  $("#sys-backup-dir").textContent = o.backup_dir;
-  $("#sys-backups").innerHTML = backupsTable(o.backups);
-  await loadJobs();
-  $("#sys-updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+function renderFilters(o) {
+  const s = filters.get();
+  const types = [...o.job_types].sort((a, b) => jobLabel(a.type).localeCompare(jobLabel(b.type), locale));
+  $("#sys-filter-row").innerHTML = html`
+    ${selectChip({ name: "status", label: t("admin.system.col.status"), value: s.status, options: [["", t("admin.system.any_status")], ...STATUSES.map((x) => [x, statusText(x)])] })}
+    ${selectChip({ name: "type", label: t("admin.system.col.job"), value: s.type, options: [["", t("admin.system.any_job")], ...types.map((x) => [x.type, jobLabel(x.type)])] })}`;
 }
+
+function jobDetails(j) {
+  const payload = j.payload && Object.keys(j.payload).length ? dl(Object.entries(j.payload).map(([k, v]) => [humanize(k), typeof v === "object" ? JSON.stringify(v) : String(v)])) : null;
+  const result = j.result && typeof j.result === "object" && Object.keys(j.result).length
+    ? dl(Object.entries(j.result).map(([k, v]) => [humanize(k), typeof v === "number" ? num(v) : typeof v === "object" ? JSON.stringify(v) : String(v)])) : null;
+  const sp = sidePanel({
+    title: jobLabel(j.type), subtitle: t("admin.system.job_meta", { id: j.id }), wide: !!j.last_error,
+    body: html`<div class="stack">
+      <p class="small muted">${jobDescription(j.type, "")}</p>
+      ${dl([
+        [t("admin.system.col.status"), statusPill("job", j.status)],
+        [t("admin.system.col.attempts"), t("admin.system.attempts_of", { n: num(j.attempts), m: num(j.max_attempts) })],
+        [t("admin.system.col.run_at"), html`${datetime(j.run_at)} <span class="muted">(${relative(j.run_at)})</span>`],
+        [t("admin.system.started"), j.started_at ? datetime(j.started_at) : null],
+        [t("admin.system.col.finished"), j.finished_at ? datetime(j.finished_at) : null],
+        [t("admin.system.worker"), j.locked_by ? html`<span class="mono small">${j.locked_by}</span>` : null],
+        [t("admin.system.schedule"), j.schedule ? jobLabel(j.schedule) : null],
+        [t("admin.system.priority"), num(j.priority)],
+      ])}
+      ${payload ? html`<section class="as-detail-block"><h3>${t("admin.system.payload")}</h3>${payload}</section>` : ""}
+      ${result ? html`<section class="as-detail-block"><h3>${t("admin.system.result")}</h3>${result}</section>` : ""}
+      ${j.last_error ? html`<section class="as-detail-block"><h3>${t("admin.system.last_error")}</h3><p class="sys-error-line">${firstLine(j.last_error)}</p>
+        <pre class="as-code" tabindex="0" aria-label="${t("admin.system.trace")}">${j.last_error}</pre></section>` : ""}</div>`,
+    footer: html`${["queued", "failed"].includes(j.status) ? html`<button type="button" class="btn danger" data-act="cancel">${icon("x-circle")}${t("admin.system.cancel_job")}</button>` : ""}
+      <span class="spacer grow"></span>
+      ${["failed", "dead", "cancelled"].includes(j.status) ? html`<button type="button" class="btn primary" data-act="retry">${icon("refresh")}${t("admin.system.retry")}</button>` : ""}
+      <button type="button" class="btn" data-close>${t("common.close")}</button>`,
+  });
+  sp.el.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    if (await jobAction(j, b.dataset.act)) sp.close();
+  });
+}
+
+async function jobAction(j, action) {
+  if (action === "cancel" && !(await confirmDialog(t("admin.system.cancel_title", { name: jobLabel(j.type) }), t("admin.system.cancel_text"), t("admin.system.cancel_job")))) return false;
+  try {
+    await api(`/system/jobs/${j.id}/${action}`, { method: "POST" });
+    toast(action === "retry" ? t("admin.system.retried", { name: jobLabel(j.type) }) : t("admin.system.cancelled", { name: jobLabel(j.type) }), "success");
+    await refresh();
+    return true;
+  } catch (err) { toast(err.message, "error"); return false; }
+}
+
+async function runJob() {
+  const types = [...(state.overview?.job_types || [])].sort((a, b) => jobLabel(a.type).localeCompare(jobLabel(b.type), locale));
+  const job = await editDialog({
+    title: t("admin.system.run_title"), submit: t("admin.system.queue_job"), size: "md",
+    body: html`<p class="small muted">${t("admin.system.run_intro")}</p>
+      <fieldset class="sys-job-choices"><legend class="sr-only">${t("admin.system.col.job")}</legend>
+      ${types.map((x, i) => html`<label class="sys-job-choice"><input type="radio" name="type" value="${x.type}" ${i === 0 ? "checked" : ""} required>
+        <span><strong>${jobLabel(x.type)}</strong><span class="small muted">${jobDescription(x.type, x.description)}</span>
+        <span class="tiny muted">${t("admin.system.max_attempts", { count: x.max_attempts })}</span></span></label>`)}</fieldset>`,
+    onSubmit: (d) => api("/system/jobs", { method: "POST", body: { type: d.type } }),
+  });
+  if (!job) return;
+  toast(t("admin.system.queued", { name: jobLabel(job.type) }), "success");
+  await refresh();
+}
+
+// ------------------------------------------------------------------ cards
+
+function schedulesTable(el, o) {
+  const tz = o.schedules[0]?.timezone;
+  $("#sys-tz").textContent = tz ? t("admin.system.tz_note", { tz }) : t("admin.system.schedules_desc");
+  const table = dataTable(el, {
+    id: "system-schedules", caption: t("admin.system.schedules_title"), rowKey: (s) => s.name,
+    columns: [
+      { key: "name", label: t("admin.system.col.schedule"), primary: true, hideable: false, csv: (s) => jobLabel(s.name),
+        render: (s) => html`<div class="dt-cell-stack"><strong>${jobLabel(s.name)}</strong><span class="sub" title="${s.cron}">${cronText(s.cron)}</span></div>
+          ${s.registered ? "" : pill("danger", t("admin.system.no_handler"))}` },
+      { key: "next", label: t("admin.system.col.next_run"), csv: (s) => s.next_run || "",
+        render: (s) => (s.next_run ? html`<div class="dt-cell-stack"><span>${relative(s.next_run)}</span><span class="sub">${datetime(s.next_run)}</span></div>` : html`<span class="muted">—</span>`) },
+      { key: "last", label: t("admin.system.col.last_run"), csv: (s) => s.last_slot || "",
+        render: (s) => (s.last_slot ? html`<div class="dt-cell-stack"><span>${s.last_status ? statusPill("job", s.last_status) : ""}</span><span class="sub">${relative(s.last_slot)}</span></div>`
+          : html`<span class="muted">${t("admin.common.never")}</span>`) },
+    ],
+    empty: { art: "inbox", title: t("admin.system.no_schedules"), body: t("admin.system.no_schedules_body") },
+  });
+  table.setRows(o.schedules);
+}
+
+function workersTable(el, o) {
+  const table = dataTable(el, {
+    id: "system-workers", caption: t("admin.system.workers_title"), rowKey: (w) => w.worker_id,
+    columns: [
+      { key: "id", label: t("admin.system.col.worker"), primary: true, hideable: false, csv: (w) => w.worker_id,
+        render: (w) => html`<div class="dt-cell-stack"><span class="mono small">${w.worker_id}</span><span class="sub">${t("admin.system.worker_meta", { host: w.hostname || "—", count: w.concurrency })}</span></div>` },
+      { key: "status", label: t("admin.system.col.status"), csv: (w) => (w.stopping ? "stopped" : w.alive ? "alive" : "stale"),
+        render: (w) => (w.stopping ? pill("neutral", t("admin.system.w_stopped")) : w.alive
+          ? (w.current_jobs.length ? pill("info", t("admin.system.w_busy", { count: w.current_jobs.length })) : pill("success", t("admin.system.w_idle")))
+          : pill("danger", t("admin.system.w_stale"))) },
+      { key: "done", label: t("admin.system.col.done"), align: "num", csv: (w) => w.jobs_succeeded, render: (w) => num(w.jobs_succeeded) },
+      { key: "failed", label: t("admin.system.col.failed"), align: "num", csv: (w) => w.jobs_failed, render: (w) => num(w.jobs_failed) },
+      { key: "seen", label: t("admin.system.col.heartbeat"), csv: (w) => w.last_seen_at, render: (w) => when(w.last_seen_at) },
+    ],
+    empty: { art: "inbox", title: t("admin.system.no_workers"), body: t("admin.system.no_workers_body") },
+  });
+  table.setRows(o.workers);
+}
+
+function dbCard(d, o) {
+  const rowNames = { biblios: "titles", items: "items", patrons: "patrons", loans: "loans", jobs: "jobs" };
+  return html`${dl([
+    [t("admin.system.db.engine"), `${engineName(d.dialect)}${d.server_version ? ` ${d.server_version}` : ""}`],
+    [t("admin.system.db.connection"), html`<code class="as-url">${displayUrl(d.url)}</code>`],
+    [t("admin.system.db.size"), bytes(d.size_bytes)],
+    [t("admin.system.db.search"), String(d.search_backend || "").replace(/^fts(\d)$/i, "SQLite FTS$1").replace(/^postgres(ql)?$/i, "PostgreSQL")],
+    [t("admin.system.db.pool"), t("admin.system.db.pool_value", { used: num(d.pool?.checkedout || 0), size: num(d.pool?.size || 0) })],
+    d.journal_mode ? [t("admin.system.db.journal"), String(d.journal_mode).toUpperCase()] : null,
+    d.connections !== undefined ? [t("admin.system.db.connections"), num(d.connections)] : null,
+  ])}
+  <h3 class="as-mini-head">${t("admin.system.db.records")}</h3>
+  ${dl(Object.entries(d.rows || {}).map(([k, v]) => [t(`admin.system.db.row.${rowNames[k] || "other"}`, {}, humanize(k)), num(v)]), { cols: 2 })}
+  <h3 class="as-mini-head">${t("admin.system.db.operations")}</h3>
+  ${dl([
+    [t("admin.system.db.rate_limit"), humanize(o.rate_limit_backend)],
+    [t("admin.system.db.logs"), String(o.log_format).toUpperCase()],
+    [t("admin.system.db.metrics"), html`<code class="as-url">/metrics</code> <span class="small muted">${o.metrics_token_configured ? t("admin.system.db.metrics_token") : t("admin.system.db.metrics_admin")}</span>`],
+    [t("admin.system.db.environment"), humanize(o.environment)],
+  ])}`;
+}
+
+function latencyTable(el, o) {
+  const table = dataTable(el, {
+    id: "system-latency", caption: t("admin.system.latency_title"), rowKey: (r) => `${r.method} ${r.route}`,
+    columns: [
+      { key: "route", label: t("admin.system.col.route"), primary: true, hideable: false, csv: (r) => `${r.method} ${r.route}`,
+        render: (r) => html`<span class="sys-route"><span class="sys-method">${r.method}</span><code>${r.route}</code></span>` },
+      { key: "count", label: t("admin.system.col.requests"), align: "num", csv: (r) => r.count, render: (r) => num(r.count) },
+      { key: "p50", label: t("admin.system.col.p50"), align: "num", csv: (r) => r.p50_ms ?? "", render: (r) => ms(r.p50_ms) },
+      { key: "p95", label: t("admin.system.col.p95"), align: "num", csv: (r) => r.p95_ms ?? "", render: (r) => ms(r.p95_ms) },
+    ],
+    empty: { art: "inbox", title: t("admin.system.no_latency"), body: t("admin.system.no_latency_body") },
+  });
+  table.setRows(o.latency.routes);
+}
+const ms = (v) => (v === null || v === undefined ? t("admin.system.over_10s") : t("admin.system.at_most_ms", { ms: num(v) }));
+
+function backupsTable(el, o) {
+  $("#sys-backup-dir").innerHTML = html`${t("admin.system.backup_dir")} <code class="as-url">${displayUrl(o.backup_dir)}</code>`;
+  const table = dataTable(el, {
+    id: "system-backups", caption: t("admin.system.backups_title"), rowKey: (b) => b.name,
+    columns: [
+      { key: "name", label: t("admin.system.col.file"), primary: true, hideable: false, csv: (b) => b.name,
+        render: (b) => html`<div class="dt-cell-stack"><span class="mono small">${b.name}</span><span class="sub">${humanize(b.kind || "")}</span></div>` },
+      { key: "created", label: t("admin.system.col.created"), csv: (b) => b.created_at, render: (b) => html`<div class="dt-cell-stack"><span>${relative(b.created_at)}</span><span class="sub">${datetime(b.created_at)}</span></div>` },
+      { key: "size", label: t("admin.system.col.size"), align: "num", csv: (b) => b.size, render: (b) => bytes(b.size) },
+      { key: "checksum", label: t("admin.system.col.checksum"), csv: (b) => b.sha256 || "",
+        render: (b) => (b.sha256 ? html`<span class="mono small" title="${b.sha256}">${b.sha256.slice(0, 12)}…</span>` : pill("warning", t("admin.system.no_manifest"))) },
+    ],
+    exportName: "librowise-backups",
+    empty: { art: "inbox", title: t("admin.system.no_backups"), body: t("admin.system.no_backups_body") },
+  });
+  table.setRows(o.backups);
+}
+
+// ------------------------------------------------------------------ load
+
+function sectionError(el, err) { el.innerHTML = errorState(err, { retry: false }); }
 
 async function refresh(btn) {
+  if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
   try {
-    await (btn ? withBusy(btn, load) : load());
+    const o = await api("/system/overview");
+    state.overview = o;
+    const health = $("#sys-health");
+    health.innerHTML = healthTiles(o);
+    health.removeAttribute("aria-busy");
+    const q = o.queue.by_status;
+    $("#sys-queue-summary").textContent = t("admin.system.queue_summary", { queued: num(q.queued || 0), running: num(q.running || 0), failed: num(q.failed || 0), dead: num(q.dead || 0) });
+    renderFilters(o);
+    for (const [id, fn] of [["#sys-schedules", schedulesTable], ["#sys-workers", workersTable], ["#sys-latency", latencyTable], ["#sys-backups", backupsTable]]) {
+      try { fn($(id), o); } catch (err) { sectionError($(id), err); }
+    }
+    $("#sys-db").innerHTML = dbCard(o.database, o);
+    await loadJobs();
+    $("#sys-updated").textContent = t("admin.system.updated", { time: new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()) });
   } catch (e) {
-    if (e.status === 403) {
-      $("#sys-health").innerHTML = html`<div class="alert warn" role="alert">Administrator access (jobs:manage) is required for this page.</div>`;
-    } else toast(e.message, "error");
+    if (e.status === 403) $("#sys-health").innerHTML = html`<div class="card">${emptyState({ art: "error", title: t("admin.settings.denied.title"), body: t("admin.system.denied") })}</div>`;
+    else toast(e.message, "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
   }
 }
 
 export default async function init() {
-  await refresh();
+  wireKit();
+  state.table = jobsTable($("#sys-jobs"));
+  state.table.setLoading();
+  wireFilterBar($("#sys-filters"), (changes) => { filters.set({ ...changes, page: 1 }); loadJobs(); }, { keys: ["status", "type"] });
   $("#sys-refresh").addEventListener("click", (e) => refresh(e.currentTarget));
-  $("#sys-job-filters").addEventListener("change", (e) => {
-    if (e.target.id === "sys-status") state.status = e.target.value;
-    else if (e.target.id === "sys-type") state.type = e.target.value;
-    else return;
-    state.page = 1;
-    loadJobs().catch((err) => toast(err.message, "error"));
+  $("#sys-run").addEventListener("click", runJob);
+  const jobsEl = $("#sys-jobs");
+  const find = (el) => state.jobs.find((j) => String(j.id) === el.closest("tr[data-key]")?.dataset.key);
+  jobsEl.addEventListener("click", (e) => {
+    if (e.target.closest("[data-job-details]")) { const j = find(e.target); if (j) jobDetails(j); }
   });
-  $("#sys-job-filters").addEventListener("submit", (e) => e.preventDefault());
-  $("#sys-enqueue").addEventListener("click", async (e) => {
-    const type = $("#sys-enqueue-type").value;
-    if (!type || !(await confirmDialog("Queue job", `Queue a "${type}" job now? A running worker will pick it up.`, "Queue", false))) return;
-    try {
-      const j = await withBusy(e.currentTarget, () => api("/system/jobs", { method: "POST", body: { type } }));
-      toast(`Job #${j.id} (${j.type}) queued`, "success");
-      await load();
-    } catch { /* toasted */ }
+  jobsEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("tbody tr[data-key]")) { e.preventDefault(); const j = find(e.target); if (j) jobDetails(j); }
   });
-  $("#sys-jobs").addEventListener("click", async (e) => {
-    const btn = e.target.closest("button[data-retry],button[data-cancel],button[data-page]");
-    if (!btn) return;
-    if (btn.dataset.page) {
-      state.page = Number(btn.dataset.page);
-      loadJobs().catch((err) => toast(err.message, "error"));
-      return;
-    }
-    const id = btn.dataset.retry || btn.dataset.cancel;
-    const action = btn.dataset.retry ? "retry" : "cancel";
-    if (action === "cancel" && !(await confirmDialog("Cancel job", `Cancel job #${id}? It will not run.`, "Cancel job"))) return;
-    try {
-      await withBusy(btn, () => api(`/system/jobs/${id}/${action}`, { method: "POST" }));
-      toast(`Job #${id} ${action === "retry" ? "re-queued" : "cancelled"}`, "success");
-      await load();
-    } catch { /* toasted */ }
+  jobsEl.addEventListener("rowmenu", (e) => {
+    const j = find(e.target);
+    if (!j) return;
+    if (e.detail.action === "details") jobDetails(j); else jobAction(j, e.detail.action);
   });
+  await refresh();
 }

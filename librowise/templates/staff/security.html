@@ -1,14 +1,52 @@
 {% extends "staff_base.html" %}
-{% block page_title %}My account &amp; security{% endblock %}
+{#- Settings layout: section nav (sticky on wide screens) + stacked cards. The security cards come from the shared
+    security panel (static/js/security-panel.js, also used by the OPAC account page). ?enroll=1 = forced 2FA set-up. -#}
+{% block page_title %}{{ t('people.security.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-people.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div class="row">
-    <div class="avatar lg">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
-    <div>
-      <h1>My account &amp; security</h1>
-      <div class="sub">{{ user.full_name }} · {{ user.card_number }} · {{ user.role.value|capitalize }}{% if user.staff_role %} · {{ user.staff_role.name }}{% endif %} · {{ user.home_branch.name }}</div>
+{%- set role_label = t('ui.role.' ~ user.role.value) -%}
+<div class="sec-page">
+  <header class="page-header sec-head">
+    <div class="sec-head-main">
+      <span class="avatar lg" data-avatar="{{ user.full_name }}" aria-hidden="true">{{ (user.first_name[:1] ~ user.last_name[:1]) | upper }}</span>
+      <div class="ph-main">
+        <h1 id="page-title">{{ t('people.security.title') }}</h1>
+        <p class="ph-sub">{{ user.full_name }} · {{ role_label }}{% if user.staff_role %} · {{ user.staff_role.name }}{% endif %} · {{ user.home_branch.name }}</p>
+      </div>
+    </div>
+  </header>
+  <div class="sec-layout">
+    <nav class="sec-nav" aria-label="{{ t('people.security.nav_label') }}">
+      <ul>
+        <li><a href="#sec-profile-h" data-nav="profile"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>{{ t('people.security.nav.profile') }}</a></li>
+        <li><a href="#sec-pw-h" data-nav="password"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>{{ t('people.security.nav.password') }}</a></li>
+        <li><a href="#sec-mfa-h" data-nav="mfa"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>{{ t('people.security.nav.mfa') }}</a></li>
+        <li><a href="#sec-sess-h" data-nav="sessions"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>{{ t('people.security.nav.sessions') }}</a></li>
+        <li><a href="#sec-tok-h" data-nav="tokens"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg>{{ t('people.security.nav.tokens') }}</a></li>
+        <li><a href="#sec-id-h" data-nav="linked"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>{{ t('people.security.nav.linked') }}</a></li>
+        <li><a href="#sec-log-h" data-nav="history"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>{{ t('people.security.nav.history') }}</a></li>
+      </ul>
+    </nav>
+    <div class="sec-main">
+      <section class="card sec-profile" aria-labelledby="sec-profile-h" data-section="profile">
+        <div class="card-head"><h2 id="sec-profile-h">{{ t('people.security.profile') }}</h2>
+          {%- if can(user, 'patrons:write') %}<a class="btn sm ghost" href="/staff/patrons/{{ user.id }}"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>{{ t('people.security.open_record') }}</a>{% endif %}</div>
+        <div class="card-body">
+          <dl class="lw-dl cols-2">
+            <div class="lw-dl-row"><dt>{{ t('people.security.name') }}</dt><dd>{{ user.full_name }}</dd></div>
+            <div class="lw-dl-row"><dt>{{ t('people.field.card_number') }}</dt><dd><span class="mono" dir="ltr">{{ user.card_number }}</span></dd></div>
+            <div class="lw-dl-row"><dt>{{ t('people.field.email') }}</dt><dd>{% if user.email %}<span dir="ltr">{{ user.email }}</span>{% else %}<span class="muted">—</span>{% endif %}</dd></div>
+            <div class="lw-dl-row"><dt>{{ t('people.field.role') }}</dt><dd>{{ role_label }}{% if user.staff_role %} · {{ user.staff_role.name }}{% endif %}</dd></div>
+            <div class="lw-dl-row"><dt>{{ t('people.field.home_branch') }}</dt><dd>{{ user.home_branch.name }}</dd></div>
+            <div class="lw-dl-row"><dt>{{ t('people.field.last_login') }}</dt><dd id="sec-last-login">{% if user.last_login_at %}<time datetime="{{ user.last_login_at.isoformat() }}">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') }}</time>{% else %}<span class="muted">—</span>{% endif %}</dd></div>
+          </dl>
+          <p class="small muted sec-profile-note">{{ t('people.security.profile_note') }}</p>
+        </div>
+      </section>
+      <div id="security-root" class="sec-root" aria-busy="true">
+        {%- for h in [7, 9, 11, 9, 13] %}<div class="card pad sec-sk" aria-hidden="true"><div class="skeleton sk-line w-30"></div><div class="skeleton sec-sk-body sec-sk-{{ h }}"></div></div>{% endfor %}
+      </div>
     </div>
   </div>
 </div>
-<div id="security-root"></div>
 {% endblock %}

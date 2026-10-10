@@ -1,318 +1,507 @@
-// Staff: Roles & permissions — custom roles, staff role assignment, per-user access controls, single sign-on.
-import { $, $$, api, badge, confirmDialog, datetime, debounce, empty, html, icon, modal, raw, relative, skeleton, toast, withBusy } from "/static/js/core.js";
+// Staff › Administration › Roles & permissions — custom staff roles (cards + grouped permission editor),
+// staff accounts, per-user access (effective permissions, security actions, sign-in history) and single sign-on.
+// Hashes: #roles #staff #user #user-<id> #sso.
+import { $, $$, api, datetime, html, icon, num, relative, toast, withBusy } from "/static/js/core.js";
+import { locale, t } from "/static/js/i18n.js";
 import { device } from "/static/js/security-panel.js";
+import { avatar } from "/static/js/ui/avatar.js";
+import { combobox, highlight } from "/static/js/ui/combobox.js";
+import { dataTable } from "/static/js/ui/data-table.js";
+import { confirmDestructive, confirmDialog } from "/static/js/ui/dialog.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { field } from "/static/js/ui/form.js";
+import { sidePanel } from "/static/js/ui/panel.js";
+import { wireTabsPanel } from "/static/js/ui/tabs.js";
+import { copyButton, dl, pill, rowMenu, wireKit } from "/static/js/pages/lib/admin-kit.js";
+import { editDialog, switchField } from "/static/js/pages/lib/settings-ui.js";
 
-const state = { tab: "roles", me: null, catalogue: null, roles: [], userId: null };
-const panel = () => $("#roles-panel");
+const state = { me: null, catalogue: null, roles: [], staff: [], sso: [], userId: null, tab: "roles" };
 const can = (perm) => !!state.me && (state.me.permissions.includes("*") || state.me.permissions.includes(perm));
 
-function setupTabs(root, onSelect) {
-  const tabs = $$('[role="tab"]', root);
-  const select = (tab, focus = false) => {
-    tabs.forEach((t) => { const on = t === tab; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; });
-    panel().setAttribute("aria-labelledby", tab.id);
-    if (focus) tab.focus();
-    onSelect(tab.dataset.tab);
-  };
-  root.addEventListener("click", (e) => { const t = e.target.closest('[role="tab"]'); if (t) select(t); });
-  root.addEventListener("keydown", (e) => {
-    const i = tabs.indexOf(document.activeElement);
-    if (i < 0) return;
-    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
-    if (next === undefined) return;
-    e.preventDefault();
-    select(tabs[(next + tabs.length) % tabs.length], true);
-  });
-  return (key) => { const t = tabs.find((x) => x.dataset.tab === key); if (t) select(t); };
-}
+// ------------------------------------------------------------------ vocabulary
 
-/** Modal form that stays open until `action(FormData)` succeeds. */
-function formModal(opts, action) {
-  let result = null;
-  const done = modal(opts);
-  const dlg = $$("dialog").at(-1);
-  const form = $("form", dlg), ok = $('button[value="ok"]', dlg);
-  form.addEventListener("submit", async (e) => {
-    if (e.submitter && e.submitter !== ok) return;
-    e.preventDefault();
-    if (!form.checkValidity()) { form.reportValidity(); return; }
-    try { result = await withBusy(ok, () => action(new FormData(form), dlg)); dlg.close("ok"); } catch { /* toasted */ }
-  });
-  return { dlg, done: done.then(() => result) };
+const permKey = (code) => code.replace(/[^a-z0-9]+/gi, "_").toLowerCase();
+const permLabel = (p) => t(`admin.roles.perm.${permKey(p.code)}`, {}, p.description);
+const groupKey = (g) => g.toLowerCase().replace(/[^a-z]+/g, "_");
+const groupLabel = (g) => t(`admin.roles.group.${groupKey(g)}`, {}, g);
+const roleLabel = (r) => t(`ui.role.${r}`, {}, r);
+const rolePill = (r) => pill(r === "admin" ? "ai" : r === "librarian" ? "info" : "neutral", roleLabel(r));
+function sourcePill(s) {
+  if (s.startsWith("custom:")) return pill("ai", t("admin.roles.source_custom", { name: s.slice(7) }));
+  return pill("info", t("admin.roles.source_builtin", { role: roleLabel(s.replace(/^role:/, "")) }));
 }
+const allPerms = () => state.catalogue.groups.flatMap((g) => g.permissions);
 
-const notAllowed = (perm) => html`<div class="alert warn" role="alert">${icon("shield")}<div>You need the <span class="mono">${perm}</span> permission for this section.</div></div>`;
-const sourceBadge = (s) => badge(s.startsWith("custom:") ? "ai" : "info", s.replace(/^role:/, "Built-in: ").replace(/^custom:/, "Role: "));
+function denied(perm) {
+  return emptyState({ art: "error", title: t("admin.roles.no_permission_title"), body: t("admin.roles.no_permission", { permission: perm }) });
+}
 
 // ------------------------------------------------------------------ roles
 
-function permissionChecklist(selected = []) {
+function permissionPicker(selected = []) {
   const sel = new Set(selected);
   const mine = new Set(state.me.permissions);
-  const all = mine.has("*");
-  return html`<div class="perm-groups">${state.catalogue.groups.map((g) => html`<fieldset class="perm-group">
-    <legend>${g.group} <button type="button" class="btn sm ghost" data-toggle-group>All / none</button></legend>
-    ${g.permissions.map((p) => {
-      const grantable = all || mine.has(p.code);
-      return html`<label class="checkbox perm-item${grantable ? "" : " disabled"}"><input type="checkbox" name="perm" value="${p.code}"${sel.has(p.code) ? raw(" checked") : ""}${grantable ? "" : raw(" disabled")}>
-        <span><span class="mono">${p.code}</span><span class="tiny muted perm-desc">${p.description}${grantable ? "" : " — you can't grant this"}</span></span></label>`;
-    })}</fieldset>`)}</div>`;
+  const everything = mine.has("*");
+  return html`<div class="as-perm-picker">
+    <div class="as-perm-tools">
+      <div class="search-field"><label class="sr-only" for="perm-filter">${t("admin.roles.filter_permissions")}</label>${icon("search")}
+        <input id="perm-filter" type="search" placeholder="${t("admin.roles.filter_permissions")}" autocomplete="off" data-perm-filter></div>
+      <span class="small muted" data-perm-count aria-live="polite"></span>
+    </div>
+    <div class="as-perm-groups">${state.catalogue.groups.map((g) => html`<fieldset class="as-perm-group" data-group>
+      <legend><label class="checkbox"><input type="checkbox" data-group-toggle aria-describedby="pg-${groupKey(g.group)}-n"> ${groupLabel(g.group)}</label>
+        <span class="small muted" id="pg-${groupKey(g.group)}-n" data-group-count></span></legend>
+      <div class="as-perm-list">${g.permissions.map((p) => {
+        const grantable = everything || mine.has(p.code);
+        return html`<label class="as-perm ${grantable ? "" : "is-locked"}" data-search="${`${p.code} ${permLabel(p)} ${p.description}`.toLowerCase()}">
+          <input type="checkbox" name="perm" value="${p.code}" ${sel.has(p.code) ? "checked" : ""} ${grantable ? "" : "disabled"}>
+          <span><span class="as-perm-name">${permLabel(p)}</span><code class="as-key">${p.code}</code>${grantable ? "" : html`<span class="as-perm-note">${t("admin.roles.cannot_grant")}</span>`}</span></label>`;
+      })}</div></fieldset>`)}</div></div>`;
 }
 
-async function roleDialog(role) {
-  const { dlg, done } = formModal({
-    title: role ? `Edit role “${role.name}”` : "New staff role", submit: role ? "Save role" : "Create role", wide: true,
-    body: html`<div class="stack">
-      <div class="grid cols-2">
-        <div class="field"><label for="role-name">Name</label><input id="role-name" name="name" required minlength="2" maxlength="80" value="${role?.name || ""}"></div>
-        <div class="field"><label for="role-desc">Description</label><input id="role-desc" name="description" maxlength="255" value="${role?.description || ""}"></div>
-      </div>
-      <p class="small muted">Permissions are <strong>added</strong> to the account's built-in role (patron, librarian or administrator).
-        Assigning a role to a patron account turns it into a staff account with exactly these extra permissions.</p>
-      ${permissionChecklist(role?.permissions || [])}</div>`,
-  }, (fd) => {
-    const body = { name: String(fd.get("name") || "").trim(), description: String(fd.get("description") || "").trim() || null,
-      permissions: [...$$('input[name="perm"]:checked', dlg)].map((i) => i.value) };
-    return role ? api(`/admin/roles/${role.id}`, { method: "PUT", body }) : api("/admin/roles", { method: "POST", body });
+function wirePicker(root) {
+  const sync = () => {
+    for (const fs of $$("[data-group]", root)) {
+      const boxes = $$('input[name="perm"]', fs);
+      const on = boxes.filter((b) => b.checked).length;
+      const toggle = $("[data-group-toggle]", fs);
+      toggle.checked = on === boxes.length;
+      toggle.indeterminate = on > 0 && on < boxes.length;
+      toggle.disabled = boxes.every((b) => b.disabled);
+      $("[data-group-count]", fs).textContent = t("admin.roles.n_of_m", { n: num(on), m: num(boxes.length) });
+    }
+    $("[data-perm-count]", root).textContent = t("admin.roles.selected_n", { count: $$('input[name="perm"]:checked', root).length });
+  };
+  root.addEventListener("change", (e) => {
+    if (e.target.matches("[data-group-toggle]")) {
+      const fs = e.target.closest("[data-group]");
+      const boxes = $$('input[name="perm"]:not(:disabled)', fs).filter((b) => !b.closest("label").hidden);
+      const on = e.target.checked;
+      boxes.forEach((b) => { b.checked = on; });
+    }
+    sync();
   });
-  dlg.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-toggle-group]");
-    if (!b) return;
-    const boxes = $$('input[name="perm"]:not(:disabled)', b.closest("fieldset"));
-    const on = boxes.some((x) => !x.checked);
-    boxes.forEach((x) => { x.checked = on; });
+  $("[data-perm-filter]", root).addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    for (const fs of $$("[data-group]", root)) {
+      let any = false;
+      for (const l of $$("label.as-perm", fs)) { l.hidden = !!q && !l.dataset.search.includes(q); any ||= !l.hidden; }
+      fs.hidden = !any;
+    }
   });
-  return done;
+  // Enter in the filter must not submit the dialog.
+  $("[data-perm-filter]", root).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); } });
+  sync();
 }
 
-async function renderRoles() {
+async function roleEditor(role) {
+  return editDialog({
+    title: role ? t("admin.roles.edit_title", { name: role.name }) : t("admin.roles.new_title"),
+    submit: role ? t("admin.common.save_changes") : t("admin.roles.create"), size: "lg",
+    body: html`<div class="stack"><div class="form-grid">
+        ${field({ name: "name", label: t("admin.roles.f.name"), value: role?.name || "", required: true, attrs: 'minlength="2" maxlength="80" autocomplete="off"', help: t("admin.roles.f.name_help") })}
+        ${field({ name: "description", label: t("admin.roles.f.description"), value: role?.description || "", optional: true, attrs: 'maxlength="255" autocomplete="off"' })}</div>
+      <p class="small muted as-note">${icon("info")}<span>${t("admin.roles.additive_note")}</span></p>
+      ${permissionPicker(role?.permissions || [])}</div>`,
+    onOpen: (dlg) => wirePicker($(".as-perm-picker", dlg)),
+    onSubmit: (d, form) => {
+      const body = { name: d.name.trim(), description: d.description.trim() || null, permissions: $$('input[name="perm"]:checked', form).map((i) => i.value) };
+      return role ? api(`/admin/roles/${role.id}`, { method: "PUT", body }) : api("/admin/roles", { method: "POST", body });
+    },
+  });
+}
+
+function showBuiltin(key) {
+  const perms = state.catalogue.builtin_roles[key] || [];
+  const all = perms.includes("*");
+  const set = new Set(perms);
+  sidePanel({
+    title: roleLabel(key), subtitle: t("admin.roles.builtin"),
+    body: all ? html`<div class="alert info">${icon("shield")}<div>${t("admin.roles.everything")}</div></div>`
+      : html`<div class="stack">${state.catalogue.groups.filter((g) => g.permissions.some((p) => set.has(p.code))).map((g) => html`<section class="as-detail-block">
+          <h3>${groupLabel(g.group)}</h3><ul class="as-perm-readonly">${g.permissions.filter((p) => set.has(p.code)).map((p) => html`<li>${icon("check", "as-ok")}<span>${permLabel(p)}</span></li>`)}</ul></section>`)}</div>`,
+  });
+}
+
+function roleCard(r) {
+  const n = r.permissions.length;
+  const groups = state.catalogue.groups.filter((g) => g.permissions.some((p) => r.permissions.includes(p.code))).map((g) => groupLabel(g.group));
+  return html`<article class="card as-role-card" data-role="${r.id}">
+    <header><div class="as-role-title"><h3>${r.name}</h3>${rowMenu({ label: r.name, items: [
+      { id: "edit", label: t("admin.common.edit"), icon: "edit" }, { id: "delete", label: t("admin.common.delete"), icon: "trash", danger: true }] })}</div>
+      <p class="small muted">${r.description || t("admin.roles.no_description")}</p></header>
+    <div class="as-role-stats">${pill("ai", t("admin.roles.n_permissions", { count: n }), { dot: false })}${pill("neutral", t("admin.roles.n_members", { count: r.members || 0 }), { dot: false })}</div>
+    <p class="small as-role-groups">${groups.length ? groups.join(" · ") : html`<span class="muted">${t("admin.roles.no_permissions")}</span>`}</p>
+    <footer class="small muted">${t("admin.roles.updated", { when: relative(r.updated_at) })}
+      <button type="button" class="btn sm" data-edit-role>${icon("edit")}${t("admin.roles.edit_permissions")}</button></footer></article>`;
+}
+
+async function renderRoles(panel) {
   const { results } = await api("/admin/roles");
   state.roles = results;
-  const builtin = state.catalogue.builtin_roles;
-  return html`<div class="row between" style="margin-bottom:.75rem"><p class="muted small" style="margin:0">Custom roles grant extra permissions on top of the built-in role.</p>
-    <button class="btn primary" data-new-role>${icon("plus")}New role</button></div>
-    ${results.length ? html`<div class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Role</th><th>Permissions</th><th class="num">Members</th><th>Updated</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-      ${results.map((r) => html`<tr><td><strong>${r.name}</strong><div class="tiny muted">${r.description || ""}</div></td>
-        <td><div class="row tight">${r.permissions.length ? r.permissions.map((p) => html`<span class="badge info mono">${p}</span>`) : html`<span class="muted small">None</span>`}</div></td>
-        <td class="num">${r.members}</td><td>${datetime(r.updated_at)}</td>
-        <td class="right nowrap"><button class="btn sm ghost" data-edit-role="${r.id}" aria-label="Edit ${r.name}">${icon("edit")}</button>
-          <button class="btn sm ghost danger" data-delete-role="${r.id}" aria-label="Delete ${r.name}">${icon("trash")}</button></td></tr>`)}
-    </tbody></table></div></div>` : empty("No custom roles yet. Create one to delegate specific duties (e.g. a circulation desk role).", "shield")}
-    <details class="card pad" style="margin-top:1rem"><summary><strong>Built-in roles</strong></summary>
-      <div class="stack" style="margin-top:.75rem">${Object.entries(builtin).map(([k, perms]) => html`<div><div class="small" style="font-weight:600;text-transform:capitalize">${k}</div>
-        <div class="row tight">${perms.map((p) => html`<span class="badge mono">${p === "*" ? "* (everything)" : p}</span>`)}</div></div>`)}</div></details>`;
+  const builtin = Object.keys(state.catalogue.builtin_roles);
+  panel.innerHTML = html`<div class="as-tab-head"><p class="muted">${t("admin.roles.roles_intro")}</p>
+      <button type="button" class="btn primary" data-new-role>${icon("plus")}${t("admin.roles.new_role")}</button></div>
+    <h2 class="as-subhead">${t("admin.roles.custom_heading")}</h2>
+    ${results.length ? html`<div class="as-role-grid">${results.map(roleCard)}</div>`
+      : html`<div class="card">${emptyState({ art: "people", title: t("admin.roles.empty_title"), body: t("admin.roles.empty_body"),
+          actions: html`<button type="button" class="btn" data-new-role>${icon("plus")}${t("admin.roles.new_role")}</button>` })}</div>`}
+    <h2 class="as-subhead">${t("admin.roles.builtin_heading")}</h2>
+    <div class="as-role-grid">${builtin.map((k) => {
+      const perms = state.catalogue.builtin_roles[k];
+      return html`<article class="card as-role-card is-builtin"><header><div class="as-role-title"><h3>${roleLabel(k)}</h3>${pill("neutral", t("admin.roles.builtin"), { dot: false })}</div>
+        <p class="small muted">${t(`admin.roles.builtin_desc.${k}`, {}, "")}</p></header>
+        <div class="as-role-stats">${perms.includes("*") ? pill("ai", t("admin.roles.all_permissions"), { dot: false }) : pill("info", t("admin.roles.n_permissions", { count: perms.length }), { dot: false })}</div>
+        <footer><button type="button" class="btn sm ghost" data-builtin="${k}">${icon("list")}${t("admin.roles.view_permissions")}</button></footer></article>`;
+    })}</div>`;
+}
+
+async function onRolesAction(e) {
+  if (e.target.closest("[data-new-role]")) {
+    const r = await roleEditor(null);
+    if (r) { toast(t("admin.roles.created", { name: r.name }), "success"); await show("roles"); }
+    return;
+  }
+  const b = e.target.closest("[data-builtin]");
+  if (b) { showBuiltin(b.dataset.builtin); return; }
+  const ed = e.target.closest("[data-edit-role]");
+  if (ed) await editRole(Number(ed.closest("[data-role]").dataset.role));
+}
+
+async function editRole(id) {
+  const role = state.roles.find((r) => r.id === id);
+  if (!role) return;
+  const r = await roleEditor(role);
+  if (r) { toast(t("admin.common.saved_named", { name: r.name }), "success"); await show("roles"); }
+}
+
+async function deleteRole(id) {
+  const role = state.roles.find((r) => r.id === id);
+  if (!role) return;
+  const ok = await confirmDestructive({ title: t("admin.roles.delete_title", { name: role.name }),
+    text: t("admin.roles.delete_text", { count: role.members || 0, name: role.name }), word: role.name, submit: t("admin.roles.delete") });
+  if (!ok) return;
+  try {
+    await api(`/admin/roles/${role.id}`, { method: "DELETE" });
+    toast(t("admin.common.deleted_named", { name: role.name }), "success");
+    await show("roles");
+  } catch (err) { toast(err.message, "error"); }
 }
 
 // ------------------------------------------------------------------ staff accounts
 
-async function renderStaff() {
+function roleSelect(p, id) {
+  return html`<label class="sr-only" for="${id}">${t("admin.roles.custom_role_for", { name: p.full_name })}</label>
+    <select id="${id}" class="as-compact-select" data-assign="${p.id}"><option value="">${t("admin.roles.no_custom_role")}</option>
+      ${state.roles.map((r) => html`<option value="${r.id}" ${p.staff_role?.id === r.id ? "selected" : ""}>${r.name}</option>`)}</select>`;
+}
+
+async function renderStaff(panel) {
   const [{ results }, roles] = await Promise.all([api("/admin/staff"), api("/admin/roles")]);
+  state.staff = results;
   state.roles = roles.results;
-  return html`<div class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Card</th><th>Built-in role</th><th>Custom role</th><th>2FA</th><th>Last sign-in</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${results.map((p) => html`<tr><td><strong>${p.full_name}</strong>${p.locked ? html` ${badge("bad", "Locked")}` : ""}${p.is_active ? "" : html` ${badge("withdrawn", "Inactive")}`}</td>
-      <td class="mono small">${p.card_number}</td><td>${badge(p.role === "admin" ? "ai" : p.role === "librarian" ? "info" : "", p.role)}</td>
-      <td><label class="sr-only" for="sr-${p.id}">Custom role for ${p.full_name}</label>
-        <select id="sr-${p.id}" data-assign="${p.id}"><option value="">— none —</option>${state.roles.map((r) => html`<option value="${r.id}"${p.staff_role?.id === r.id ? raw(" selected") : ""}>${r.name}</option>`)}</select></td>
-      <td>${p.mfa_enabled ? badge("ok", "On") : badge("warn", "Off")}</td><td>${p.last_login_at ? relative(p.last_login_at) : "Never"}</td>
-      <td class="right"><button class="btn sm" data-open-user="${p.id}">Access</button></td></tr>`)}
-  </tbody></table></div></div>
-  <p class="small muted" style="margin-top:.75rem">To give a patron account staff duties, find them under <strong>User access</strong> and assign a custom role.
-    Built-in roles are changed from the patron record.</p>`;
+  panel.innerHTML = html`<div class="as-tab-head"><p class="muted">${t("admin.roles.staff_intro")}</p></div><div id="as-staff-table"></div>`;
+  const table = dataTable($("#as-staff-table", panel), {
+    id: "admin-staff", caption: t("admin.roles.tab.staff"), rowKey: (p) => p.id, rowLabel: (p) => p.full_name,
+    columns: [
+      { key: "name", label: t("admin.roles.col.name"), primary: true, hideable: false, sortable: true, csv: (p) => p.full_name,
+        render: (p) => html`<div class="dt-person">${avatar(p.full_name, { size: "sm" })}<div class="dt-cell-stack"><button type="button" class="link-btn as-row-title" data-open-user>${p.full_name}</button>
+          <span class="sub mono">${p.card_number}</span></div></div>` },
+      { key: "role", label: t("admin.roles.col.builtin"), sortable: true, csv: (p) => roleLabel(p.role), render: (p) => rolePill(p.role) },
+      { key: "staff_role", label: t("admin.roles.col.custom"), csv: (p) => p.staff_role?.name || "", render: (p) => roleSelect(p, `sr-${p.id}`) },
+      { key: "mfa", label: t("admin.roles.col.mfa"), csv: (p) => (p.mfa_enabled ? t("admin.common.on") : t("admin.common.off")),
+        render: (p) => (p.mfa_enabled ? pill("success", t("admin.roles.mfa_on")) : pill("warning", t("admin.roles.mfa_off"))) },
+      { key: "status", label: t("admin.roles.col.status"), csv: (p) => (p.locked ? "locked" : p.is_active ? "active" : "inactive"),
+        render: (p) => (p.locked ? pill("danger", t("admin.roles.locked")) : p.is_active ? pill("success", t("admin.roles.active")) : pill("neutral", t("admin.roles.inactive"))) },
+      { key: "last_login_at", label: t("admin.roles.col.last_sign_in"), sortable: true, sortDir: "desc", csv: (p) => p.last_login_at || "",
+        render: (p) => (p.last_login_at ? html`<span title="${datetime(p.last_login_at)}">${relative(p.last_login_at)}</span>` : html`<span class="muted">${t("admin.common.never")}</span>`) },
+      { key: "actions", label: t("admin.common.actions"), labelHidden: true, hideable: false, csv: false, cellClass: "as-cell-actions", headClass: "as-cell-actions",
+        render: (p) => rowMenu({ label: p.full_name, items: [
+          { id: "access", label: t("admin.roles.open_access"), icon: "shield" },
+          { id: "patron", label: t("admin.roles.open_patron"), icon: "user", href: `/staff/patrons/${p.id}` }] }) },
+    ],
+    sort: { key: "name", dir: "asc" }, exportName: "librowise-staff",
+    onSort: (s) => {
+      const dir = s.dir === "desc" ? -1 : 1;
+      const val = (p) => (s.key === "name" ? p.full_name : s.key === "role" ? roleLabel(p.role) : p.last_login_at || "");
+      table.setRows([...state.staff].sort((a, b) => String(val(a)).localeCompare(String(val(b)), locale) * dir));
+    },
+    empty: { art: "people", title: t("admin.roles.staff_empty"), body: t("admin.roles.staff_intro") },
+  });
+  table.setRows(results);
 }
 
 // ------------------------------------------------------------------ user access
 
-function renderAccess(a, logins) {
-  const groups = state.catalogue.groups;
-  const byCode = Object.fromEntries(a.effective_permissions.map((p) => [p.code, p.sources]));
-  const isAll = "*" in byCode;
-  const locked = a.locked_until;
-  return html`<div class="grid cols-2 access-grid">
-    <div class="card pad stack">
-      <div class="row between"><div><h2 style="margin:0">${a.full_name}</h2><div class="small muted">${a.card_number}${a.email ? ` · ${a.email}` : ""}</div></div>
-        <div class="row tight">${badge(a.role === "admin" ? "ai" : "info", a.role)}${a.staff_role ? badge("ai", a.staff_role.name) : ""}${a.is_staff ? "" : badge("", "Patron")}</div></div>
-      <div class="kv"><span>Two-factor authentication</span><span>${a.mfa.enabled ? badge("ok", `On · ${a.mfa.recovery_codes_remaining} recovery codes`) : badge("warn", "Off")}</span></div>
-      <div class="kv"><span>Active sessions</span><span>${a.active_sessions}</span></div>
-      <div class="kv"><span>Personal API tokens</span><span>${a.api_tokens}</span></div>
-      <div class="kv"><span>Linked sign-in accounts</span><span>${a.identities.length ? a.identities.map((i) => `${i.provider}${i.email ? ` (${i.email})` : ""}`).join(", ") : "None"}</span></div>
-      <div class="kv"><span>Last sign-in</span><span>${a.last_login_at ? datetime(a.last_login_at) : "Never"}</span></div>
-      <div class="kv"><span>Lockout</span><span>${locked ? badge("bad", `Locked until ${datetime(locked)}`) : `${a.failed_logins} recent failed attempt(s)`}</span></div>
-      <div class="row tight" style="margin-top:.5rem">
-        ${can("patrons:manage_staff") ? html`<label class="sr-only" for="ua-role">Custom role</label><select id="ua-role" data-assign="${a.id}"><option value="">No custom role</option>
-          ${state.roles.map((r) => html`<option value="${r.id}"${a.staff_role?.id === r.id ? raw(" selected") : ""}>${r.name}</option>`)}</select>` : ""}
-        ${a.mfa.enabled ? html`<button class="btn sm" data-user-action="mfa/reset" data-confirm="Reset two-factor authentication? The user must enrol again and all their sessions end.">Reset 2FA</button>` : ""}
-        <button class="btn sm" data-user-action="sessions/revoke" data-confirm="Sign this user out of every session?">Sign out everywhere</button>
-        ${a.api_tokens ? html`<button class="btn sm" data-user-action="api-tokens/revoke" data-confirm="Revoke all of this user's API tokens?">Revoke API tokens</button>` : ""}
-        ${locked ? html`<button class="btn sm" data-user-action="unlock">Unlock</button>` : ""}
-      </div>
-    </div>
-    <div class="card pad stack"><h3 style="margin:0">Effective permissions</h3>
-      ${isAll ? html`<div class="alert info">${icon("shield")}<div>Administrator: every permission (<span class="mono">*</span>), including those added by future modules.</div></div>` : ""}
-      <div class="stack tight">${groups.map((g) => html`<div><div class="tiny muted" style="font-weight:650;text-transform:uppercase;letter-spacing:.04em">${g.group}</div>
-        ${g.permissions.map((p) => {
-          const src = isAll ? ["*"] : byCode[p.code];
-          return html`<div class="kv perm-row"><span>${src ? icon("check", "ok-icon") : icon("x", "muted")} <span class="mono">${p.code}</span></span>
-            <span class="row tight">${src ? (isAll ? badge("ai", "Administrator") : src.map(sourceBadge)) : html`<span class="tiny muted">—</span>`}</span></div>`;
-        })}</div>`)}</div></div>
-  </div>
-  <div class="card pad stack" style="margin-top:1rem"><h3 style="margin:0">Sign-in history</h3>
-    ${logins.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Result</th><th>Method</th><th>IP</th><th>Device</th></tr></thead><tbody>
-      ${logins.map((e) => html`<tr><td>${datetime(e.at)}</td><td>${e.success ? badge("ok", "Success") : badge("bad", e.reason || "Failed")}</td><td>${e.method}</td>
-        <td class="mono small">${e.ip || "—"}</td><td>${device(e.user_agent)}</td></tr>`)}</tbody></table></div>` : empty("No sign-in activity.", "clock")}</div>`;
+function renderUserShell(panel) {
+  panel.innerHTML = html`<div class="card as-user-pick">
+      <div class="field"><label for="ua-search">${t("admin.roles.find_account")}</label>
+        <input id="ua-search" type="search" placeholder="${t("admin.roles.find_placeholder")}" autocomplete="off" aria-describedby="ua-search-help">
+        <div class="field-help" id="ua-search-help">${t("admin.roles.find_help")}</div></div></div>
+    <div id="ua-body" aria-live="polite">${state.userId ? html`<div class="card as-sk-card" aria-hidden="true">${Array.from({ length: 6 }, () => html`<div class="skeleton sk-line"></div>`)}</div>`
+      : html`<div class="card">${emptyState({ art: "search", title: t("admin.roles.pick_title"), body: t("admin.roles.pick_body"),
+          actions: html`<button type="button" class="btn" data-goto-staff>${icon("users")}${t("admin.roles.browse_staff")}</button>` })}</div>`}</div>`;
+  combobox($("#ua-search", panel), {
+    minChars: 2,
+    source: async (q) => (await api(`/patrons?${new URLSearchParams({ q, per_page: 8 })}`)).results,
+    render: (p, q) => html`${avatar(p.full_name, { size: "xs" })}<span class="grow">${highlight(p.full_name, q)} <span class="sub mono">${p.card_number}</span></span>${p.role !== "patron" ? rolePill(p.role) : ""}`,
+    value: (p) => p.full_name,
+    onSelect: (p) => { state.userId = p.id; history.replaceState(null, "", `#user-${p.id}`); loadUser(p.id); },
+  });
+  if (state.userId) loadUser(state.userId);
 }
 
+function securityActions(a) {
+  const btn = (action, ic, label, tone = "") => html`<button type="button" class="btn sm ${tone}" data-user-action="${action}">${icon(ic)}${label}</button>`;
+  return html`<div class="as-sec-actions">
+    ${a.mfa.enabled ? btn("mfa/reset", "key", t("admin.roles.act.reset_mfa")) : ""}
+    ${btn("sessions/revoke", "logout", t("admin.roles.act.sign_out"))}
+    ${a.api_tokens ? btn("api-tokens/revoke", "x-circle", t("admin.roles.act.revoke_tokens")) : ""}
+    ${a.locked_until ? btn("unlock", "check-circle", t("admin.roles.act.unlock")) : ""}</div>`;
+}
+
+function renderAccess(a, logins) {
+  const byCode = Object.fromEntries(a.effective_permissions.map((p) => [p.code, p.sources]));
+  const everything = "*" in byCode;
+  const granted = everything ? allPerms().length : a.effective_permissions.length;
+  const ids = a.identities.length ? a.identities.map((i) => `${i.provider}${i.email ? ` (${i.email})` : ""}`).join(", ") : null;
+  return html`<div class="as-access-grid">
+    <section class="card as-group" aria-labelledby="ua-h">
+      <div class="as-person">${avatar(a.full_name, { size: "lg" })}<div class="grow"><h2 id="ua-h">${a.full_name}</h2>
+        <p class="small muted"><span class="mono">${a.card_number}</span>${a.email ? ` · ${a.email}` : ""}</p>
+        <div class="as-pills">${rolePill(a.role)}${a.staff_role ? pill("ai", a.staff_role.name) : ""}${a.is_active ? "" : pill("neutral", t("admin.roles.inactive"))}</div></div>
+        <a class="btn sm ghost" href="/staff/patrons/${a.id}">${icon("user")}${t("admin.roles.open_patron")}</a></div>
+      <div class="as-group-body">
+        ${can("patrons:manage_staff") ? html`<div class="field as-inline-field"><label for="ua-role">${t("admin.roles.col.custom")}</label>${roleSelectFor(a)}</div>` : ""}
+        ${dl([
+          [t("admin.roles.mfa"), a.mfa.enabled ? pill("success", t("admin.roles.mfa_on_codes", { count: a.mfa.recovery_codes_remaining })) : pill("warning", t("admin.roles.mfa_off"))],
+          [t("admin.roles.sessions"), num(a.active_sessions)],
+          [t("admin.roles.api_tokens"), num(a.api_tokens)],
+          [t("admin.roles.linked"), ids],
+          [t("admin.roles.col.last_sign_in"), a.last_login_at ? html`${relative(a.last_login_at)} <span class="muted">(${datetime(a.last_login_at)})</span>` : t("admin.common.never")],
+          [t("admin.roles.lockout"), a.locked_until ? pill("danger", t("admin.roles.locked_until", { when: datetime(a.locked_until) })) : t("admin.roles.failed_attempts", { count: a.failed_logins })],
+        ])}
+        <h3 class="as-mini-head">${t("admin.roles.security_actions")}</h3>${securityActions(a)}</div></section>
+    <section class="card as-group" aria-labelledby="ua-perm-h">
+      <header class="as-group-head"><h3 id="ua-perm-h">${t("admin.roles.effective")}</h3><p>${everything ? t("admin.roles.everything") : t("admin.roles.effective_n", { count: granted })}</p></header>
+      <div class="as-group-body as-eff">${state.catalogue.groups.map((g) => {
+        const rows = g.permissions.map((p) => ({ p, src: everything ? ["*"] : byCode[p.code] }));
+        const on = rows.filter((r) => r.src).length;
+        return html`<details class="as-eff-group" ${on ? "open" : ""}><summary><span>${groupLabel(g.group)}</span><span class="small muted">${t("admin.roles.n_of_m", { n: num(on), m: num(rows.length) })}</span></summary>
+          <ul>${rows.map(({ p, src }) => html`<li class="${src ? "is-on" : "is-off"}">${icon(src ? "check" : "x", src ? "as-ok" : "as-off")}<span class="grow">${permLabel(p)}
+            <span class="sr-only">${src ? t("admin.roles.granted") : t("admin.roles.not_granted")}</span></span>
+            ${src ? html`<span class="as-pills">${everything ? pill("ai", roleLabel("admin"), { dot: false }) : src.map(sourcePill)}</span>` : ""}</li>`)}</ul></details>`;
+      })}</div></section>
+  </div>
+  <section class="card as-group" aria-labelledby="ua-log-h"><header class="as-group-head"><h3 id="ua-log-h">${t("admin.roles.history")}</h3><p>${t("admin.roles.history_desc")}</p></header>
+    <div id="ua-logins" class="as-group-body"></div></section>`;
+}
+
+function roleSelectFor(a) {
+  return html`<select id="ua-role" class="as-compact-select" data-assign="${a.id}"><option value="">${t("admin.roles.no_custom_role")}</option>
+    ${state.roles.map((r) => html`<option value="${r.id}" ${a.staff_role?.id === r.id ? "selected" : ""}>${r.name}</option>`)}</select>`;
+}
+
+const methodText = (m) => {
+  const map = { password: "password", "password+totp": "totp", "password+recovery": "recovery", password_reset: "reset", password_change: "change", "2fa": "second" };
+  if (map[m]) return t(`admin.roles.method.${map[m]}`);
+  const sso = /^sso:([^+]+)/.exec(m || "");
+  return sso ? t("admin.roles.method.sso", { provider: sso[1] }) : m || "—";
+};
+
 async function loadUser(id) {
-  state.userId = id;
-  const box = $("#user-access");
-  box.innerHTML = skeleton(5);
+  const box = $("#ua-body");
+  if (!box) return;
+  box.innerHTML = html`<div class="card as-sk-card" aria-hidden="true">${Array.from({ length: 6 }, () => html`<div class="skeleton sk-line"></div>`)}</div>`;
   try {
     if (!state.roles.length && can("patrons:manage_staff")) state.roles = (await api("/admin/roles")).results;
     const [a, logins] = await Promise.all([api(`/admin/users/${id}/access`), api(`/admin/users/${id}/logins`)]);
+    state.access = a;
     box.innerHTML = renderAccess(a, logins.results);
-  } catch (e) { box.innerHTML = empty(e.message, "alert"); }
+    const table = dataTable($("#ua-logins", box), {
+      id: "admin-user-logins", caption: t("admin.roles.history"), rowKey: (e) => e.id,
+      columns: [
+        { key: "at", label: t("admin.roles.col.when"), primary: true, csv: (e) => e.at, render: (e) => html`<span title="${datetime(e.at)}">${datetime(e.at)}</span>` },
+        { key: "result", label: t("admin.roles.col.result"), csv: (e) => (e.success ? "success" : e.reason || "failed"),
+          render: (e) => (e.success ? pill("success", t("admin.roles.signin_ok")) : pill("danger", e.reason ? t("admin.roles.signin_failed_reason", { reason: e.reason.replace(/_/g, " ") }) : t("admin.roles.signin_failed"))) },
+        { key: "method", label: t("admin.roles.col.method"), csv: (e) => e.method, render: (e) => methodText(e.method) },
+        { key: "ip", label: t("admin.roles.col.ip"), csv: (e) => e.ip || "", render: (e) => (e.ip ? html`<span class="mono small">${e.ip}</span>` : "—") },
+        { key: "device", label: t("admin.roles.col.device"), csv: (e) => device(e.user_agent), render: (e) => device(e.user_agent) },
+      ],
+      exportName: "librowise-sign-ins", empty: { art: "inbox", title: t("admin.roles.no_history"), body: "" },
+    });
+    table.setRows(logins.results);
+  } catch (e) {
+    box.innerHTML = html`<div class="card">${e.status === 403 ? denied("patrons:manage_staff") : errorState(e, { retry: false })}</div>`;
+  }
 }
 
-async function renderUser() {
-  return html`<div class="card pad stack" style="margin-bottom:1rem">
-    <div class="field"><label for="user-q">Find an account by card number, name or e-mail</label>
-      <input id="user-q" type="search" autocomplete="off" placeholder="e.g. 1000000001 or Iyer" data-search-focus></div>
-    <div id="user-results"></div></div><div id="user-access">${state.userId ? "" : empty("Choose an account to see its effective permissions and security status.", "users")}</div>`;
+const USER_ACTIONS = {
+  "mfa/reset": { title: "admin.roles.confirm.mfa_title", text: "admin.roles.confirm.mfa_text", done: "admin.roles.done.mfa", danger: true },
+  "sessions/revoke": { title: "admin.roles.confirm.sessions_title", text: "admin.roles.confirm.sessions_text", done: "admin.roles.done.sessions", danger: true },
+  "api-tokens/revoke": { title: "admin.roles.confirm.tokens_title", text: "admin.roles.confirm.tokens_text", done: "admin.roles.done.tokens", danger: true },
+  unlock: { title: "admin.roles.confirm.unlock_title", text: "admin.roles.confirm.unlock_text", done: "admin.roles.done.unlock", danger: false },
+};
+
+async function userAction(btn) {
+  const key = btn.dataset.userAction;
+  const cfg = USER_ACTIONS[key];
+  const name = state.access?.full_name || "";
+  if (!(await confirmDialog(t(cfg.title, { name }), t(cfg.text, { name }), btn.textContent.trim(), cfg.danger))) return;
+  try {
+    await withBusy(btn, () => api(`/admin/users/${state.userId}/${key}`, { method: "POST" }));
+    toast(t(cfg.done, { name }), "success");
+    loadUser(state.userId);
+  } catch { /* toasted */ }
 }
 
 // ------------------------------------------------------------------ single sign-on
 
-const ssoFields = (p = {}) => html`<div class="grid cols-2">
-  <div class="field"><label for="sso-id">Provider id</label><input id="sso-id" name="id" required pattern="[a-z0-9][a-z0-9_-]{1,39}" value="${p.id || ""}"${p.id ? raw(" readonly") : ""}>
-    <span class="hint">Lowercase, used in the callback URL.</span></div>
-  <div class="field"><label for="sso-label">Button label</label><input id="sso-label" name="label" required maxlength="60" value="${p.label || ""}" placeholder="e.g. University account"></div>
-  <div class="field" style="grid-column:1/-1"><label for="sso-issuer">Issuer URL</label><input id="sso-issuer" name="issuer" type="url" required value="${p.issuer || ""}" placeholder="https://login.example.org/realms/library">
-    <span class="hint">The discovery document is read from <span class="mono">&lt;issuer&gt;/.well-known/openid-configuration</span>.</span></div>
-  <div class="field"><label for="sso-client">Client id</label><input id="sso-client" name="client_id" required value="${p.client_id || ""}"></div>
-  <div class="field"><label for="sso-secret">Client secret</label><input id="sso-secret" name="client_secret" type="password" autocomplete="new-password" placeholder="${p.client_secret_set ? "•••••• (unchanged)" : ""}">
-    <span class="hint">Stored encrypted. Leave blank to keep the current secret.</span></div>
-  <div class="field"><label for="sso-scopes">Scopes</label><input id="sso-scopes" name="scopes" value="${p.scopes || "openid email profile"}"></div>
-  <div class="field"><label for="sso-domains">Allowed e-mail domains</label><input id="sso-domains" name="allowed_domains" value="${(p.allowed_domains || []).join(", ")}" placeholder="library.example.org, uni.example.edu">
-    <span class="hint">Comma-separated. Empty = any verified e-mail.</span></div>
-  <div class="field"><label for="sso-cat">Default category code (new patrons)</label><input id="sso-cat" name="default_category" maxlength="16" value="${p.default_category || ""}"></div>
-  <div class="field"><label for="sso-branch">Default branch code (new patrons)</label><input id="sso-branch" name="default_branch" maxlength="16" value="${p.default_branch || ""}"></div>
-  <div class="field" style="grid-column:1/-1"><div class="row">
-    <label class="checkbox"><input type="checkbox" name="enabled"${p.enabled === false ? "" : raw(" checked")}> Enabled</label>
-    <label class="checkbox"><input type="checkbox" name="allow_staff"${p.allow_staff === false ? "" : raw(" checked")}> Staff may use it</label>
-    <label class="checkbox"><input type="checkbox" name="allow_patrons"${p.allow_patrons === false ? "" : raw(" checked")}> Patrons may use it</label>
-    <label class="checkbox"><input type="checkbox" name="auto_create"${p.auto_create ? raw(" checked") : ""}> Create patron accounts automatically</label></div></div>
-</div>`;
+const callbackUrl = (id) => `${location.origin}/api/v1/auth/sso/${id}/callback`;
 
-async function ssoDialog(p) {
-  const { done } = formModal({ title: p ? `Edit ${p.label}` : "Add OpenID Connect provider", submit: "Save provider", wide: true, body: ssoFields(p || {}) }, (fd) => {
-    const id = String(fd.get("id") || "").trim();
-    const body = {
-      label: String(fd.get("label") || "").trim(), issuer: String(fd.get("issuer") || "").trim(), client_id: String(fd.get("client_id") || "").trim(),
-      client_secret: String(fd.get("client_secret") || "") || null, scopes: String(fd.get("scopes") || "").trim() || "openid email profile",
-      allowed_domains: String(fd.get("allowed_domains") || "").split(",").map((d) => d.trim()).filter(Boolean),
-      default_category: String(fd.get("default_category") || "").trim().toUpperCase() || null,
-      default_branch: String(fd.get("default_branch") || "").trim().toUpperCase() || null,
-      enabled: fd.has("enabled"), allow_staff: fd.has("allow_staff"), allow_patrons: fd.has("allow_patrons"), auto_create: fd.has("auto_create"),
-    };
-    return api(`/admin/sso/providers/${encodeURIComponent(id)}`, { method: "PUT", body });
-  });
-  return done;
+function ssoForm(p = {}) {
+  return html`<div class="stack"><div class="form-grid">
+    ${field({ name: "id", label: t("admin.roles.sso.f.id"), value: p.id || "", required: true, help: t("admin.roles.sso.f.id_help"),
+      attrs: `class="mono" pattern="[a-z0-9][a-z0-9_\\-]{1,39}" maxlength="40" autocomplete="off" spellcheck="false" title="${t("admin.roles.sso.f.id_help")}" ${p.id ? "readonly" : ""}` })}
+    ${field({ name: "label", label: t("admin.roles.sso.f.label"), value: p.label || "", required: true, placeholder: t("admin.roles.sso.f.label_ph"), attrs: 'maxlength="60" autocomplete="off"' })}
+    ${field({ name: "issuer", label: t("admin.roles.sso.f.issuer"), type: "url", value: p.issuer || "", required: true, span: 2, placeholder: "https://login.example.org/realms/library",
+      help: t("admin.roles.sso.f.issuer_help"), attrs: 'autocomplete="off" spellcheck="false"' })}
+    ${field({ name: "client_id", label: t("admin.roles.sso.f.client_id"), value: p.client_id || "", required: true, attrs: 'autocomplete="off" spellcheck="false"' })}
+    ${field({ name: "client_secret", label: t("admin.roles.sso.f.client_secret"), type: "password", optional: !!p.client_secret_set,
+      help: p.client_secret_set ? t("admin.roles.sso.f.secret_keep") : t("admin.roles.sso.f.secret_help"), placeholder: p.client_secret_set ? "••••••••" : "", attrs: 'autocomplete="new-password"' })}
+    ${field({ name: "scopes", label: t("admin.roles.sso.f.scopes"), value: p.scopes || "openid email profile", attrs: 'class="mono" autocomplete="off"' })}
+    ${field({ name: "allowed_domains", label: t("admin.roles.sso.f.domains"), value: (p.allowed_domains || []).join(", "), optional: true, help: t("admin.roles.sso.f.domains_help"), placeholder: "library.example.org, uni.example.edu" })}
+    ${field({ name: "default_category", label: t("admin.roles.sso.f.category"), value: p.default_category || "", optional: true, attrs: 'class="mono" maxlength="16"' })}
+    ${field({ name: "default_branch", label: t("admin.roles.sso.f.branch"), value: p.default_branch || "", optional: true, attrs: 'class="mono" maxlength="16"' })}</div>
+    <div class="form-grid">
+      ${switchField({ name: "enabled", label: t("admin.roles.sso.f.enabled"), checked: p.enabled !== false, span: 1 })}
+      ${switchField({ name: "auto_create", label: t("admin.roles.sso.f.auto_create"), checked: !!p.auto_create, help: t("admin.roles.sso.f.auto_create_help"), span: 1 })}
+      ${switchField({ name: "allow_staff", label: t("admin.roles.sso.f.allow_staff"), checked: p.allow_staff !== false, span: 1 })}
+      ${switchField({ name: "allow_patrons", label: t("admin.roles.sso.f.allow_patrons"), checked: p.allow_patrons !== false, span: 1 })}</div></div>`;
 }
 
-async function renderSso() {
-  if (!can("settings:manage")) return notAllowed("settings:manage");
+async function ssoEditor(p) {
+  return editDialog({
+    title: p ? t("admin.roles.sso.edit_title", { name: p.label }) : t("admin.roles.sso.add_title"), submit: t("admin.roles.sso.save"), size: "lg", body: ssoForm(p || {}),
+    validate: { id: (v) => (!p && state.sso.some((x) => x.id === v.trim()) ? t("admin.roles.sso.id_taken") : true),
+      client_secret: (v) => (p?.client_secret_set || v ? true : t("ui.form.required")) },
+    onSubmit: (d) => api(`/admin/sso/providers/${encodeURIComponent(d.id.trim())}`, { method: "PUT", body: {
+      label: d.label.trim(), issuer: d.issuer.trim(), client_id: d.client_id.trim(), client_secret: d.client_secret || null,
+      scopes: d.scopes.trim() || "openid email profile", allowed_domains: d.allowed_domains.split(",").map((x) => x.trim()).filter(Boolean),
+      default_category: d.default_category.trim().toUpperCase() || null, default_branch: d.default_branch.trim().toUpperCase() || null,
+      enabled: d.enabled === "on", allow_staff: d.allow_staff === "on", allow_patrons: d.allow_patrons === "on", auto_create: d.auto_create === "on" } }),
+  });
+}
+
+async function renderSso(panel) {
+  if (!can("settings:manage")) { panel.innerHTML = html`<div class="card">${denied("settings:manage")}</div>`; return; }
   const { results } = await api("/admin/sso/providers");
   state.sso = results;
-  return html`<div class="row between" style="margin-bottom:.75rem"><p class="muted small" style="margin:0">Let staff and patrons sign in with an OpenID Connect identity provider
-    (authorization code + PKCE). Accounts are matched by linked identity, then by verified e-mail.</p>
-    <button class="btn primary" data-new-sso>${icon("plus")}Add provider</button></div>
-    ${results.length ? html`<div class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Provider</th><th>Issuer</th><th>Callback URL to register</th><th>Access</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-      ${results.map((p) => html`<tr><td><strong>${p.label}</strong> ${p.enabled === false ? badge("withdrawn", "Disabled") : badge("ok", "Enabled")}<div class="tiny muted mono">${p.id}</div></td>
-        <td class="small mono">${p.issuer}</td><td class="small mono">${location.origin}/api/v1/auth/sso/${p.id}/callback</td>
-        <td class="small">${[p.allow_staff === false ? "" : "Staff", p.allow_patrons === false ? "" : "Patrons"].filter(Boolean).join(" & ") || "Nobody"}
-          ${p.auto_create ? html`<div class="tiny muted">Auto-creates patrons</div>` : ""}${p.allowed_domains?.length ? html`<div class="tiny muted">${p.allowed_domains.join(", ")}</div>` : ""}
-          ${p.client_secret_set ? "" : html`<div>${badge("warn", "No client secret")}</div>`}</td>
-        <td class="right nowrap"><button class="btn sm ghost" data-edit-sso="${p.id}" aria-label="Edit ${p.label}">${icon("edit")}</button>
-          <button class="btn sm ghost danger" data-delete-sso="${p.id}" aria-label="Delete ${p.label}">${icon("trash")}</button></td></tr>`)}
-    </tbody></table></div></div>` : empty("No single sign-on providers configured.", "globe")}`;
+  panel.innerHTML = html`<div class="as-tab-head"><p class="muted">${t("admin.roles.sso.intro")}</p>
+    <button type="button" class="btn primary" data-new-sso>${icon("plus")}${t("admin.roles.sso.add")}</button></div><div id="as-sso-table"></div>`;
+  const table = dataTable($("#as-sso-table", panel), {
+    id: "admin-sso", caption: t("admin.roles.tab.sso"), rowKey: (p) => p.id, rowLabel: (p) => p.label,
+    columns: [
+      { key: "label", label: t("admin.roles.sso.col.provider"), primary: true, hideable: false, csv: (p) => p.label,
+        render: (p) => html`<div class="dt-cell-stack"><button type="button" class="link-btn as-row-title" data-edit-sso>${p.label}</button><span class="sub mono">${p.issuer}</span></div>` },
+      { key: "enabled", label: t("admin.roles.col.status"), csv: (p) => (p.enabled === false ? "disabled" : "enabled"),
+        render: (p) => html`${p.enabled === false ? pill("neutral", t("admin.roles.sso.disabled")) : pill("success", t("admin.roles.sso.enabled"))}${p.client_secret_set ? "" : html` ${pill("warning", t("admin.roles.sso.no_secret"))}`}` },
+      { key: "callback", label: t("admin.roles.sso.col.callback"), csv: (p) => callbackUrl(p.id),
+        render: (p) => html`<span class="as-copyline"><code class="as-url">${callbackUrl(p.id)}</code>${copyButton(callbackUrl(p.id), { label: t("admin.roles.sso.copy_callback") })}</span>` },
+      { key: "access", label: t("admin.roles.sso.col.access"), csv: (p) => [p.allow_staff !== false && "staff", p.allow_patrons !== false && "patrons"].filter(Boolean).join(" "),
+        render: (p) => html`<div class="as-pills">${p.allow_staff !== false ? pill("info", t("admin.roles.sso.staff"), { dot: false }) : ""}${p.allow_patrons !== false ? pill("info", t("admin.roles.sso.patrons"), { dot: false }) : ""}
+          ${p.auto_create ? pill("ai", t("admin.roles.sso.auto_creates"), { dot: false }) : ""}</div>${p.allowed_domains?.length ? html`<span class="sub small muted">${p.allowed_domains.join(", ")}</span>` : ""}` },
+      { key: "actions", label: t("admin.common.actions"), labelHidden: true, hideable: false, csv: false, cellClass: "as-cell-actions", headClass: "as-cell-actions",
+        render: (p) => rowMenu({ label: p.label, items: [{ id: "edit", label: t("admin.common.edit"), icon: "edit" }, { id: "delete", label: t("admin.common.delete"), icon: "trash", danger: true }] }) },
+    ],
+    exportName: "librowise-sso",
+    empty: { art: "inbox", title: t("admin.roles.sso.empty_title"), body: t("admin.roles.sso.empty_body"),
+      actions: html`<button type="button" class="btn" data-new-sso>${icon("plus")}${t("admin.roles.sso.add")}</button>` },
+  });
+  table.setRows(results);
+}
+
+async function deleteSso(p) {
+  const ok = await confirmDestructive({ title: t("admin.roles.sso.delete_title", { name: p.label }), text: t("admin.roles.sso.delete_text"), word: p.id, submit: t("admin.common.delete") });
+  if (!ok) return;
+  try {
+    await api(`/admin/sso/providers/${encodeURIComponent(p.id)}`, { method: "DELETE" });
+    toast(t("admin.common.deleted_named", { name: p.label }), "success");
+    await show("sso");
+  } catch (err) { toast(err.message, "error"); }
 }
 
 // ------------------------------------------------------------------ wiring
 
-const RENDER = { roles: renderRoles, staff: renderStaff, user: renderUser, sso: renderSso };
+const RENDER = { roles: renderRoles, staff: renderStaff, user: async (p) => renderUserShell(p), sso: renderSso };
+let tabsApi = null;
+let seq = 0;
 
 async function show(tab) {
   state.tab = tab;
-  panel().innerHTML = skeleton(5);
-  try { panel().innerHTML = await RENDER[tab](); } catch (e) { panel().innerHTML = empty(e.message, "alert"); }
-  history.replaceState(null, "", `#${tab}${tab === "user" && state.userId ? `-${state.userId}` : ""}`);
-  if (tab === "user") {
-    $("#user-q").addEventListener("input", debounce(searchUsers, 250));
-    if (state.userId) loadUser(state.userId);
-  }
-}
-
-async function searchUsers(e) {
-  const q = e.target.value.trim();
-  const box = $("#user-results");
-  if (q.length < 2) { box.innerHTML = ""; return; }
+  const panel = $("#roles-panel");
+  const mine = ++seq;
+  panel.setAttribute("aria-busy", "true");
   try {
-    const r = await api(`/patrons?${new URLSearchParams({ q, per_page: 8 })}`);
-    box.innerHTML = r.results.length ? html`<div class="stack tight" role="list">${r.results.map((p) => html`<button type="button" class="btn ghost user-pick" role="listitem" data-open-user="${p.id}">
-      <strong>${p.full_name}</strong> <span class="mono small muted">${p.card_number}</span> ${p.role !== "patron" ? badge("info", p.role) : ""}</button>`)}</div>` : html`<p class="small muted">No matches.</p>`;
-  } catch (err) { box.innerHTML = html`<p class="small muted">${err.message}</p>`; }
+    await RENDER[tab](panel);
+  } catch (e) {
+    if (mine === seq) panel.innerHTML = html`<div class="card">${e.status === 403 ? denied("patrons:manage_staff") : errorState(e)}</div>`;
+  } finally { panel.removeAttribute("aria-busy"); }
+  if (tab === "user" && state.userId) history.replaceState(null, "", `#user-${state.userId}`);
 }
 
 export default async function init() {
-  state.me = await api("/auth/me");
-  if (!can("patrons:manage_staff")) {
-    $("#roles-denied").innerHTML = notAllowed("patrons:manage_staff");
-    $("#roles-tabs").classList.add("hidden");
+  const root = $("#roles-tabs");
+  if (!root) return; // access denied state is rendered by the server
+  wireKit();
+  const m = /^#user-(\d+)$/.exec(location.hash);
+  if (m) {
+    state.userId = Number(m[1]);
+    $$('[role="tab"]', root).forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === "user")));
+  }
+  try {
+    [state.me, state.catalogue] = await Promise.all([api("/auth/me"), api("/admin/permissions")]);
+  } catch (e) {
+    $("#roles-panel").innerHTML = html`<div class="card">${errorState(e, { retry: false })}</div>`;
     return;
   }
-  state.catalogue = await api("/admin/permissions");
-  const select = setupTabs($("#roles-tabs"), show);
-  const [tab, uid] = location.hash.slice(1).split("-");
-  if (uid) state.userId = Number(uid);
-  select(RENDER[tab] ? tab : "roles");
-
-  panel().addEventListener("change", async (e) => {
+  const panel = $("#roles-panel");
+  panel.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-retry]") && !e.target.closest(".dt")) { show(state.tab); return; }
+    if (state.tab === "roles") { await onRolesAction(e); return; }
+    if (e.target.closest("[data-goto-staff]")) { tabsApi.select("staff"); return; }
+    const ou = e.target.closest("[data-open-user]");
+    if (ou) { state.userId = Number(ou.closest("tr[data-key]").dataset.key); tabsApi.select("user"); return; }
+    const ua = e.target.closest("[data-user-action]");
+    if (ua) { userAction(ua); return; }
+    if (e.target.closest("[data-new-sso]")) { const r = await ssoEditor(null); if (r) { toast(t("admin.roles.sso.saved", { name: r.label }), "success"); show("sso"); } return; }
+    const es = e.target.closest("[data-edit-sso]");
+    if (es) { const p = state.sso.find((x) => x.id === es.closest("tr[data-key]").dataset.key); const r = p && await ssoEditor(p); if (r) { toast(t("admin.roles.sso.saved", { name: r.label }), "success"); show("sso"); } }
+  });
+  panel.addEventListener("rowmenu", async (e) => {
+    const action = e.detail.action;
+    if (state.tab === "roles") {
+      const id = Number(e.target.closest("[data-role]")?.dataset.role);
+      if (action === "edit") editRole(id); else if (action === "delete") deleteRole(id);
+    } else if (state.tab === "staff" && action === "access") {
+      state.userId = Number(e.target.closest("tr[data-key]").dataset.key);
+      tabsApi.select("user");
+    } else if (state.tab === "sso") {
+      const p = state.sso.find((x) => x.id === e.target.closest("tr[data-key]")?.dataset.key);
+      if (!p) return;
+      if (action === "edit") { const r = await ssoEditor(p); if (r) { toast(t("admin.roles.sso.saved", { name: r.label }), "success"); show("sso"); } }
+      else if (action === "delete") deleteSso(p);
+    }
+  });
+  panel.addEventListener("change", async (e) => {
     const s = e.target.closest("[data-assign]");
     if (!s) return;
+    const label = s.selectedOptions[0]?.textContent || "";
     try {
       await api(`/admin/users/${s.dataset.assign}/staff-role`, { method: "PUT", body: { staff_role_id: s.value ? Number(s.value) : null } });
-      toast("Role updated", "success");
+      toast(s.value ? t("admin.roles.role_assigned", { role: label }) : t("admin.roles.role_removed"), "success");
       if (state.tab === "user") loadUser(state.userId);
     } catch (err) { toast(err.message, "error"); show(state.tab); }
   });
-
-  panel().addEventListener("click", async (e) => {
-    const t = e.target.closest("button");
-    if (!t) return;
-    try {
-      if (t.hasAttribute("data-new-role")) { if (await roleDialog(null)) { toast("Role created", "success"); show("roles"); } }
-      else if (t.dataset.editRole) {
-        const role = state.roles.find((r) => r.id === Number(t.dataset.editRole));
-        if (await roleDialog(role)) { toast("Role saved", "success"); show("roles"); }
-      } else if (t.dataset.deleteRole) {
-        const role = state.roles.find((r) => r.id === Number(t.dataset.deleteRole));
-        if (!(await confirmDialog(`Delete role “${role.name}”?`, `${role.members} account(s) will lose the permissions it grants.`, "Delete role"))) return;
-        await withBusy(t, () => api(`/admin/roles/${role.id}`, { method: "DELETE" }));
-        toast("Role deleted", "success"); show("roles");
-      } else if (t.dataset.openUser) {
-        state.userId = Number(t.dataset.openUser);
-        if (state.tab !== "user") select("user"); else { history.replaceState(null, "", `#user-${state.userId}`); loadUser(state.userId); }
-      } else if (t.dataset.userAction) {
-        if (t.dataset.confirm && !(await confirmDialog("Are you sure?", t.dataset.confirm, "Confirm"))) return;
-        await withBusy(t, () => api(`/admin/users/${state.userId}/${t.dataset.userAction}`, { method: "POST" }));
-        toast("Done", "success"); loadUser(state.userId);
-      } else if (t.hasAttribute("data-new-sso")) { if (await ssoDialog(null)) { toast("Provider saved", "success"); show("sso"); } }
-      else if (t.dataset.editSso) {
-        if (await ssoDialog(state.sso.find((p) => p.id === t.dataset.editSso))) { toast("Provider saved", "success"); show("sso"); }
-      } else if (t.dataset.deleteSso) {
-        if (!(await confirmDialog("Delete provider?", "Linked accounts will no longer be able to sign in with it.", "Delete"))) return;
-        await withBusy(t, () => api(`/admin/sso/providers/${encodeURIComponent(t.dataset.deleteSso)}`, { method: "DELETE" }));
-        toast("Provider deleted", "success"); show("sso");
-      }
-    } catch (err) { if (!err.toasted) toast(err.message, "error"); }
-  });
+  tabsApi = wireTabsPanel(root, (tab) => show(tab), { hash: true });
 }

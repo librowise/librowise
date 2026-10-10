@@ -68,7 +68,7 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
 def registrations(status_: str | None = Query(default="pending", alias="status",
                                               pattern="^(pending|approved|rejected|all)$"),
                   db: Session = Depends(get_db), _: Patron = Depends(require("patrons:approve"))):
-    return {"pending": registration.pending_count(db),
+    return {"pending": registration.pending_count(db), "counts": registration.status_counts(db),
             "results": registration.list_registrations(db, None if status_ == "all" else status_)}
 
 

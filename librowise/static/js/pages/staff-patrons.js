@@ -1,33 +1,43 @@
 // Staff › Patrons — reference implementation of a LIST PAGE on the design system
 // (page header, saved views, URL-backed filter bar, data table with sorting, selection, bulk actions,
 // pagination, CSV export, empty/error states). Copy this structure when migrating other list pages.
-import { $, BOOT, api, date, html, icon, modal, money, num, parseDate, qs, toast, withBusy } from "/static/js/core.js";
+import { $, BOOT, api, date, esc, html, icon, modal, money, num, parseDate, qs, toast, withBusy } from "/static/js/core.js";
 import { t } from "/static/js/i18n.js";
 import { avatar } from "/static/js/ui/avatar.js";
 import { dataTable } from "/static/js/ui/data-table.js";
 import { activeFilters, savedViews, searchField, selectChip, urlState, wireFilterBar } from "/static/js/ui/filters.js";
+import { field } from "/static/js/ui/form.js";
 import { setCount } from "/static/js/ui/page-header.js";
 import { statusPill } from "/static/js/ui/status.js";
 
 // ---- forms shared with the patron detail page (staff-patron.js imports these)
 
+/** Register / edit patron form body (for modal()). `lk` = /lookups, `p` = an existing patron (edit) or {} (new). */
 export function patronForm(lk, p = {}) {
-  const opt = (list, sel) => list.map((x) => html`<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${x.name}</option>`);
-  const isAdmin = BOOT.user.role === "admin";
-  return html`<div class="grid cols-2">
-    <div class="field"><label for="pf-fn">First name *</label><input id="pf-fn" name="first_name" required value="${p.first_name || ""}"></div>
-    <div class="field"><label for="pf-ln">Last name *</label><input id="pf-ln" name="last_name" required value="${p.last_name || ""}"></div>
-    <div class="field"><label for="pf-em">Email</label><input id="pf-em" name="email" type="email" value="${p.email || ""}"></div>
-    <div class="field"><label for="pf-ph">Phone</label><input id="pf-ph" name="phone" type="tel" value="${p.phone || ""}"></div>
-    <div class="field" style="grid-column:1/-1"><label for="pf-ad">Address</label><input id="pf-ad" name="address" value="${p.address || ""}"></div>
-    <div class="field"><label for="pf-cat">Category *</label><select id="pf-cat" name="category_id" required>${opt(lk.categories, p.category?.id)}</select></div>
-    <div class="field"><label for="pf-br">Home branch *</label><select id="pf-br" name="home_branch_id" required>${opt(lk.branches, p.home_branch?.id ?? BOOT.user.home_branch_id)}</select></div>
-    ${p.id ? "" : html`<div class="field"><label for="pf-card">Card number</label><input id="pf-card" name="card_number" placeholder="Auto-generated if blank" pattern="[A-Za-z0-9-]*"></div>
-      <div class="field"><label for="pf-dob">Date of birth</label><input id="pf-dob" name="date_of_birth" type="date"></div>`}
-    <div class="field"><label for="pf-exp">Membership expires</label><input id="pf-exp" name="expires_on" type="date" value="${p.expires_on || ""}"><span class="hint">Blank = category default</span></div>
-    ${isAdmin ? html`<div class="field"><label for="pf-role">Role</label><select id="pf-role" name="role">${["patron", "librarian", "admin"].map((r) => html`<option ${p.role === r ? "selected" : ""}>${r}</option>`)}</select></div>` : ""}
-    <div class="field"><label for="pf-pw">${p.id ? "Reset password" : "Password"}</label><input id="pf-pw" name="password" type="password" autocomplete="new-password" minlength="10"><span class="hint">Optional. Min 10 chars, 3 character classes.</span></div>
-    <div class="field" style="grid-column:1/-1"><label for="pf-no">Staff notes (shown at the desk)</label><input id="pf-no" name="notes" value="${p.notes || ""}"></div></div>`;
+  const opts = (list) => list.map((x) => [x.id, x.name]);
+  const isAdmin = BOOT.user?.role === "admin";
+  const roles = ["patron", "librarian", "admin"].map((r) => [r, t(`ui.role.${r}`)]);
+  const section = (title, body) => html`<fieldset class="pf-section"><legend>${title}</legend><div class="form-grid">${body}</div></fieldset>`;
+  return html`<div class="pf-form">
+    ${section(t("people.list.form.section_person"), html`
+      ${field({ name: "first_name", id: "pf-fn", label: t("people.field.first_name"), value: p.first_name || "", required: true, attrs: 'autocomplete="off" maxlength="80"' })}
+      ${field({ name: "last_name", id: "pf-ln", label: t("people.field.last_name"), value: p.last_name || "", required: true, attrs: 'autocomplete="off" maxlength="80"' })}
+      ${field({ name: "email", id: "pf-em", label: t("people.field.email"), type: "email", value: p.email || "", optional: true, help: t("people.list.form.email_help") })}
+      ${field({ name: "phone", id: "pf-ph", label: t("people.field.phone"), type: "tel", value: p.phone || "", optional: true, attrs: 'dir="ltr"' })}
+      ${field({ name: "address", id: "pf-ad", label: t("people.field.address"), value: p.address || "", optional: true, span: 2 })}
+      ${p.id ? "" : field({ name: "date_of_birth", id: "pf-dob", label: t("people.field.date_of_birth"), type: "date", optional: true })}`)}
+    ${section(t("people.list.form.section_membership"), html`
+      ${field({ name: "category_id", id: "pf-cat", label: t("people.field.category"), as: "select", required: true, options: opts(lk.categories || []), value: p.category?.id ?? "" })}
+      ${field({ name: "home_branch_id", id: "pf-br", label: t("people.field.home_branch"), as: "select", required: true, options: opts(lk.branches || []), value: p.home_branch?.id ?? BOOT.user?.home_branch_id ?? "" })}
+      ${p.id ? "" : field({ name: "card_number", id: "pf-card", label: t("people.field.card_number"), optional: true, placeholder: t("people.list.form.card_placeholder"),
+        help: t("people.list.form.card_help"), attrs: `pattern="[A-Za-z0-9-]*" maxlength="32" dir="ltr" title="${esc(t("people.list.form.card_pattern"))}"` })}
+      ${field({ name: "expires_on", id: "pf-exp", label: t("people.field.expires_on"), type: "date", value: p.expires_on || "", optional: true, help: t("people.list.form.expires_help") })}`)}
+    ${section(t("people.list.form.section_account"), html`
+      ${isAdmin ? field({ name: "role", id: "pf-role", label: t("people.field.role"), as: "select", options: roles, value: p.role || "patron", help: t("people.list.form.role_help") }) : ""}
+      ${field({ name: "password", id: "pf-pw", label: p.id ? t("people.list.form.reset_password") : t("people.field.password"), type: "password", optional: true,
+        help: t("people.list.form.password_help"), attrs: 'autocomplete="new-password" minlength="10"' })}
+      ${field({ name: "notes", id: "pf-no", label: t("people.list.form.notes"), value: p.notes || "", optional: true, span: 2, help: t("people.list.form.notes_help") })}`)}
+  </div>`;
 }
 
 export function patronPayload(fd, isNew) {
@@ -63,9 +73,10 @@ function columns() {
     { key: "card", label: t("ui.patrons.col_card"), sortable: true, csv: (p) => p.card_number, render: (p) => html`<span class="mono small">${p.card_number}</span>` },
     { key: "category", label: t("ui.patrons.col_category"), csv: (p) => p.category.name, render: (p) => p.category.name },
     { key: "branch", label: t("ui.patrons.col_branch"), csv: (p) => p.home_branch.name, render: (p) => p.home_branch.name },
-    { key: "loans", label: t("ui.patrons.col_loans"), align: "num", csv: (p) => p.open_loans, render: (p) => num(p.open_loans) },
+    { key: "loans", label: t("ui.patrons.col_loans"), align: "num", csv: (p) => p.open_loans,
+      render: (p) => (p.overdue_loans ? html`<span class="pl-loans">${num(p.open_loans)} ${statusPill("loan", "overdue", t("people.list.overdue_count", { count: p.overdue_loans }))}</span>` : num(p.open_loans)) },
     { key: "balance", label: t("ui.patrons.col_balance"), align: "num", csv: (p) => p.balance,
-      render: (p) => (p.balance > 0 ? html`<span style="color:var(--danger);font-weight:600">${money(p.balance)}</span>` : html`<span class="muted">${money(0)}</span>`) },
+      render: (p) => (p.balance > 0 ? html`<span class="pl-owing">${money(p.balance)}</span>` : html`<span class="muted">${money(0)}</span>`) },
     { key: "expires", label: t("ui.patrons.col_expires"), sortable: true, csv: (p) => p.expires_on || "", render: membership },
     { key: "email", label: t("ui.patrons.col_email"), hidden: true, csv: (p) => p.email || "", render: (p) => p.email || "—" },
     { key: "phone", label: t("ui.patrons.col_phone"), hidden: true, csv: (p) => p.phone || "", render: (p) => p.phone || "—" },
@@ -81,8 +92,8 @@ function params(s) {
 export default async function init() {
   const lk = await api("/lookups");
   const s0 = state.get();
-  const statusOpts = [["", t("ui.patrons.any_status")], ["active", t("ui.status.active")], ["expiring", t("ui.status.expiring")],
-    ["expired", t("status.expired")], ["owing", t("ui.status.owing")], ["inactive", t("ui.status.inactive")]];
+  const statusOpts = [["", t("ui.patrons.any_status")], ["active", t("ui.status.active")], ["overdue", t("people.list.status_overdue")],
+    ["expiring", t("ui.status.expiring")], ["expired", t("status.expired")], ["owing", t("ui.status.owing")], ["inactive", t("ui.status.inactive")]];
   const roleOpts = [["", t("ui.patrons.any_role")], ["patron", t("ui.role.patron")], ["staff", t("ui.patrons.staff_only")],
     ["librarian", t("ui.role.librarian")], ["admin", t("ui.role.admin")]];
   const catOpts = [["", t("ui.patrons.any_category")], ...lk.categories.map((c) => [String(c.id), c.name])];
@@ -102,6 +113,7 @@ export default async function init() {
     id: "patrons", keys: FILTERS, current: () => state.get(),
     presets: [
       { id: "all", label: t("ui.patrons.view_all"), params: {} },
+      { id: "overdue", label: t("people.list.view_overdue"), params: { status: "overdue" } },
       { id: "expiring", label: t("ui.patrons.view_expiring"), params: { status: "expiring" } },
       { id: "expired", label: t("ui.patrons.view_expired"), params: { status: "expired" } },
       { id: "owing", label: t("ui.patrons.view_owing"), params: { status: "owing" } },

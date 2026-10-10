@@ -1,0 +1,88 @@
+{#- Shared server-rendered pieces of the Insights hub (Reports · Analytics · AI insights).
+    Import with context:  {% from "staff/_insights_ui.html" import toolbar, kpi_skeleton, card_head with context %}
+    Wired by /static/js/pages/lib/insights-ui.js; styled by /static/css/pages/admin-insights.css.
+    The toolbar reads the query string so the first paint already shows the chosen period (no layout shift). -#}
+
+{% macro icon(name) %}<svg class="icon" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>{% endmacro %}
+
+{% macro toolbar(granularity=false, compare=false, snapshot=false, snapshot_text=none, period=true) %}
+{%- set qp = request.query_params -%}
+{%- set ranges = [('7d', 'insights.common.range_7d'), ('30d', 'insights.common.range_30d'), ('90d', 'insights.common.range_90d'),
+                  ('365d', 'insights.common.range_12m'), ('ytd', 'insights.common.range_ytd'), ('custom', 'insights.common.range_custom')] -%}
+{%- set rng = qp.get('range') if qp.get('range') in ['7d', '30d', '90d', '365d', 'ytd', 'custom'] else '30d' -%}
+{%- set custom_ok = rng == 'custom' and (qp.get('start') or '')|length == 10 and (qp.get('end') or '')|length == 10 -%}
+{%- if rng == 'custom' and not custom_ok %}{% set rng = '30d' %}{% endif -%}
+{%- set gdefault = {'7d': 'day', '30d': 'day', '90d': 'week', '365d': 'month', 'ytd': 'month', 'custom': 'day'}[rng] -%}
+{%- set gran = qp.get('g') if qp.get('g') in ['day', 'week', 'month'] else gdefault -%}
+{%- set branch = qp.get('branch') or '' -%}
+<div class="ins-toolbar" id="ins-toolbar" role="region" aria-label="{{ t('insights.common.toolbar_label') }}" data-snapshot="{{ 'true' if snapshot else 'false' }}">
+  <div class="ins-tb-row">
+    {%- if period %}
+    <div class="ins-tb-field ins-tb-period">
+      <span class="ins-tb-label" id="ins-range-l">{{ t('insights.common.period') }}</span>
+      <div class="segmented ins-seg" role="radiogroup" aria-labelledby="ins-range-l" data-segmented="range" data-range>
+        {%- for value, key in ranges %}
+        <button type="button" role="radio" data-value="{{ value }}" aria-checked="{{ 'true' if value == rng else 'false' }}" tabindex="{{ '0' if value == rng else '-1' }}"{% if snapshot %} disabled{% endif %}><span>{{ t(key) }}</span></button>
+        {%- endfor %}
+      </div>
+    </div>
+    <fieldset class="date-range ins-custom" data-date-range="period"{% if rng != 'custom' or snapshot %} hidden{% endif %}>
+      <legend class="sr-only">{{ t('insights.common.custom_range') }}</legend>
+      <label class="ins-tb-label" for="ins-start">{{ t('ui.date.from') }}</label>
+      <input type="date" id="ins-start" data-start value="{{ qp.get('start') if custom_ok else '' }}">
+      <span class="sep" aria-hidden="true">–</span>
+      <label class="ins-tb-label" for="ins-end">{{ t('ui.date.to') }}</label>
+      <input type="date" id="ins-end" data-end value="{{ qp.get('end') if custom_ok else '' }}">
+      <div class="field-error date-error" role="alert" hidden></div>
+    </fieldset>
+    {%- endif %}
+    <div class="ins-tb-field ins-tb-branch">
+      <label class="ins-tb-label" for="ins-branch">{{ t('common.branch') }}</label>
+      <span class="select-chip ins-select"><select id="ins-branch" name="branch">
+        <option value="">{{ t('common.all_branches') }}</option>
+        {%- if branch and branch.isdigit() %}<option value="{{ branch }}" selected>{{ t('common.loading') }}</option>{% endif %}
+      </select></span>
+    </div>
+    {%- if granularity %}
+    <div class="ins-tb-field ins-tb-gran">
+      <span class="ins-tb-label" id="ins-gran-l">{{ t('insights.common.group_by') }}</span>
+      <div class="segmented ins-seg" role="radiogroup" aria-labelledby="ins-gran-l" data-segmented="g" data-gran>
+        {%- for value, key in [('day', 'insights.common.gran_day'), ('week', 'insights.common.gran_week'), ('month', 'insights.common.gran_month')] %}
+        <button type="button" role="radio" data-value="{{ value }}" aria-checked="{{ 'true' if value == gran else 'false' }}" tabindex="{{ '0' if value == gran else '-1' }}"{% if snapshot %} disabled{% endif %}><span>{{ t(key) }}</span></button>
+        {%- endfor %}
+      </div>
+    </div>
+    {%- endif %}
+    {%- if compare %}
+    <label class="ins-switch" for="ins-compare">
+      <input type="checkbox" role="switch" id="ins-compare"{% if qp.get('compare') != '0' %} checked{% endif %}{% if snapshot %} disabled{% endif %}>
+      <span class="ins-switch-track" aria-hidden="true"></span><span>{{ t('insights.common.compare') }}</span>
+    </label>
+    {%- endif %}
+  </div>
+  <p class="ins-tb-status" aria-live="polite">
+    <span data-period-text{% if snapshot %} hidden{% endif %}></span>
+    <span class="ins-snapshot" data-snapshot-note{% if not snapshot %} hidden{% endif %}>{{ icon('clock') }}<strong>{{ t('insights.common.snapshot') }}</strong>
+      <span>{{ snapshot_text or t('insights.common.snapshot_help') }}</span></span>
+  </p>
+</div>
+{% endmacro %}
+
+{% macro kpi_skeleton(n, label) %}
+<section class="kpi-grid ins-kpis" id="ins-kpis" aria-label="{{ label }}" aria-busy="true">
+  {%- for _ in range(n) %}<div class="card stat kpi ins-kpi-skel" aria-hidden="true"><span class="skeleton ins-sk-label"></span><span class="skeleton ins-sk-value"></span><span class="skeleton ins-sk-delta"></span></div>{% endfor %}
+</section>
+{% endmacro %}
+
+{#- Card header: title + period subtitle + actions ("Table" toggle, CSV export, optional "Open full report"). -#}
+{%- macro card_head(id, title, toggle=true, csv=true, full=none, full_label=none, sub='') %}
+{%- set full_href = ('/staff/' ~ full[0] ~ ('#' ~ full[1] if full[1] else '')) if full else none %}
+<header class="ins-card-head">
+  <div class="ins-card-titles"><h2 id="{{ id }}-h">{{ title }}</h2><p class="ins-card-sub" data-sub>{{ sub }}</p></div>
+  <div class="ins-card-actions">
+    {%- if toggle %}<button type="button" class="btn ghost sm" data-view-toggle aria-pressed="false" data-tip="{{ t('insights.common.view_table_hint') }}">{{ icon('table') }}<span>{{ t('insights.common.view_table') }}</span></button>{% endif %}
+    {%- if csv %}<a class="btn ghost sm" data-csv href="#" download aria-label="{{ t('insights.common.csv_of', name=title) }}">{{ icon('download') }}<span>{{ t('insights.common.csv') }}</span></a>{% endif %}
+    {%- if full_href %}<a class="btn ghost sm" href="{{ full_href }}" data-insights-link="{{ full[0] }}" data-hash="{{ full[1] or '' }}">{{ icon('arrow-right') }}<span>{{ full_label }}</span></a>{% endif %}
+  </div>
+</header>
+{% endmacro %}

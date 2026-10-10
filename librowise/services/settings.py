@@ -30,6 +30,64 @@ DEFAULTS: dict[str, tuple[Any, str]] = {
 }
 
 
+# ---- presentation metadata for the Settings screen (additive; unknown keys fall back to sensible defaults)
+# section: library profile · policies · notices · integrations (the Settings page's left navigation)
+# group: a card inside the section · type: bool | int | str | text | select · unit: days | minutes | attempts
+SECTIONS: tuple[str, ...] = ("profile", "policies", "notices", "integrations")
+
+META: dict[str, dict[str, Any]] = {
+    "library_name": {"section": "profile", "group": "identity", "label": "Library name", "type": "str",
+                     "max_length": 120, "required": True},
+    "opac_announcement": {"section": "profile", "group": "opac", "label": "Catalogue announcement", "type": "text",
+                          "max_length": 500},
+    "allow_patron_self_renewal": {"section": "policies", "group": "circulation", "label": "Patrons can renew online"},
+    "auto_renew_when_no_holds": {"section": "policies", "group": "circulation", "label": "Automatic renewal"},
+    "fines_skip_closed_days": {"section": "policies", "group": "circulation", "label": "No fines on closed days"},
+    "allow_self_registration": {"section": "policies", "group": "opac", "label": "Online card registration"},
+    "self_registration_category": {"section": "policies", "group": "opac", "label": "Category for new registrations",
+                                   "type": "select", "options": "categories"},
+    "allow_purchase_suggestions": {"section": "policies", "group": "opac", "label": "Purchase suggestions"},
+    "allow_reviews": {"section": "policies", "group": "opac", "label": "Ratings and reviews"},
+    "reviews_require_approval": {"section": "policies", "group": "opac", "label": "Approve reviews before publishing"},
+    "anonymize_history_after_days": {"section": "policies", "group": "privacy", "label": "Anonymise loan history after",
+                                     "unit": "days", "min": 0, "max": 36500},
+    "require_2fa_for_staff": {"section": "policies", "group": "security", "label": "Require two-factor sign-in for staff"},
+    "lockout_threshold": {"section": "policies", "group": "security", "label": "Lock accounts after failed sign-ins",
+                          "unit": "attempts", "min": 0, "max": 100},
+    "lockout_minutes": {"section": "policies", "group": "security", "label": "Lockout duration",
+                        "unit": "minutes", "min": 1, "max": 1440},
+    "session_idle_timeout_minutes": {"section": "policies", "group": "security", "label": "Sign out idle sessions after",
+                                     "unit": "minutes", "min": 0, "max": 10080},
+    "notify_new_signin": {"section": "policies", "group": "security", "label": "Alert on sign-in from a new device"},
+    "password_reset_enabled": {"section": "policies", "group": "security", "label": "Self-service password reset"},
+    "authority_auto_link": {"section": "policies", "group": "cataloguing", "label": "Link headings to authorities automatically"},
+    "notice_max_attempts": {"section": "notices", "group": "delivery", "label": "Delivery attempts per notice",
+                            "unit": "attempts", "min": 1, "max": 50},
+    "ai_assistant_enabled": {"section": "integrations", "group": "ai", "label": "Staff AI copilot"},
+    "ai_opac_enabled": {"section": "integrations", "group": "ai", "label": "AI search in the public catalogue"},
+}
+
+
+def _type_of(default: Any) -> str:
+    if isinstance(default, bool):
+        return "bool"
+    if isinstance(default, int):
+        return "int"
+    if isinstance(default, float):
+        return "float"
+    return "str"
+
+
+def describe(key: str) -> dict[str, Any]:
+    """Presentation metadata for one setting: section, group, label, type, unit and limits."""
+    default, _desc = DEFAULTS[key]
+    meta = {"section": "policies", "group": "other", "label": key.replace("_", " ").capitalize(),
+            "type": _type_of(default), "unit": None, "min": None, "max": None, "options": None,
+            "max_length": None, "required": False}
+    meta.update(META.get(key, {}))
+    return meta
+
+
 # Shown wherever the library's name would appear until an administrator sets one.
 UNNAMED_LIBRARY = "Librowise"
 
@@ -53,7 +111,7 @@ def get(db: Session, key: str) -> Any:
 def all_settings(db: Session) -> list[dict]:
     stored = {s.key: s.value for s in db.query(Setting).all()}
     return [
-        {"key": k, "value": stored.get(k, default), "default": default, "description": desc}
+        {"key": k, "value": stored.get(k, default), "default": default, "description": desc, **describe(k)}
         for k, (default, desc) in DEFAULTS.items()
     ]
 

@@ -1,0 +1,646 @@
+{
+  "desk": {
+    "optional": "(optional)",
+    "mode": {
+      "checkout": "Check out",
+      "checkin": "Check in",
+      "renew": "Renew",
+      "transfer": "Receive transfer"
+    },
+    "circ": {
+      "title": "Circulation desk",
+      "subtitle": "Scan cards and items. Scans are queued, so keep scanning; every result appears below with sound.",
+      "working_branch": "Working branch",
+      "sound": "Sound",
+      "sound_tip": "Beeps for success, warnings and errors",
+      "keys_title": "Keyboard shortcuts",
+      "mode": "Desk mode",
+      "patron_label": "Patron card number or name",
+      "patron_placeholder": "Scan a library card…",
+      "patron_hint": "Typing a name? If several patrons match, you choose one.",
+      "load": "Load",
+      "camera": "Scan with camera",
+      "camera_hint": "Hold the barcode steady inside the frame.",
+      "item_label": {
+        "checkout": "Item barcode to check out",
+        "checkin": "Item barcode to check in",
+        "renew": "Item barcode to renew",
+        "transfer": "Barcode of the item that arrived"
+      },
+      "submit": {
+        "checkout": "Check out",
+        "checkin": "Check in",
+        "renew": "Renew",
+        "transfer": "Receive"
+      },
+      "item_hint": "Press Enter after each barcode. The field stays ready for the next scan.",
+      "queue": {
+        "one": "{count} scan in progress",
+        "other": "{count} scans in the queue"
+      },
+      "log_title": "Transactions",
+      "log_empty": "Scans appear here as you work, newest first, with their result.",
+      "print_receipt": "Print receipt",
+      "email_receipt": "Email receipt",
+      "side_label": "Patron and item details",
+      "welcome_title": "Start with the library card",
+      "welcome_body": "Scan or type the card number. The patron's loans, holds, fines and blocks appear here.",
+      "dismiss": "Dismiss message",
+      "dismiss_tip": "Dismiss (Esc)",
+      "looking_up": "Looking up…",
+      "unknown_item": "Unrecognised barcode",
+      "due": "Due {date}",
+      "renewed_due": {
+        "one": "Renewed (once) · due {date}",
+        "other": "Renewed ({count} times) · due {date}"
+      },
+      "fine_charged": "Overdue fine charged: {amount}",
+      "lost_found": "Was marked lost: back in circulation",
+      "visit": "Visit · {name}",
+      "matches": {
+        "one": "{count} patron matches “{term}”. Choose:",
+        "other": "{count} patrons match “{term}”. Choose one:"
+      }
+    },
+    "row": {
+      "pending": "in progress",
+      "ok": "done",
+      "warn": "done, with a warning",
+      "hold": "fills a hold",
+      "blocked": "blocked",
+      "error": "failed",
+      "undone": "undone",
+      "info": "information"
+    },
+    "act": {
+      "override": "Override",
+      "retry": "Retry",
+      "undo": "Undo",
+      "print_slip": "Print slip",
+      "checkin_lend": "Check in & lend",
+      "renew_instead": "Renew instead"
+    },
+    "reason": {
+      "inactive": "The account is inactive",
+      "expired": "Membership expired on {date}",
+      "fines": "Charges of {amount} are over the {limit} limit",
+      "item_status": "The item is marked “{status}”",
+      "reserved": "The item is on the hold shelf for another patron",
+      "loan_limit": "Loan limit reached ({max} items)",
+      "holds_waiting": {
+        "one": "{count} other patron has a hold on this title",
+        "other": "{count} other patrons have holds on this title"
+      },
+      "due_shortened": "Due date shortened to the membership expiry ({date})",
+      "overridden": "Overridden: {reason}",
+      "renew_limit": "Renewal limit reached ({max})",
+      "renew_none": "This kind of item can't be renewed",
+      "title_wanted": "Another patron is waiting for this title",
+      "loan_closed": "The loan has already been returned",
+      "no_patron": "The loan has no patron"
+    },
+    "err": {
+      "network": "No connection to the server. Check the network and press Retry.",
+      "not_found": "No item has this barcode. Check the label and scan again.",
+      "on_loan": "This item is on loan to another patron.",
+      "already_on_loan": "This patron already has this item.",
+      "withdrawn": "This item has been withdrawn from circulation.",
+      "not_on_loan": "This item is not on loan, so there is nothing to renew.",
+      "not_in_transit": "This item is not in transit. Use check in instead.",
+      "undo_expired": "Too late to undo: the 30-second window has passed.",
+      "undo_stale": "The item has changed since, so it can't be undone safely.",
+      "undo_done": "This was already undone.",
+      "undo_not_yours": "Only the person who made this transaction can undo it.",
+      "no_email": "This patron has no email address on file.",
+      "no_patron": "Load a patron first, then scan the items.",
+      "no_patron_match": "No patron matches “{term}”.",
+      "patron_title": "Patron not found",
+      "forbidden": "You don't have permission to do this.",
+      "generic": "Something went wrong. Try again.",
+      "camera": "The camera is not available ({reason})."
+    },
+    "route": {
+      "hold_shelf": "Put on the hold shelf for {name}",
+      "transit": "Send to {branch}",
+      "home_branch": "Return to its home branch: {branch}",
+      "reshelve": "Reshelve",
+      "reshelve_at": "Reshelve at {call}",
+      "already_on_hold_shelf": "Already on the hold shelf"
+    },
+    "hold": {
+      "found": "Hold found",
+      "title_shelf": "Put this item on the hold shelf",
+      "title_transit": "Send this item to {branch}",
+      "dest_shelf": "Hold shelf · {branch}",
+      "dest_transit": "In transit → {branch}",
+      "for": "Reserved for",
+      "pickup": "Pickup at",
+      "until": "Hold until",
+      "until_on_arrival": "Set when it arrives",
+      "item": "Item",
+      "done": "Done",
+      "print_hold": "Print hold slip",
+      "print_transit": "Print transit slip",
+      "scans_waiting": {
+        "one": "{count} more scan is waiting. It runs when you close this.",
+        "other": "{count} more scans are waiting. They run when you close this."
+      }
+    },
+    "pt": {
+      "end_visit": "Done",
+      "end_visit_tip": "Finish with this patron and scan the next card",
+      "expired_on": "Expired {date}",
+      "expires_on": "Expires {date}",
+      "loans": "{count} of {max} loans",
+      "holds_ready": {
+        "one": "{count} hold ready",
+        "other": "{count} holds ready"
+      },
+      "blocked": "Can't borrow",
+      "override_visit": "Override for this visit",
+      "override_on": "Override on: {reason}",
+      "override_stop": "Stop",
+      "override_ask": "Ask a supervisor to override.",
+      "note": "Note:",
+      "balance": "Owes",
+      "take_payment": "Take payment",
+      "ready_title": "Ready for pickup ({count})",
+      "until": "until {date}",
+      "loans_title": "On loan ({count})",
+      "renew_all": "Renew all",
+      "renew": "Renew",
+      "renew_one": "Renew “{title}”",
+      "renewed_n": {
+        "one": "renewed once",
+        "other": "renewed {count}×"
+      },
+      "no_loans": "Nothing on loan.",
+      "waiting_title": "Holds in the queue ({count})",
+      "queue_pos": "#{n} in queue"
+    },
+    "due": {
+      "overdue": {
+        "one": "{count} day overdue",
+        "other": "{count} days overdue"
+      },
+      "today": "Due today",
+      "soon": "Due {date}"
+    },
+    "side": {
+      "summary": "This session",
+      "returned": "Returned",
+      "to_hold_shelf": "To hold shelf",
+      "in_transit": "Sent in transit",
+      "fines": "Fines charged",
+      "last_item": "Last item",
+      "barcode": "Barcode",
+      "call_number": "Call number",
+      "home": "Home branch",
+      "returned_by": "Returned by",
+      "fine": "Fine",
+      "checkout_title": "Start with the library card",
+      "checkout_body": "Scan or type the card number. The patron's loans, holds, fines and blocks appear here.",
+      "checkin_title": "Check in",
+      "checkin_body": "Scan returned items one after another. Holds and transfers are routed automatically and each one tells you where the item goes.",
+      "renew_title": "Renew",
+      "renew_body": "Scan any item to renew it. You don't need to load the patron first.",
+      "transfer_title": "Receive transfers",
+      "transfer_body": "Scan items that arrived from another branch. Items for holds go to the hold shelf."
+    },
+    "say": {
+      "checked_out": "Checked out {title}, due {date}.",
+      "checked_in": "Checked in {title}.",
+      "renewed": "Renewed {title}, now due {date}.",
+      "received": "Received {title}.",
+      "undone": "Undone: {title}.",
+      "patron_loaded": {
+        "one": "{name} loaded, {count} item on loan.",
+        "other": "{name} loaded, {count} items on loan."
+      },
+      "patron_blocked": "{name} can't borrow right now. See the reasons in the patron panel.",
+      "override_on": "Override is on for this visit. Blocked items are being retried.",
+      "branch": "Working branch: {branch}."
+    },
+    "pay": {
+      "title": "Take a payment from {name}",
+      "owes": "Outstanding balance: {amount}.",
+      "amount": "Amount received",
+      "note": "Note",
+      "submit": "Record payment",
+      "done": "Payment of {amount} recorded. Balance now {balance}.",
+      "row": "Payment received: {amount}",
+      "balance_now": "Balance now {balance}",
+      "failed": "Payment not recorded"
+    },
+    "ov": {
+      "title": "Override blocks for this visit",
+      "body": "Items for {name} will be checked out despite the blocks until you finish with this patron.",
+      "reason": "Reason",
+      "r_manager": "Approved by a supervisor",
+      "r_paid": "Patron is paying now",
+      "r_renewing": "Membership is being renewed",
+      "r_returned": "Items were returned elsewhere",
+      "r_other": "Other reason",
+      "note": "Details",
+      "submit": "Turn on override",
+      "audited": "Overrides are recorded in the audit log with your name and reason.",
+      "row_title": "Override this block?",
+      "row_reason": "Reason for the override",
+      "row_submit": "Override & retry"
+    },
+    "receipt": {
+      "no_patron_title": "No patron loaded",
+      "no_patron": "Receipts list one patron's visit. Load the patron first.",
+      "empty_title": "Nothing to put on a receipt",
+      "empty": "Check out or renew something for this patron first.",
+      "email_title": "Receipt not sent",
+      "emailed": "Receipt emailed to {to}"
+    },
+    "undo": {
+      "checkout_done": "Checkout undone. The item is back as it was.",
+      "checkin_done": "Check-in undone. The item is on loan again.",
+      "failed": "Couldn't undo “{title}”",
+      "notice_sent": "The patron was already told the hold is ready"
+    },
+    "keys": {
+      "undo": "Undo the last transaction",
+      "dismiss": "Dismiss the message",
+      "submit": "Submit the scan",
+      "palette": "Search anything",
+      "note": "You can also start typing anywhere on the page: the text goes into the scan field."
+    },
+    "holds": {
+      "title": "Holds",
+      "subtitle": "Work the reservation queue, pull copies from the shelves, and look after the hold shelf and transfers.",
+      "refresh": "Refresh",
+      "place": "Place hold",
+      "views": "Hold lists",
+      "tab": {
+        "queue": "Queue",
+        "pull": "To pull",
+        "ready": "Hold shelf",
+        "transit": "In transit"
+      },
+      "intro": {
+        "queue": "Every active hold, oldest first. Select several to suspend, resume or cancel them together.",
+        "pull": "Copies that can fill a hold right now. Pull them shelf by shelf, then check them in at the desk to route them.",
+        "ready": "Items waiting for patrons to collect. Expired pickups go back into circulation when you clear them.",
+        "transit": "Copies on their way to the patron's pickup branch. Receive them at the desk when they arrive."
+      },
+      "search_label": "Search holds",
+      "search_placeholder": "Title, patron, card or barcode",
+      "branch_label": "Branch",
+      "branch_pull_hint": "On the pull list this is the branch where the copy is shelved",
+      "shelved_at": "Shelved at",
+      "status_label": "Status",
+      "any_status": "Any status",
+      "st_waiting": "Waiting",
+      "st_suspended": "Suspended",
+      "only_expiring": "Expiring within 2 days",
+      "n_expiring": "{count} expiring",
+      "actions_for": "Actions for “{title}”, {name}",
+      "col": {
+        "title": "Title",
+        "patron": "Patron",
+        "pickup": "Pickup branch",
+        "status": "Status",
+        "position": "Queue",
+        "placed": "Placed",
+        "actions": "Actions",
+        "item": "Item",
+        "on_shelf": "On shelf since",
+        "collect_by": "Collect by",
+        "owner": "Owning branch",
+        "to": "Going to",
+        "for": "For",
+        "sent": "Sent",
+        "call": "Call number"
+      },
+      "copy_only": "Only copy {barcode}",
+      "not_after": "Not needed after {date}",
+      "suspended_until": "Suspended until {date}",
+      "expired_ago": "Expired {when}",
+      "expires_today": "Expires today",
+      "expires_when": "Expires {when}",
+      "empty": {
+        "queue_title": "No holds to show",
+        "queue_body": "Nothing matches these filters. Clear them, or place a hold for a patron.",
+        "pull_title": "Nothing to pull right now",
+        "pull_body": "No waiting hold can be filled from a copy on the shelves. New holds will appear here.",
+        "ready_title": "The hold shelf is clear",
+        "ready_body": "No items are waiting for pickup with these filters.",
+        "transit_title": "Nothing in transit",
+        "transit_body": "No copies are on their way to a pickup branch."
+      },
+      "bulk": {
+        "suspend": "Suspend",
+        "resume": "Resume",
+        "cancel": "Cancel holds",
+        "clear_shelf": "Cancel & clear from shelf",
+        "print_hold_slips": "Print hold slips",
+        "print_transit_slips": "Print transit slips"
+      },
+      "act": {
+        "suspend": "Suspend…",
+        "resume": "Resume",
+        "edit": "Edit hold…",
+        "open_patron": "Open patron",
+        "print_hold_slip": "Print hold slip",
+        "print_transit_slip": "Print transit slip",
+        "cancel": "Cancel hold…",
+        "clear": "Cancel & clear from shelf…"
+      },
+      "pull_progress": "{done} of {count} pulled",
+      "pull_progress_label": "Pull list progress",
+      "print_pull": "Print pull list",
+      "go_checkin": "Check in pulled items",
+      "pull_how": "Tick items as you pull them (kept on this computer for today). Checking them in routes each one to the hold shelf or into transit.",
+      "n_items": {
+        "one": "{count} item",
+        "other": "{count} items"
+      },
+      "mark_pulled": "Pulled: {title}",
+      "for": "for",
+      "to_branch": "→ {branch}",
+      "pull_sheet_title": "Pull list",
+      "suspend_title": {
+        "one": "Suspend this hold",
+        "other": "Suspend {count} holds"
+      },
+      "suspend_body": "A suspended hold keeps its place in the queue but is skipped when copies come back.",
+      "suspend_until": "Resume automatically on",
+      "suspend_hint": "Leave empty to suspend until someone resumes it.",
+      "suspend_submit": "Suspend",
+      "none_to_suspend": "None of the selected holds can be suspended (they are already suspended or have a copy assigned).",
+      "none_to_resume": "None of the selected holds are suspended.",
+      "cancel_title": {
+        "one": "Cancel this hold?",
+        "other": "Cancel {count} holds?"
+      },
+      "cancel_body": {
+        "one": "The patron loses their place in the queue. This can't be undone.",
+        "other": "{count} patrons lose their place in the queue. This can't be undone."
+      },
+      "clear_title": {
+        "one": "Clear this item from the hold shelf?",
+        "other": "Clear {count} items from the hold shelf?"
+      },
+      "clear_body": {
+        "one": "The hold is cancelled and the copy is offered to the next patron in the queue, or becomes available.",
+        "other": "The holds are cancelled and each copy is offered to the next patron in the queue, or becomes available."
+      },
+      "cancel_submit": {
+        "one": "Cancel hold",
+        "other": "Cancel {count} holds"
+      },
+      "done_suspended": {
+        "one": "Hold suspended",
+        "other": "{count} holds suspended"
+      },
+      "done_resumed": {
+        "one": "Hold resumed",
+        "other": "{count} holds resumed"
+      },
+      "done_cancelled": {
+        "one": "Hold cancelled",
+        "other": "{count} holds cancelled"
+      },
+      "done_updated": {
+        "one": "Hold updated",
+        "other": "{count} holds updated"
+      },
+      "some_failed": {
+        "one": "{count} hold could not be changed: {list}",
+        "other": "{count} holds could not be changed: {list}"
+      },
+      "edit_title": "Edit hold",
+      "not_needed_after": "Not needed after",
+      "note": "Note",
+      "ph_card": "Patron card number",
+      "ph_card_placeholder": "Scan or type the card",
+      "ph_find": "Find a title",
+      "ph_find_placeholder": "Title, author or ISBN",
+      "ph_find_hint": "Pick a result to fill in the record number, or type the number yourself.",
+      "ph_results": "Matching titles",
+      "ph_none": "No titles match “{q}”.",
+      "ph_record": "Record number",
+      "ph_override": "Override borrowing blocks and hold limits",
+      "placed": "Hold placed for {name} on “{title}”",
+      "placed_pos": "Hold placed for {name} on “{title}”: number {n} in the queue",
+      "place_failed": "Hold not placed: {reason}"
+    },
+    "today": {
+      "kpi": {
+        "checkouts": "Checkouts today",
+        "checkins": "Check-ins today",
+        "on_loan": "On loan now",
+        "holds": "Holds waiting",
+        "active": "Active borrowers · 7 days",
+        "new_patrons": "New patrons · 30 days"
+      },
+      "vs_last": "vs last {weekday}",
+      "same": "same",
+      "overdue_n": {
+        "one": "{count} overdue ({rate})",
+        "other": "{count} overdue ({rate})"
+      },
+      "none_overdue": "Nothing overdue",
+      "on_shelf_n": {
+        "one": "{count} on the hold shelf",
+        "other": "{count} on the hold shelf"
+      },
+      "tasks_title": "Desk tasks",
+      "all_holds": "All holds",
+      "task": {
+        "holds_to_pull": "Holds to pull",
+        "holds_expiring": "Pickups expiring",
+        "in_transit": "Items in transit",
+        "overdue": "Overdue loans",
+        "registrations": "Registrations to approve",
+        "suggestions": "Purchase suggestions",
+        "notices_failed": "Notices that failed"
+      },
+      "task_hint": {
+        "holds_to_pull": "Copies on the shelves that can fill a hold",
+        "holds_expiring": "On the hold shelf, last pickup day within 2 days",
+        "in_transit": "On their way to a pickup branch",
+        "overdue": "Past their due date — see the overdue report",
+        "registrations": "Self-registrations waiting for a decision",
+        "suggestions": "Patron requests to review",
+        "notices_failed": "Emails or texts that bounced in the last 7 days"
+      },
+      "all_clear": "All clear",
+      "pull_title": "Next to pull",
+      "full_pull": "Full pull list",
+      "for_at": "for {name} · pick up at {branch}",
+      "more_to_pull": {
+        "one": "{count} more on the pull list",
+        "other": "{count} more on the pull list"
+      },
+      "ev_borrowed": "Borrowed",
+      "ev_returned": "Returned",
+      "risk": "{pct} risk"
+    },
+    "kiosk": {
+      "steps": "Steps",
+      "step_signin": "Sign in",
+      "step_scan": "Scan your items",
+      "step_finish": "Finish",
+      "show_pw": "Show",
+      "hide_pw": "Hide",
+      "session_sub": "You have {count} of {max} items on loan.",
+      "blocked_help": "You can still renew where allowed. Please ask at the desk to borrow.",
+      "cant_renew": "Can't renew here: {reason}",
+      "receipt_title": "Would you like a receipt?",
+      "receipt_lead": {
+        "one": "You borrowed or renewed {count} item this visit.",
+        "other": "You borrowed or renewed {count} items this visit."
+      },
+      "email_receipt": "Email it to me",
+      "back": "Back to scanning",
+      "printing": "Your receipt is printing. Please take it from the printer.",
+      "emailed": "We've emailed your receipt to {to}.",
+      "email_failed": "We couldn't email a receipt. Please ask at the desk if you need one.",
+      "goodbye": "Remember to check your due dates. See you soon!",
+      "start_again": "Start again"
+    },
+    "kiosks": {
+      "title": "Kiosks",
+      "subtitle": "Self-checkout stations where patrons borrow and renew on their own. Each kiosk has its own secret token and works for one branch.",
+      "open_screen": "Open kiosk screen",
+      "new_tab": "(opens in a new tab)",
+      "new": "New kiosk",
+      "devices": "Kiosk devices",
+      "how_title": "How it works",
+      "how_1": "Create a kiosk for the branch where the station stands. Copy its token: it is shown only once.",
+      "how_2": "On the station, open the kiosk screen and paste the token, or use “Set up this device” when you are working on the station itself. Your staff session is signed out automatically.",
+      "how_3": "Patrons sign in with their card number and password. Normal loan rules apply with no overrides, and items reserved for other readers can't be borrowed.",
+      "how_4": "Sessions end after a short time without activity, with a countdown. Station lost or stolen? Deactivate it or rotate its token.",
+      "st_off": "Deactivated",
+      "st_never": "Not used yet",
+      "st_online": "Online now",
+      "st_idle": "Idle",
+      "last_seen": "Last contact",
+      "address": "Network address",
+      "token": "Kiosk token",
+      "actions_for": "Actions for {name}",
+      "empty_title": "No kiosks yet",
+      "empty_body": "Create one to let patrons borrow and renew on their own.",
+      "done": "Done",
+      "token_once": "Copy this token now. For security it is shown only once, and anyone who has it can run a kiosk for {branch}.",
+      "copy": "Copy",
+      "copied": "Token copied",
+      "here_title": "Working on the kiosk station right now?",
+      "here_body": "Store the token in this browser, sign out of your staff account and open the kiosk screen.",
+      "here_btn": "Set up this device as “{name}”",
+      "storage_blocked": "This browser blocks local storage. Paste the token on the kiosk screen instead.",
+      "name": "Name",
+      "name_placeholder": "For example: Ground floor, by the entrance",
+      "branch_hint": "Loans made at this kiosk are recorded for this branch and use its loan rules.",
+      "create": "Create kiosk",
+      "created": "Kiosk created",
+      "new_token": "New token",
+      "rotate": "Rotate token",
+      "rotate_title": "Rotate the token?",
+      "rotate_body": "{name} stops working until you enter the new token on it. Anyone signed in there is signed out.",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "deactivated": "{name} deactivated",
+      "activated": "{name} activated",
+      "delete": "Delete kiosk",
+      "delete_title": "Delete {name}?",
+      "delete_body": "The device is removed and its token stops working straight away. Loans made there are kept.",
+      "deleted": "{name} deleted"
+    },
+    "cal": {
+      "title": "Calendar",
+      "subtitle": "When each branch is open. Due dates skip closed days, fines count only open days, and hold pickup windows are counted in open days.",
+      "add_closure": "Add closure",
+      "prev": "Previous",
+      "next": "Next",
+      "today": "Today",
+      "view": "Calendar view",
+      "month": "Month",
+      "week": "Week",
+      "title_month": "{month} · {branch}",
+      "title_week": "Week of {range} · all branches",
+      "week_caption": "Opening days of every branch this week",
+      "legend": "Legend",
+      "open": "Open",
+      "closed": "Closed",
+      "weekly": "Weekly closed day",
+      "special": "Special opening",
+      "hint": "Choose a day to close it, open it specially, or remove a closure. Arrow keys move between days; Page Up and Page Down change the month.",
+      "hint_readonly": "Arrow keys move between days; Page Up and Page Down change the month.",
+      "state_open": "Open",
+      "state_closed": "Closed",
+      "state_weekly": "Closed every week",
+      "state_special": "Special opening",
+      "state_open_why": "Open: {reason}",
+      "state_closed_why": "Closed: {reason}",
+      "state_weekly_why": "Closed every week",
+      "state_special_why": "Special opening: {reason}",
+      "tag_yearly": "Yearly",
+      "tag_all": "All",
+      "weekly_title": "Weekly closed days",
+      "weekly_body": "Days this branch is closed every week.",
+      "weekly_save": "Save weekly pattern",
+      "weekly_saved": "Weekly pattern saved for {branch}",
+      "upcoming": "Upcoming closures",
+      "none_title": "No closures planned",
+      "none_body": "Holidays and special openings you add appear here.",
+      "all_branches": "All branches",
+      "every_year": "Every year",
+      "remove": "Remove",
+      "remove_named": "Remove “{name}”",
+      "remove_q": "Remove it from the calendar?",
+      "remove_title": "Remove this closure?",
+      "remove_body": "“{name}” will be removed from the calendar. Due dates already given don't change.",
+      "removed": "Removed from the calendar",
+      "from": "From",
+      "until": "Until",
+      "close_on": "Close {branch} on {date}.",
+      "closed_through": "Closed through",
+      "closed_through_hint": "For closures longer than a day, such as renovations.",
+      "description": "Description",
+      "description_placeholder": "For example: Diwali, staff training day",
+      "applies_to": "Applies to",
+      "only_branch": "{branch} only",
+      "repeats": "Repeats every year on this date",
+      "close_title": "Close this day",
+      "close_submit": "Save closure",
+      "special_title": "Special opening",
+      "special_body": "{branch} is normally closed on {weekday}s. Open it on {date}?",
+      "special_submit": "Open this day",
+      "reason": "Reason",
+      "saved_special": "Special opening saved",
+      "saved_closed": {
+        "one": "{count} day closed",
+        "other": "{count} days closed"
+      },
+      "no_branches": "No branches are set up yet."
+    },
+    "slip": {
+      "hold": "Hold",
+      "transit": "Transit",
+      "receipt": "Receipt",
+      "card": "Card",
+      "pickup_at": "Pickup at",
+      "hold_until": "Hold until",
+      "send_to": "Send to",
+      "from": "From",
+      "hold_for": "Hold for",
+      "printed": "Printed {when}",
+      "due": "Due {date}",
+      "borrowed": {
+        "one": "Borrowed ({count} item)",
+        "other": "Borrowed ({count} items)"
+      },
+      "renewed": {
+        "one": "Renewed ({count} item)",
+        "other": "Renewed ({count} items)"
+      },
+      "thanks": "Thank you for visiting the library. Please keep this receipt."
+    }
+  }
+}

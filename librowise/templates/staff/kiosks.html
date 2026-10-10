@@ -1,29 +1,36 @@
 {% extends "staff_base.html" %}
+{#- Kiosks admin: self-checkout stations as device cards (status, last seen, branch) with one actions menu each;
+    destructive actions sit apart in the menu and are confirmed. Behaviour: static/js/pages/staff-kiosks.js. -#}
 {% block page_title %}{{ t('nav.kiosks', 'Kiosks') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/desk.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Self-checkout kiosks</h1>
-    <div class="sub">Provision touch-screen stations where patrons borrow and renew on their own. Each kiosk has its own secret token and works for one branch.</div>
+<div class="desk-page kiosks-page" id="kiosks">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1>{{ t('desk.kiosks.title') }}<span class="ph-count" id="kiosk-count" aria-live="polite"></span></h1>
+      <p class="ph-sub">{{ t('desk.kiosks.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <a class="btn" href="/kiosk" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>{{ t('desk.kiosks.open_screen') }}<span class="sr-only"> {{ t('desk.kiosks.new_tab') }}</span></a>
+      <button class="btn primary" type="button" id="kiosk-new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('desk.kiosks.new') }}</button>
+    </div>
+  </header>
+  <div class="kiosks-layout">
+    <section aria-labelledby="kiosk-list-h">
+      <h2 id="kiosk-list-h" class="sr-only">{{ t('desk.kiosks.devices') }}</h2>
+      <div class="kiosk-grid" id="kiosk-list" aria-busy="true">
+        {%- for _ in range(1) %}<div class="card kiosk-device is-skeleton"><div class="skeleton" style="height:1.2rem;width:60%"></div><div class="skeleton" style="height:.9rem;width:40%;margin-top:.6rem"></div><div class="skeleton" style="height:2.2rem;margin-top:1.2rem"></div></div>{% endfor %}
+      </div>
+    </section>
+    <aside class="card pad kiosks-help" aria-labelledby="kiosk-help-h">
+      <h2 id="kiosk-help-h">{{ t('desk.kiosks.how_title') }}</h2>
+      <ol class="kiosks-steps">
+        <li>{{ t('desk.kiosks.how_1') }}</li>
+        <li>{{ t('desk.kiosks.how_2') }}</li>
+        <li>{{ t('desk.kiosks.how_3') }}</li>
+        <li>{{ t('desk.kiosks.how_4') }}</li>
+      </ol>
+    </aside>
   </div>
-  <div class="row tight">
-    <a class="btn" href="/kiosk" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>Open kiosk screen</a>
-    <button class="btn primary" type="button" id="kiosk-new"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New kiosk</button>
-  </div>
-</div>
-<div class="grid split">
-  <section class="card flush" aria-labelledby="kiosk-list-h">
-    <div class="card-head" style="padding-bottom:var(--pad)"><h2 id="kiosk-list-h">Devices</h2><span class="small muted" id="kiosk-count"></span></div>
-    <div id="kiosk-list" aria-live="polite"></div>
-  </section>
-  <aside class="card pad stack" aria-labelledby="kiosk-help-h">
-    <h2 id="kiosk-help-h">How it works</h2>
-    <ol class="stack tight small" style="padding-inline-start:1.2rem;margin:0">
-      <li>Create a kiosk for the branch where the station stands. Copy its token — it is shown only once.</li>
-      <li>On the station, open <code>/kiosk</code> and paste the token, or use <strong>Set up this device</strong> when you are working on the station itself (your staff session is signed out automatically).</li>
-      <li>Patrons sign in with their card number and password. Normal loan rules apply with no overrides, and items reserved for other readers cannot be borrowed.</li>
-      <li>Sessions end after a short period of inactivity, with a countdown. Lost or stolen station? Deactivate it or rotate its token.</li>
-    </ol>
-  </aside>
 </div>
 {% endblock %}

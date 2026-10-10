@@ -187,7 +187,7 @@ def email_receipt(body: ReceiptIn, db: Session = Depends(get_db), user: Patron =
         lines.append(f"- {loan.item.biblio.title} ({loan.item.barcode}): {verb}, due {loan.due_at:%d %b %Y}")
     from ..services import settings as settings_svc
 
-    library = settings_svc.get(db, "library_name") or "the library"
+    library = settings_svc.library_name(db)
     body_text = (f"Dear {patron.first_name},\n\nThank you for visiting {library}. This is your receipt for "
                  f"{utcnow():%d %b %Y}:\n\n" + "\n".join(lines) + "\n\nPlease keep this message for your records.")
     circulation.notify(db, patron, f"Your receipt from {library}", body_text)

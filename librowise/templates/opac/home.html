@@ -1,13 +1,17 @@
 {% extends "opac_base.html" %}
+{#- OPAC home: hero search (AI + keyword, suggestions, example chips) → "your library" strip for signed-in
+    readers → shelves (picked for you, trending, new) → discover (subjects, authors, formats) → reading
+    lists → visit us (branches, open today, this week). Skeletons below match the loaded geometry. -#}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
   <div class="inner">
-    <h1 id="hero-title">{{ t('opac.home.title') }}</h1>
-    <p>{{ t('opac.home.lead', library=library_name) }}</p>
+    <span class="hero-kicker"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.kicker', library=library_name) }}</span>
+    <h1 id="hero-title">{% if user %}{{ t('opac.home.title_user', name=user.first_name) }}{% else %}{{ t('opac.home.title') }}{% endif %}</h1>
+    <p class="lead">{{ t('opac.home.lead', library=library_name) }}</p>
     <form class="searchbox" id="hero-search" action="/search" role="search" aria-label="{{ t('opac.search.label') }}">
       <svg class="icon muted" style="margin-inline-start:.6rem" aria-hidden="true"><use href="#i-search"></use></svg>
       <input name="q" id="hero-q" type="search" placeholder="{{ t('opac.home.placeholder') }}" aria-label="{{ t('opac.search.label') }}"
-             data-search-focus data-suggest-input autocomplete="off" spellcheck="false">
+             data-search-focus data-suggest-input autocomplete="off" spellcheck="false" aria-describedby="hero-mode-hint">
       <input type="hidden" name="mode" id="hero-mode" value="smart">
       <div class="mode" role="group" aria-label="{{ t('opac.search.mode') }}">
         <button type="button" data-mode="smart" aria-pressed="true" title="{{ t('opac.search.mode_ai_hint') }}"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.search.mode_ai') }}</button>
@@ -15,20 +19,37 @@
       </div>
       <button class="btn primary" type="submit">{{ t('common.search') }}</button>
     </form>
+    <p class="hero-mode-hint" id="hero-mode-hint" data-hint-smart="{{ t('opac.home.hint_smart') }}" data-hint-keyword="{{ t('opac.home.hint_keyword') }}">{{ t('opac.home.hint_smart') }}</p>
     <div class="suggest-chips" role="group" aria-label="{{ t('opac.home.examples') }}">
-      <button type="button" class="chip" data-q="classic detective mysteries">{{ t('opac.home.chip_detective') }}</button>
-      <button type="button" class="chip" data-q="books about space for kids">{{ t('opac.home.chip_space') }}</button>
-      <button type="button" class="chip" data-q="dystopian novels published before 1960">{{ t('opac.home.chip_dystopia') }}</button>
-      <button type="button" class="chip" data-q="indian fiction available now">{{ t('opac.home.chip_indian') }}</button>
-      <button type="button" class="chip" data-q="learn artificial intelligence">{{ t('opac.home.chip_ai') }}</button>
+      <button type="button" class="chip" data-q="classic detective mysteries"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.chip_detective') }}</button>
+      <button type="button" class="chip" data-q="books about space for kids"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.chip_space') }}</button>
+      <button type="button" class="chip" data-q="dystopian novels published before 1960"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.chip_dystopia') }}</button>
+      <button type="button" class="chip" data-q="indian fiction available now"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.chip_indian') }}</button>
+      <button type="button" class="chip" data-q="learn artificial intelligence"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.home.chip_ai') }}</button>
     </div>
   </div>
 </section>
-<div class="wrap">
+<div class="wrap home-wrap">
+  {% if user %}
+  <section class="you-strip" id="you-strip" aria-label="{{ t('opac.home.your_library') }}" aria-busy="true">
+    {% for _ in range(3) %}<div class="skeleton" aria-hidden="true"></div>{% endfor %}
+  </section>
+  {% endif %}
   <div id="shelves" aria-busy="true">
     <span class="sr-only">{{ t('common.loading') }}</span>
-    {% for _ in range(2) %}<div class="shelf" aria-hidden="true"><div class="skeleton" style="height:1.4rem;width:200px"></div><div class="shelf-row" style="margin-top:1rem">{% for _ in range(6) %}<div class="skeleton" style="aspect-ratio:2/3"></div>{% endfor %}</div></div>{% endfor %}
+    {% for _ in range(3 if user else 2) %}
+    <section class="shelf" aria-hidden="true"><div class="section-head"><div><h2><span class="skeleton" style="display:inline-block;height:1.1em;width:11rem;vertical-align:middle"></span></h2><p class="sub"><span class="skeleton" style="display:inline-block;height:1em;width:15rem;vertical-align:middle"></span></p></div></div>
+      <div class="shelf-scroller"><div class="shelf-row">{% for _ in range(8) %}<div class="book-card"><div class="cover skeleton"></div><span class="t"><span class="skeleton" style="display:block;height:.85em;margin:.2em 0;width:92%"></span><span class="skeleton" style="display:block;height:.85em;margin:.35em 0;width:58%"></span></span><span class="a"><span class="skeleton" style="display:block;height:.8em;margin:.25em 0;width:46%"></span></span></div>{% endfor %}</div></div></section>
+    {% endfor %}
   </div>
+  <section class="shelf" id="discover-section" aria-labelledby="discover-title" hidden>
+    <div class="section-head"><div><h2 id="discover-title">{{ t('opac.home.discover') }}</h2><p class="sub" id="discover-sub"></p></div></div>
+    <div class="discover" id="discover"></div>
+  </section>
   <div id="public-lists"></div>
+  <section class="shelf" id="visit-section" aria-labelledby="visit-title" hidden>
+    <div class="section-head"><div><h2 id="visit-title">{{ t('opac.home.visit') }}</h2><p class="sub">{{ t('opac.home.visit_sub') }}</p></div></div>
+    <div class="visit" id="visit"></div>
+  </section>
 </div>
 {% endblock %}

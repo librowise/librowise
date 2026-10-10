@@ -1,11 +1,12 @@
 // Record page extras: citation generator (APA, MLA, Chicago, BibTeX, RIS) and a virtual shelf browser
-// showing the titles shelved either side by call number. Called once from opac-record.js.
+// showing the titles shelved either side by call number. Used by opac-record.js (openCitations,
+// shelfBrowser); enhanceRecord() keeps the original one-call integration.
 import { $, $$, api, authors, cover, html, icon, raw, toast } from "/static/js/core.js";
 import { t } from "/static/js/i18n.js";
 
 const STYLES = ["apa", "mla", "chicago", "bibtex", "ris"];
 
-async function openCitations(b, opener) {
+export async function openCitations(b, opener) {
   const d = document.createElement("dialog");
   d.className = "wide cite-dialog";
   d.setAttribute("aria-labelledby", "cite-title");
@@ -70,13 +71,15 @@ async function openCitations(b, opener) {
 
 function shelfCard(x, current = false) {
   return html`<li class="vshelf-item ${current ? "current" : ""}">
-    ${current ? html`<div aria-current="true">${cover(x)}<span class="t">${x.title}</span><span class="cn mono">${x.call_number || ""}</span>
+    ${current ? html`<div aria-current="true"><div aria-hidden="true">${cover(x)}</div><span class="t">${x.title}</span><span class="cn mono">${x.call_number || ""}</span>
       <span class="badge info">${t("discovery.shelf_this")}</span></div>`
-      : html`<a href="/record/${x.id}">${cover(x)}<span class="t">${x.title}</span><span class="a">${authors(x.authors)}</span><span class="cn mono">${x.call_number}</span></a>`}
+      : html`<a href="/record/${x.id}"><div aria-hidden="true">${cover(x)}</div><span class="t">${x.title}</span><span class="a">${authors(x.authors)}</span><span class="cn mono">${x.call_number}</span></a>`}
   </li>`;
 }
 
-async function shelfBrowser(b) {
+/** Virtual shelf around the record's call number. `mount` (optional) receives the section; otherwise it is
+ *  placed before the related-titles shelf (legacy layout). */
+export async function shelfBrowser(b, mount = null) {
   let data;
   try { data = await api(`/biblios/${b.id}/shelf?n=6`); } catch { return; }
   if (!data.anchor || (!data.before.length && !data.after.length)) return;
@@ -88,7 +91,9 @@ async function shelfBrowser(b) {
     <ol class="vshelf-row" tabindex="0" aria-label="${t("discovery.shelf_region", { cn: data.anchor })}">
       ${data.before.map((x) => shelfCard(x))}${shelfCard({ ...b, call_number: data.anchor }, true)}${data.after.map((x) => shelfCard(x))}</ol>`;
   const related = $("#related-section");
-  related ? related.before(section) : $("#record").after(section);
+  if (mount) mount.append(section);
+  else if (related) related.before(section);
+  else $("#record").after(section);
   const row = $(".vshelf-row", section);
   const cur = $(".current", row);
   // Centre the current title without moving page focus or scrolling the window.

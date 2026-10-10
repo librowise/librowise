@@ -1,5 +1,8 @@
 // OPAC: browse course reserves and see live availability of each course's readings.
-import { $, BOOT, api, authors, availabilityBadge, badge, date, debounce, empty, html, icon, qs, relative, skeleton } from "/static/js/core.js";
+import { $, BOOT, api, authors, availabilityBadge, cover, date, debounce, html, icon, qs, relative } from "/static/js/core.js";
+import { t } from "/static/js/i18n.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { statusPill } from "/static/js/ui/status.js";
 
 const view = () => $("#courses-view");
 const params = new URLSearchParams(location.search);
@@ -7,28 +10,20 @@ const params = new URLSearchParams(location.search);
 // ------------------------------------------------------------------ course list
 
 function courseCard(c) {
-  return html`<a class="card pad stack tight sc-course-card" href="/courses/${c.id}">
-    <div class="row between"><strong class="mono">${c.code}${c.section ? ` · ${c.section}` : ""}</strong>${c.term ? badge("info", c.term) : ""}</div>
-    <div style="font-weight:650">${c.name}</div>
-    <div class="small muted">${c.department || ""}</div>
-    <div class="small">${c.instructors.length ? html`${icon("user")} ${c.instructors.map((i) => i.name).join(", ")}` : ""}</div>
-    <div class="tiny muted">${c.reserve_count} item${c.reserve_count === 1 ? "" : "s"} on reserve</div></a>`;
+  return html`<a class="course-card" href="/courses/${c.id}">
+    <div class="row between tight"><span class="cc-code">${c.code}${c.section ? ` · ${c.section}` : ""}</span>${c.term ? html`<span class="badge info">${icon("calendar")}${c.term}</span>` : ""}</div>
+    <h2>${c.name}</h2>
+    <div class="cc-meta">${c.department ? html`<span>${icon("layers")}${c.department}</span>` : ""}
+      ${c.instructors.length ? html`<span>${icon("user")}${c.instructors.map((i) => i.name).join(", ")}</span>` : ""}</div>
+    <div class="cc-foot"><span>${t("opac.courses.on_reserve_n", { count: c.reserve_count })}</span>${icon("arrow-right", "flip-rtl")}</div></a>`;
 }
 
 async function listView() {
   const f = { q: params.get("q") || "", department: params.get("department") || "", term: params.get("term") || "", instructor: params.get("instructor") || "" };
-  view().innerHTML = html`<div class="page-head"><div><h1>Course reserves</h1>
-      <div class="sub">Readings your instructors have set aside for short loan. Search by course, department or instructor.</div></div></div>
-    <form class="card pad row" id="oc-filters" role="search" style="margin-bottom:1.25rem">
-      <div class="field grow"><label for="oc-q">Course code or name</label><input id="oc-q" name="q" type="search" value="${f.q}" placeholder="e.g. HIST 210" autocomplete="off" data-search-focus></div>
-      <div class="field"><label for="oc-dept">Department</label><select id="oc-dept" name="department"><option value="">All departments</option></select></div>
-      <div class="field"><label for="oc-term">Term</label><select id="oc-term" name="term"><option value="">All terms</option></select></div>
-      <div class="field"><label for="oc-inst">Instructor</label><input id="oc-inst" name="instructor" type="search" value="${f.instructor}" autocomplete="off"></div>
-    </form>
-    <div id="oc-results" aria-live="polite">${skeleton(4)}</div>`;
-  const form = $("#oc-filters");
-  let facetsDone = false;
+  const form = $("#oc-filters"), results = $("#oc-results");
+  let facetsDone = false, seq = 0;
   const load = async () => {
+    const mine = ++seq;
     const fd = new FormData(form);
     // Until the facet options are loaded, the department/term selects cannot hold the URL's values.
     const query = facetsDone ? { q: String(fd.get("q") || "").trim(), department: fd.get("department"), term: fd.get("term"),
@@ -36,19 +31,28 @@ async function listView() {
     history.replaceState(null, "", `${location.pathname}${qs(query) ? `?${qs(query)}` : ""}`);
     try {
       const r = await api(`/courses/public?${qs(query)}`);
+      if (mine !== seq) return;
       if (!facetsDone) {
         const fill = (sel, values, cur) => values.forEach((v) => sel.insertAdjacentHTML("beforeend", html`<option value="${v}" ${v === cur ? "selected" : ""}>${v}</option>`));
         fill($("#oc-dept"), r.facets.departments, f.department);
         fill($("#oc-term"), r.facets.terms, f.term);
         facetsDone = true;
       }
-      $("#oc-results").innerHTML = r.results.length ? html`<p class="small muted">${r.total} course${r.total === 1 ? "" : "s"}</p>
-        <div class="grid auto">${r.results.map(courseCard)}</div>` : empty("No courses match your search.", "search");
-    } catch (e) { $("#oc-results").innerHTML = empty(e.message, "alert"); }
+      $("#oc-count").textContent = t("opac.courses.count", { count: r.total });
+      const filtered = Object.values(query).some(Boolean);
+      results.innerHTML = r.results.length ? html`<div class="course-grid">${r.results.map(courseCard)}</div>`
+        : emptyState({ art: "search", title: filtered ? t("opac.courses.none_match") : t("opac.courses.none"),
+          body: filtered ? t("opac.courses.none_match_body") : t("opac.courses.none_body"),
+          actions: filtered ? html`<a class="btn" href="/courses">${t("ui.filters.clear_all")}</a>` : "" });
+    } catch (e) {
+      results.innerHTML = errorState(e);
+    }
+    results.removeAttribute("aria-busy");
   };
   form.addEventListener("submit", (e) => { e.preventDefault(); load(); });
   form.addEventListener("change", load);
   form.addEventListener("input", debounce(load, 350));
+  results.addEventListener("click", (e) => { if (e.target.closest("[data-retry]")) load(); });
   await load();
 }
 
@@ -57,23 +61,21 @@ async function listView() {
 function status(r) {
   if (!r.item) return availabilityBadge(r.availability);
   const i = r.item;
-  if (i.status === "on_loan") return html`${badge("on_loan", "On loan")}${i.due_at ? html`<div class="tiny muted">Due ${date(i.due_at)} (${relative(i.due_at)})</div>` : ""}`;
-  return badge(i.status);
+  if (i.status === "on_loan") return html`${statusPill("item", "on_loan")}${i.due_at ? html`<span class="tiny muted">${t("opac.courses.due", { date: date(i.due_at), when: relative(i.due_at) })}</span>` : ""}`;
+  return statusPill("item", i.status);
 }
 
-function reservesTable(c) {
-  if (!c.reserves.length) return empty("Nothing has been placed on reserve for this course yet.", "bookmark");
-  return html`<div class="table-wrap"><table class="table">
-    <caption class="sr-only">Readings on reserve for ${c.code}</caption>
-    <thead><tr><th scope="col">Title</th><th scope="col">Where to find it</th><th scope="col">Loan</th><th scope="col">Availability</th></tr></thead>
-    <tbody>${c.reserves.map((r) => html`<tr>
-      <td><a href="/record/${r.biblio.id}"><strong>${r.biblio.title}</strong></a>
-        <div class="small muted">${authors(r.biblio.authors)}${r.biblio.pub_year ? ` · ${r.biblio.pub_year}` : ""}</div>
-        ${r.public_note ? html`<div class="small">${icon("info")} ${r.public_note}</div>` : ""}</td>
-      <td class="small">${r.item ? html`${r.item.branch.name}${r.item.shelf_location ? html`<div>${r.item.shelf_location}</div>` : ""}<div class="mono tiny">${r.item.call_number || ""}</div>`
-        : html`Any copy — <a href="/record/${r.biblio.id}">see all copies</a>`}</td>
-      <td class="small">${r.item ? r.item.item_type.name : "Normal loan"}</td>
-      <td>${status(r)}</td></tr>`)}</tbody></table></div>`;
+function reservesList(c) {
+  if (!c.reserves.length) return emptyState({ art: "books", title: t("opac.courses.no_reserves"), body: t("opac.courses.no_reserves_body") });
+  return html`<ul class="reserve-list">${c.reserves.map((r) => html`<li class="reserve-row">
+    <a href="/record/${r.biblio.id}" tabindex="-1" aria-hidden="true">${cover(r.biblio)}</a>
+    <div style="min-width:0"><h3><a href="/record/${r.biblio.id}">${r.biblio.title}</a></h3>
+      <div class="small muted">${[authors(r.biblio.authors), r.biblio.pub_year].filter(Boolean).join(" · ")}</div>
+      ${r.public_note ? html`<div class="small" style="margin-top:.25rem">${icon("info")} ${r.public_note}</div>` : ""}</div>
+    <div class="rr-where">${r.item ? html`<strong>${r.item.branch.name}</strong>${r.item.shelf_location ? html` · ${r.item.shelf_location}` : ""}
+        <div><span class="mono">${r.item.call_number || ""}</span>${r.item.item_type?.name ? html` · ${r.item.item_type.name}` : ""}</div>`
+      : html`${t("opac.courses.any_copy")} · <a href="/record/${r.biblio.id}">${t("opac.courses.see_copies")}</a>`}</div>
+    <div class="rr-status">${status(r)}</div></li>`)}</ul>`;
 }
 
 async function courseView(id) {
@@ -81,26 +83,29 @@ async function courseView(id) {
   try {
     c = await api(`/courses/public/${id}`);
   } catch (e) {
-    view().innerHTML = html`<nav class="small muted" style="margin-bottom:1rem"><a href="/courses">← All courses</a></nav>
-      ${empty(e.status === 404 ? "This course is not available." : e.message, "alert")}`;
+    view().innerHTML = html`<nav class="crumbs-opac" aria-label="${t("opac.record.breadcrumb")}"><a href="/courses">${icon("chevron-left", "icon-back")}${t("opac.courses.all")}</a></nav>
+      ${e.status === 404 ? emptyState({ art: "search", title: t("opac.courses.not_found"), body: t("opac.courses.not_found_body"),
+        actions: html`<a class="btn primary" href="/courses">${t("opac.courses.all")}</a>` }) : errorState(e)}`;
     return;
   }
   document.title = `${c.code} · ${document.title}`;
-  view().innerHTML = html`<nav class="small muted" style="margin-bottom:1rem"><a href="/courses">← All courses</a></nav>
-    <div class="page-head"><div>
-      <div class="row tight" style="margin-bottom:.35rem">${c.term ? badge("info", c.term) : ""}${c.department ? html`<span class="small muted">${c.department}</span>` : ""}</div>
-      <h1>${c.code}${c.section ? ` · ${c.section}` : ""} — ${c.name}</h1>
-      <div class="sub">${c.instructors.length ? html`Instructor${c.instructors.length > 1 ? "s" : ""}: ${c.instructors.map((i, n) => html`${n ? ", " : ""}<a href="/courses?instructor=${encodeURIComponent(i.name)}">${i.name}</a>`)}` : ""}</div>
-    </div></div>
-    ${c.public_notes ? html`<div class="alert info" style="margin-bottom:1rem">${icon("info")}<div style="white-space:pre-line">${c.public_notes}</div></div>` : ""}
-    <section class="card"><div class="card-head"><h2>On reserve</h2><span class="tiny muted" id="oc-updated" aria-live="polite"></span></div>
-      <div class="card-body" id="oc-reserves">${reservesTable(c)}</div></section>`;
-  const stamp = () => { $("#oc-updated").textContent = `Availability updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`; };
+  const instructors = c.instructors.map((i, n) => html`${n ? ", " : ""}<a href="/courses?${qs({ instructor: i.name })}">${i.name}</a>`);
+  view().innerHTML = html`<nav class="crumbs-opac" aria-label="${t("opac.record.breadcrumb")}"><a href="/courses">${icon("chevron-left", "icon-back")}${t("opac.courses.all")}</a></nav>
+    <header class="course-head"><div>
+      <div class="row tight">${c.term ? html`<span class="badge info">${icon("calendar")}${c.term}</span>` : ""}${c.department ? html`<span class="small muted">${c.department}</span>` : ""}</div>
+      <h1><span class="course-code">${c.code}${c.section ? ` · ${c.section}` : ""}</span>${c.name}</h1>
+      ${c.instructors.length ? html`<p class="lead" style="margin:.3rem 0 0">${t("opac.courses.taught_by")} ${instructors}</p>` : ""}
+    </div><span class="tiny muted" id="oc-updated" aria-live="polite"></span></header>
+    ${c.public_notes ? html`<div class="alert info" style="margin-bottom:1.25rem">${icon("info")}<div style="white-space:pre-line">${c.public_notes}</div></div>` : ""}
+    <section aria-labelledby="oc-reserves-h"><div class="section-head"><h2 id="oc-reserves-h">${t("opac.courses.readings")}</h2>
+      <span class="small muted">${t("opac.courses.on_reserve_n", { count: c.reserves.length })}</span></div>
+      <div id="oc-reserves">${reservesList(c)}</div></section>`;
+  const stamp = () => { $("#oc-updated").textContent = t("opac.courses.updated", { time: new Date().toLocaleTimeString(document.documentElement.lang || [], { hour: "2-digit", minute: "2-digit" }) }); };
   stamp();
   // Keep availability live while the page is open and visible.
   setInterval(async () => {
     if (document.hidden) return;
-    try { $("#oc-reserves").innerHTML = reservesTable(await api(`/courses/public/${id}`)); stamp(); } catch { /* keep last view */ }
+    try { $("#oc-reserves").innerHTML = reservesList(await api(`/courses/public/${id}`)); stamp(); } catch { /* keep last view */ }
   }, 60000);
 }
 

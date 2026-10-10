@@ -1,71 +1,88 @@
 {% extends "opac_base.html" %}
+{#- Sign in: brand panel (seal, what an account gives you) + one of three steps — password, two-step
+    verification (authenticator or recovery code) or "forgot password". SSO buttons appear when configured. -#}
 {% block title %}{{ t('login.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
-<div class="wrap" style="max-width:440px;padding-top:3rem">
-  <div class="card pad stack">
-    <div class="login-hero">
-      <img class="brand-seal" src="/static/brand/librowise-seal.svg" alt="" width="64" height="64">
-      <h1 style="font-size:1.5rem" id="login-title">{{ t('login.heading') }}</h1>
-      <p class="muted" id="login-sub">{{ t('login.lead') }}</p>
+<div class="wrap" style="padding-top:0">
+<div class="auth-shell">
+  <aside class="auth-aside" aria-hidden="true">
+    <img class="brand-seal" src="/static/brand/librowise-seal.svg" alt="" width="72" height="72">
+    <h2>{{ t('opac.auth.aside_title', library=library_name) }}</h2>
+    <p>{{ t('opac.auth.aside_lead', library=library_name) }}</p>
+    <ul class="auth-perks">
+      <li><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg><div><strong>{{ t('opac.auth.perk_renew') }}</strong><span>{{ t('opac.auth.perk_renew_sub') }}</span></div></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#i-bookmark"></use></svg><div><strong>{{ t('opac.auth.perk_holds') }}</strong><span>{{ t('opac.auth.perk_holds_sub') }}</span></div></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><div><strong>{{ t('opac.auth.perk_picks') }}</strong><span>{{ t('opac.auth.perk_picks_sub') }}</span></div></li>
+    </ul>
+    <div class="auth-foot">{{ t('opac.auth.privacy_foot') }}</div>
+  </aside>
+  <div class="auth-main">
+    <div class="auth-mobile-brand"><img class="brand-seal" src="/static/brand/librowise-seal.svg" alt="" width="48" height="48"><strong>{{ library_name }}</strong></div>
+    <div>
+      <h1 id="login-title">{{ t('login.heading') }}</h1>
+      <p class="lead" id="login-sub">{{ t('login.lead') }}</p>
     </div>
     <div id="login-error" class="alert bad hidden" role="alert"></div>
-    <div id="login-info" class="alert info hidden" role="status"></div>
+    <div id="login-info" class="alert ok hidden" role="status"></div>
 
-    <form id="login-form" class="stack" novalidate>
+    <form id="login-form" novalidate>
       <div class="field">
         <label for="username">{{ t('login.username') }}</label>
-        <input id="username" name="username" autocomplete="username" required autofocus aria-describedby="login-error">
+        <input id="username" name="username" autocomplete="username" required autofocus spellcheck="false" autocapitalize="none" aria-describedby="login-error">
       </div>
       <div class="field">
-        <label for="password">{{ t('login.password') }}</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-error">
+        <div class="auth-row"><label for="password">{{ t('login.password') }}</label><button class="auth-link" type="button" data-view="forgot">{{ t('opac.auth.forgot') }}</button></div>
+        <div class="pw-wrap"><input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-error">
+          <button type="button" class="btn ghost pw-toggle" data-pw-toggle="password" aria-pressed="false" title="{{ t('opac.pw.show') }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">{{ t('opac.pw.show') }}</span></button></div>
       </div>
       <button class="btn primary lg" type="submit">{{ t('common.sign_in') }}</button>
-      <button class="btn ghost sm" type="button" data-view="forgot" style="align-self:flex-start">Forgot password?</button>
     </form>
-    <p class="small muted" style="margin:0" id="register-hint">New to the library? <a href="/register">Register for a library card</a></p>
 
-    <div id="sso" class="stack tight hidden" aria-label="Single sign-on">
-      <div class="auth-divider"><span>or</span></div>
-      <div id="sso-buttons" class="stack tight"></div>
+    <div id="sso" class="stack tight hidden">
+      <div class="auth-divider"><span>{{ t('opac.auth.or') }}</span></div>
+      <div id="sso-buttons" class="sso-list" role="group" aria-label="{{ t('opac.auth.sso') }}"></div>
     </div>
 
-    <form id="mfa-form" class="stack hidden" novalidate>
+    <form id="mfa-form" class="hidden" novalidate>
+      <div class="auth-step"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg><span id="mfa-step">{{ t('opac.auth.mfa_step') }}</span></div>
       <div class="field">
-        <label for="mfa-code" id="mfa-label">Authentication code</label>
-        <input id="mfa-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" required
-               aria-describedby="mfa-hint" spellcheck="false">
-        <span class="hint" id="mfa-hint">Enter the 6-digit code from your authenticator app.</span>
+        <label for="mfa-code" id="mfa-label">{{ t('opac.auth.mfa_code') }}</label>
+        <input id="mfa-code" class="code-input" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="11" required
+               aria-describedby="mfa-hint login-error" spellcheck="false" autocapitalize="none">
+        <span class="hint" id="mfa-hint">{{ t('opac.auth.mfa_hint') }}</span>
       </div>
-      <button class="btn primary lg" type="submit">Verify</button>
-      <div class="row between">
-        <button class="btn ghost sm" type="button" id="mfa-toggle">Use a recovery code instead</button>
-        <button class="btn ghost sm" type="button" data-view="login">Start over</button>
+      <button class="btn primary lg" type="submit">{{ t('opac.auth.verify') }}</button>
+      <div class="auth-row">
+        <button class="auth-link" type="button" id="mfa-toggle">{{ t('opac.auth.use_recovery') }}</button>
+        <button class="auth-link" type="button" data-view="login">{{ t('opac.auth.start_over') }}</button>
       </div>
     </form>
 
-    <form id="forgot-form" class="stack hidden" novalidate>
+    <form id="forgot-form" class="hidden" novalidate>
       <div class="field">
-        <label for="identifier">Card number or email</label>
-        <input id="identifier" name="identifier" autocomplete="username" required>
-        <span class="hint">We'll e-mail a link to reset your password. The link expires in 30 minutes.</span>
+        <label for="identifier">{{ t('login.username') }}</label>
+        <input id="identifier" name="identifier" autocomplete="username" required spellcheck="false" autocapitalize="none" aria-describedby="forgot-hint login-error">
+        <span class="hint" id="forgot-hint">{{ t('opac.auth.forgot_hint') }}</span>
       </div>
-      <button class="btn primary lg" type="submit">Send reset link</button>
-      <button class="btn ghost sm" type="button" data-view="login" style="align-self:flex-start">Back to sign in</button>
+      <button class="btn primary lg" type="submit">{{ t('opac.auth.send_link') }}</button>
+      <button class="auth-link" type="button" data-view="login" style="align-self:center">{{ t('opac.auth.back_to_sign_in') }}</button>
     </form>
+
+    <p class="auth-alt" id="register-hint">{{ t('opac.auth.new_here') }} <a href="/register">{{ t('opac.auth.register_link') }}</a></p>
 
     {% if demo_logins %}{# never rendered in production (web._show_demo_logins) #}
-    <details class="small muted" id="demo-accounts">
+    <details class="demo-box" id="demo-accounts">
       <summary>{{ t('login.demo') }}</summary>
-      <div class="stack tight" style="margin-top:.5rem">
+      <div class="chips">
         {% set demo_labels = {'admin': t('login.demo_admin'), 'librarian': t('login.demo_librarian'), 'patron': t('login.demo_patron')} %}
         {% for key, username, password in demo_logins %}
         <button type="button" class="chip" data-demo="{{ key }}" data-username="{{ username }}" data-password="{{ password }}">{{ demo_labels[key] }}</button>
         {% endfor %}
-        <span class="tiny">{{ t('login.demo_note') }}</span>
       </div>
+      <span class="tiny">{{ t('login.demo_note') }}</span>
     </details>
     {% endif %}
   </div>
+</div>
 </div>
 {% endblock %}

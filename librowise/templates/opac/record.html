@@ -1,7 +1,11 @@
 {% extends "opac_base.html" %}
-{% block title %}{% if seo %}{{ seo.title }} · {{ library_name }}{% else %}Record not found · {{ library_name }}{% endif %}{% endblock %}
+{#- OPAC record: cinematic header (blurred cover backdrop, large cover, title, facts, description, subjects)
+    with an availability card holding the single primary action (Place hold) and secondary actions (add to
+    list, cite, share); then tabs Details / Copies / Reviews / Similar and shelves (more by the author,
+    nearby on the shelf). JSON-LD and Open Graph stay server-rendered for search engines and link previews. -#}
+{% block title %}{% if seo %}{{ seo.title }} · {{ library_name }}{% else %}{{ t('opac.rec.missing_title') }} · {{ library_name }}{% endif %}{% endblock %}
 {% block meta_description %}{% if seo %}{{ seo.description }}{% else %}{{ super() }}{% endif %}{% endblock %}
-{% block head_extra %}{% if seo %}
+{% block opac_head %}{% if seo %}
   <link rel="canonical" href="{{ seo.canonical }}">
   {% for key, value in seo.og.items() %}<meta property="{{ key }}" content="{{ value }}">
   {% endfor %}{% for name in seo.authors %}<meta property="book:author" content="{{ name }}">
@@ -11,12 +15,41 @@
   <meta name="robots" content="noindex">
 {% endif %}{% endblock %}
 {% block content %}
-<div class="wrap">
-  <nav class="small muted" style="margin-bottom:1rem" aria-label="{{ t('opac.record.breadcrumb') }}"><a href="/search" id="back-link">{{ t('opac.record.back') }}</a></nav>
-  <div id="record" aria-busy="true"><div class="record-layout"><div class="skeleton" style="aspect-ratio:2/3;max-width:260px"></div><div><div class="skeleton" style="height:2.2rem;width:70%"></div><div class="skeleton" style="height:1rem;width:40%;margin-top:1rem"></div><div class="skeleton" style="height:8rem;margin-top:1.5rem"></div></div></div></div>
-  <section class="shelf" id="related-section" aria-labelledby="related-title" hidden>
-    <div class="shelf-head"><h2 id="related-title">{{ t('opac.record.related') }}</h2><span class="badge ai"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{{ t('opac.record.ai_recs') }}</span></div>
-    <div class="shelf-row" id="related"></div>
+{% if seo %}
+<div id="record" aria-busy="true">
+  <section class="rec-hero">
+    <div class="inner">
+      <nav class="crumbs-opac" aria-label="{{ t('opac.record.breadcrumb') }}"><a href="/search" id="back-link"><svg class="icon icon-back" aria-hidden="true"><use href="#i-chevron-left"></use></svg>{{ t('opac.rec.back_search') }}</a></nav>
+      <div class="rec-grid">
+        <div class="rec-cover"><div class="cover skeleton"></div></div>
+        <div class="rec-main">
+          <div class="rec-tags"><span class="skeleton" style="display:inline-block;width:5rem;height:1.4rem;border-radius:999px"></span></div>
+          <h1 class="rec-title">{{ seo.title }}</h1>
+          <p class="rec-by"><span class="skeleton" style="display:inline-block;width:12rem;height:1em"></span></p>
+          <div class="skeleton" style="height:7rem;margin-top:1.4rem;max-width:68ch"></div>
+        </div>
+        <aside class="rec-action" aria-label="{{ t('opac.rec.availability') }}"><div class="skeleton" style="height:3.2rem"></div><div class="skeleton" style="height:3rem"></div><div class="skeleton" style="height:3.6rem"></div></aside>
+      </div>
+    </div>
   </section>
+  <div class="rec-body" id="rec-body"></div>
 </div>
+{% else %}
+<div class="wrap">
+  <div class="rec-missing">
+    <div class="empty-state">
+      <svg class="empty-art" viewBox="0 0 120 110" aria-hidden="true" focusable="false"><circle cx="52" cy="50" r="26" class="fill-soft"/><circle cx="52" cy="50" r="26" class="stroke" fill="none" stroke-width="4"/><path d="M71 69l20 20" class="stroke" stroke-width="7" stroke-linecap="round"/><path d="M41 45h22M41 55h14" class="stroke-muted" stroke-width="4" stroke-linecap="round"/></svg>
+      <h1>{{ t('opac.rec.missing_title') }}</h1>
+      <p>{{ t('opac.rec.missing_body') }}</p>
+    </div>
+    <form class="searchbox" action="/search" role="search" aria-label="{{ t('opac.search.label') }}">
+      <svg class="icon muted" style="margin-inline-start:.6rem" aria-hidden="true"><use href="#i-search"></use></svg>
+      <input name="q" type="search" placeholder="{{ t('opac.search.placeholder') }}" aria-label="{{ t('opac.search.label') }}" autocomplete="off">
+      <button class="btn primary" type="submit">{{ t('common.search') }}</button>
+    </form>
+    <p><a href="/">{{ t('opac.rec.missing_home') }}</a></p>
+  </div>
+  <div id="missing-new"></div>
+</div>
+{% endif %}
 {% endblock %}

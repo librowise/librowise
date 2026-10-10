@@ -1,24 +1,47 @@
 {% extends "opac_base.html" %}
+{#- My account: identity header → overview tiles (on loan / due soon / holds / charges, each a next action)
+    → sections as tabs (a select on phones) → panel. Tiles are server-rendered as skeletons of the final size. -#}
 {% block title %}{{ t('opac.account.title') }} · {{ library_name }}{% endblock %}
 {% block content %}
 <div class="wrap">
-  <div class="page-head">
-    <div class="row">
-      <div class="avatar lg" aria-hidden="true">{{ user.first_name[:1] }}{{ user.last_name[:1] }}</div>
-      <div><h1>{{ t('opac.account.hello', name=user.first_name) }}</h1><div class="sub">{{ t('opac.account.card', card=user.card_number) }} · {{ user.category.name }} · {{ user.home_branch.name }}{% if user.expires_on %} · {{ t('opac.account.member_until', date=user.expires_on.strftime('%d %b %Y')) }}{% endif %}</div></div>
+  <header class="acct-head">
+    <span class="avatar lg" data-avatar="{{ user.full_name }}" aria-hidden="true">{{ (user.first_name or '?')[:1] }}{{ (user.last_name or '')[:1] }}</span>
+    <div>
+      <div class="eyebrow">{{ t('opac.account.title') }}</div>
+      <h1>{{ t('opac.account.hello', name=user.first_name) }}</h1>
+      <ul class="acct-meta">
+        <li><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span>{{ t('opac.account.card', card=user.card_number) }}</span></li>
+        {% if user.category %}<li><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>{{ user.category.name }}</li>{% endif %}
+        {% if user.home_branch %}<li><svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>{{ user.home_branch.name }}</li>{% endif %}
+        {% if user.expires_on %}<li><svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>{{ t('opac.acct.member_until', date='<time datetime="' ~ user.expires_on.isoformat() ~ '" data-localize>' ~ user.expires_on.isoformat() ~ '</time>') | safe }}</li>{% endif %}
+      </ul>
     </div>
-  </div>
+    <div class="acct-actions">
+      <a class="btn" href="/search"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>{{ t('opac.acct.find_more') }}</a>
+    </div>
+  </header>
   <div id="blocks"></div>
-  <div class="grid cols-4" id="stats" style="margin-bottom:1.25rem"></div>
-  <div class="tabs" role="tablist" id="tabs" aria-label="{{ t('opac.account.sections') }}">
-    <button role="tab" id="tab-loans" aria-controls="panel" data-tab="loans" aria-selected="true">{{ t('opac.account.tab_loans') }}</button>
-    <button role="tab" id="tab-holds" aria-controls="panel" data-tab="holds" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_holds') }}</button>
-    <button role="tab" id="tab-foryou" aria-controls="panel" data-tab="foryou" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_foryou') }}</button>
-    <button role="tab" id="tab-lists" aria-controls="panel" data-tab="lists" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_lists') }}</button>
-    <button role="tab" id="tab-history" aria-controls="panel" data-tab="history" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_history') }}</button>
-    <button role="tab" id="tab-charges" aria-controls="panel" data-tab="charges" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_charges') }}</button>
-    <button role="tab" id="tab-suggestions" aria-controls="panel" data-tab="suggestions" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_suggestions') }}</button>
-    <button role="tab" id="tab-settings" aria-controls="panel" data-tab="settings" aria-selected="false" tabindex="-1">{{ t('opac.account.tab_settings') }}</button>
+  <section class="acct-tiles" id="stats" aria-label="{{ t('opac.acct.overview') }}" aria-busy="true">
+    {% for _ in range(4) %}<div class="skeleton" aria-hidden="true"></div>{% endfor %}
+  </section>
+  {%- set sections = [('loans', 'book', t('opac.acct.tab_loans')), ('holds', 'bookmark', t('opac.acct.tab_holds')),
+      ('foryou', 'sparkle', t('opac.acct.tab_foryou')), ('lists', 'list', t('opac.acct.tab_lists')),
+      ('history', 'clock', t('opac.acct.tab_history')), ('charges', 'wallet', t('opac.acct.tab_charges')),
+      ('suggestions', 'cart', t('opac.acct.tab_suggestions')), ('settings', 'settings', t('opac.acct.tab_settings'))] %}
+  <div class="acct-tabs-wrap">
+    <div class="acct-nav">
+      <div class="tablist" role="tablist" id="tabs" aria-label="{{ t('opac.account.sections') }}">
+        {% for key, icon, label in sections %}
+        <button type="button" role="tab" id="tab-{{ key }}" aria-controls="panel" data-tab="{{ key }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}"><svg class="icon" aria-hidden="true"><use href="#i-{{ icon }}"></use></svg>{{ label }}<span class="count" data-count="{{ key }}" hidden></span></button>
+        {% endfor %}
+      </div>
+      <div class="acct-select">
+        <label for="tab-select">{{ t('opac.acct.section') }}</label>
+        <select id="tab-select">
+          {% for key, icon, label in sections %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
   </div>
   <div id="panel" role="tabpanel" tabindex="0" aria-labelledby="tab-loans"></div>
 </div>

@@ -560,7 +560,14 @@ dialog .co-active { align-self: end; padding-bottom: .55rem; }
 /* label print page (no .coll wrapper: body-level) */
 .coll-print-bar .lp-summary { margin: 0; }
 .coll-print-bar .lp-hint { flex-basis: 100%; }
-@media (min-width: 900px) { .coll-print-bar .lp-hint { flex-basis: auto; } }
+/* One line on desktop so the late web-font swap cannot re-wrap the bar and push every sheet down (CLS). */
+@media (min-width: 900px) {
+  .label-toolbar.coll-print-bar { flex-wrap: nowrap; }
+  .coll-print-bar .lp-summary { white-space: nowrap; }
+  .coll-print-bar .lp-hint { flex: 1 1 0; min-inline-size: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* Labels use the system face: nothing reflows when Inter arrives, and printers get a locally installed font. */
+main.label-sheets { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif; }
 .label-sheets .lp-alert { margin: 0 auto; max-inline-size: 60rem; inline-size: 100%; }
 [dir="rtl"] .flip-rtl { transform: scaleX(-1); }
 

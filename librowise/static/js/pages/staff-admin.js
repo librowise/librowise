@@ -146,8 +146,8 @@ function settingRow(r) {
       <label class="as-row-label" for="${id}">${settingLabel(r)}${r.required ? html`<span class="req" aria-hidden="true">*</span>` : ""}</label>
       <p class="as-row-help" id="${id}-help">${settingHelp(r)}</p>
       <div class="as-row-meta" id="${id}-mod">
-        <span class="as-modified" data-modified hidden>${pill("info", t("admin.settings.modified"))}<span class="muted">${t("admin.settings.default_is", { value: formatSetting(r, r.default) })}</span>
-          <button type="button" class="link-btn" data-reset="${r.key}" aria-label="${t("admin.settings.reset_named", { name: settingLabel(r), value: formatSetting(r, r.default) })}">${t("admin.settings.reset")}</button></span>
+        ${r.required && (r.default === "" || r.default == null) ? "" : html`<span class="as-modified" data-modified hidden>${pill("info", t("admin.settings.modified"))}<span class="muted">${t("admin.settings.default_is", { value: formatSetting(r, r.default) })}</span>
+          <button type="button" class="link-btn" data-reset="${r.key}">${t("admin.settings.reset")}<span class="sr-only">: ${t("admin.settings.reset_named", { name: settingLabel(r), value: formatSetting(r, r.default) })}</span></button></span>`}
         <code class="as-key" title="${t("admin.settings.key_hint")}">${r.key}</code>
       </div>
     </div>

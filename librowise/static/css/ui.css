@@ -243,7 +243,7 @@
 .palette .pal-scopes button[aria-checked="true"] { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
 .palette li .pal-label { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .palette li .pal-sub { font-size: .8rem; color: var(--muted); }
-.palette li[aria-selected="true"] .pal-sub { color: inherit; opacity: .85; }
+.palette li[aria-selected="true"] .pal-sub { color: inherit; }  /* full strength: .85 opacity fell below 4.5:1 in sepia */
 .palette .pal-loading { display: flex; align-items: center; gap: .5rem; text-transform: none; letter-spacing: 0; font-weight: var(--fw-medium); }
 .palette .pal-loading .spinner { width: .9rem; height: .9rem; }
 .palette .foot { flex-wrap: wrap; }

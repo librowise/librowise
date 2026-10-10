@@ -82,7 +82,7 @@ def library(db: Session = Depends(get_db)):
             "next_open": cal.next_open_day(today), "closed_weekdays": sorted(cal.closed_weekdays),
             "week": [{"date": d, "open": cal.is_open(d)} for d in week], "closures": closures,
         })
-    return {"library_name": settings_svc.get(db, "library_name"), "today": today, "branches": out}
+    return {"library_name": settings_svc.library_name(db), "today": today, "branches": out}
 
 
 @router.get("/me/summary")

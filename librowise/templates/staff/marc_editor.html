@@ -1,37 +1,33 @@
 {% extends "staff_base.html" %}
-{% block page_title %}MARC editor{% endblock %}
+{#- MARC editor: keyboard-first field/subfield grid, MarcEdit text and MARCXML views, live checks with inline
+    errors, field help, and a diff before saving. The header is fixed-size; the aside is filled after the editor
+    so nothing shifts while loading. -#}
+{% block page_title %}{{ t('nav.detail.marc_editor') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block crumbs_extra %}<li><a id="crumb-record" href="/staff/catalog/{{ path_params.biblio_id }}">{{ t('nav.detail.record') }}</a></li><li><span aria-current="page">{{ t('nav.detail.marc_editor') }}</span></li>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1 id="heading">MARC editor</h1><div class="sub" id="sub">Loading record…</div></div>
-  <div class="row tight">
-    <a class="btn ghost" href="/staff/catalog/{{ path_params.biblio_id }}">Back to record</a>
-    <button class="btn" type="button" id="revert" disabled>Discard changes</button>
-    <button class="btn primary" type="button" id="save"><svg class="icon"><use href="#i-check"></use></svg>Review &amp; save <kbd>Ctrl S</kbd></button>
+<div class="coll coll-marc">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="heading">{{ t('coll.marc.title') }}</h1>
+      <p class="ph-sub marc-sub" id="sub">{{ t('common.loading') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button class="btn" type="button" id="revert" disabled><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>{{ t('coll.marc.discard') }}</button>
+      <button class="btn primary" type="button" id="save" aria-keyshortcuts="Control+S"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>{{ t('coll.marc.review_save') }}<kbd class="kbd-on-primary">Ctrl S</kbd></button>
+    </div>
+  </header>
+  <div class="tablist" role="tablist" aria-label="{{ t('coll.marc.views') }}" id="view-tabs">
+    <button type="button" role="tab" id="tab-grid" data-view="grid" aria-selected="true" aria-controls="editor-panel" tabindex="0">{{ t('coll.marc.view_fields') }}</button>
+    <button type="button" role="tab" id="tab-mnemonic" data-view="mnemonic" aria-selected="false" aria-controls="editor-panel" tabindex="-1">{{ t('coll.marc.view_text') }}</button>
+    <button type="button" role="tab" id="tab-xml" data-view="xml" aria-selected="false" aria-controls="editor-panel" tabindex="-1">{{ t('coll.marc.view_xml') }}</button>
   </div>
+  <div class="coll-split marc-layout">
+    <section class="card marc-card" id="editor-panel" role="tabpanel" aria-labelledby="tab-grid" aria-busy="true">
+      <div class="card-body" aria-hidden="true">{% for _ in range(10) %}<div class="skeleton marc-sk-row"></div>{% endfor %}</div>
+    </section>
+    <aside class="marc-aside" id="marc-aside" aria-label="{{ t('coll.marc.aside') }}"></aside>
+  </div>
+  <datalist id="marc-tags"></datalist>
 </div>
-<div id="notices"></div>
-<div class="tabs" role="tablist" aria-label="Editor view" id="view-tabs">
-  <button role="tab" id="tab-grid" data-view="grid" aria-selected="true" aria-controls="editor-panel">Fields</button>
-  <button role="tab" id="tab-mnemonic" data-view="mnemonic" aria-selected="false" aria-controls="editor-panel" tabindex="-1">Text (MarcEdit)</button>
-  <button role="tab" id="tab-xml" data-view="xml" aria-selected="false" aria-controls="editor-panel" tabindex="-1">MARCXML</button>
-</div>
-<div class="grid split">
-  <section class="card flush" id="editor-panel" role="tabpanel" aria-labelledby="tab-grid"><div class="card-body"><div class="skeleton" style="height:20rem"></div></div></section>
-  <aside class="stack">
-    <div class="card marc-help"><div class="card-head"><h3>Field help</h3></div><div class="card-body small" id="help" aria-live="polite">
-      <p class="muted">Focus a field to see its MARC21 meaning, indicators and subfields.</p></div></div>
-    <div class="card"><div class="card-head"><h3>Checks</h3><span id="check-badge"></span></div><div class="card-body small" id="problems"></div></div>
-    <div class="card pad small stack tight"><strong>Keyboard</strong>
-      <div class="kv"><span>Review &amp; save</span><kbd>Ctrl S</kbd></div>
-      <div class="kv"><span>New field below</span><kbd>Ctrl Enter</kbd></div>
-      <div class="kv"><span>New subfield</span><kbd>Shift Enter</kbd></div>
-      <div class="kv"><span>Delete subfield</span><kbd>Alt Del</kbd></div>
-      <div class="kv"><span>Delete field</span><kbd>Alt Shift Del</kbd></div>
-      <div class="kv"><span>Move field</span><kbd>Alt ↑ / ↓</kbd></div>
-      <div class="kv"><span>Move subfield</span><kbd>Alt Shift ↑ / ↓</kbd></div>
-      <span class="muted">Blank indicators may be typed as space, # or _.</span></div>
-  </aside>
-</div>
-<datalist id="marc-tags"></datalist>
 {% endblock %}

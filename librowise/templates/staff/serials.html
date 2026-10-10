@@ -1,25 +1,31 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Serials{% endblock %}
+{#- Serials: KPI row → tabs (subscriptions · late issues & claims · claim history · renewals), each a data table
+    with filters in the URL. Counts in the tabs reserve their width so nothing moves when they arrive. -#}
+{% block page_title %}{{ t('nav.serials') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Serials</h1>
-    <div class="sub">Subscriptions, predicted issues, check-in, late issues and vendor claims.</div>
+<div class="coll coll-serials" id="serials" data-can-write="{{ 1 if can(user, 'serials:write') else 0 }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('nav.serials') }}</h1>
+      <p class="ph-sub">{{ t('coll.ser.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn icon-only" id="ser-refresh" aria-label="{{ t('coll.ser.refresh') }}" data-tip="{{ t('coll.ser.refresh') }}"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+      {% if can(user, 'serials:write') %}<button type="button" class="btn primary" id="new-sub"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('coll.ser.new') }}</button>{% endif %}
+    </div>
+  </header>
+  <section class="kpi-row" id="ser-stats" aria-label="{{ t('coll.ser.summary') }}">
+    {% for _ in range(4) %}<div class="card kpi-tile kpi-sk" aria-hidden="true"><div class="skeleton sk-line w-50"></div><div class="skeleton kpi-sk-value"></div><div class="skeleton sk-line w-70"></div></div>{% endfor %}
+  </section>
+  <div class="tablist" role="tablist" aria-label="{{ t('coll.ser.views') }}" id="ser-tabs">
+    <button type="button" role="tab" id="tab-subs" data-tab="subs" aria-selected="true" aria-controls="ser-panel" tabindex="0">{{ t('coll.ser.tab_subs') }}</button>
+    <button type="button" role="tab" id="tab-late" data-tab="late" aria-selected="false" aria-controls="ser-panel" tabindex="-1">{{ t('coll.ser.tab_late') }} <span class="count" id="count-late">&nbsp;</span></button>
+    <button type="button" role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="ser-panel" tabindex="-1">{{ t('coll.ser.tab_history') }}</button>
+    <button type="button" role="tab" id="tab-renewals" data-tab="renewals" aria-selected="false" aria-controls="ser-panel" tabindex="-1">{{ t('coll.ser.tab_renewals') }} <span class="count" id="count-renewals">&nbsp;</span></button>
   </div>
-  <div class="row tight">
-    <button class="btn" id="ser-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
-    <button class="btn primary" id="new-sub"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New subscription</button>
-  </div>
+  <section id="ser-panel" role="tabpanel" aria-labelledby="tab-subs" tabindex="-1">
+    <div class="skeleton" style="height:22rem;border-radius:10px" aria-hidden="true"></div>
+  </section>
 </div>
-
-<div class="grid cols-4" id="ser-stats" style="margin-bottom:1.25rem"></div>
-<div id="ser-renewal-alert" aria-live="polite"></div>
-
-<div class="tabs" role="tablist" aria-label="Serials views" id="ser-tabs">
-  <button role="tab" id="tab-subs" data-tab="subs" aria-selected="true" aria-controls="ser-panel">Subscriptions</button>
-  <button role="tab" id="tab-late" data-tab="late" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Late issues &amp; claims <span class="badge warn hidden" id="count-late"></span></button>
-  <button role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Claim history</button>
-  <button role="tab" id="tab-renewals" data-tab="renewals" aria-selected="false" aria-controls="ser-panel" tabindex="-1">Renewals <span class="badge hidden" id="count-renewals"></span></button>
-</div>
-<section id="ser-panel" role="tabpanel" aria-labelledby="tab-subs" aria-live="polite"></section>
 {% endblock %}

@@ -1,47 +1,53 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Labels &amp; cards{% endblock %}
+{#- Labels & cards: three steps (what · which · sheet) beside a live, to-scale preview of the first sheet. Click
+    a position on the preview to start part-way through a used sheet. The form posts to the print page. -#}
+{% block page_title %}{{ t('coll.labels.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Labels &amp; cards</h1>
-    <div class="sub">Spine labels, barcode labels and patron cards on standard label sheets — start part-way through a used sheet.</div></div>
-</div>
-<div class="grid split">
-  <form class="card pad stack" id="job" method="post" action="/staff/labels/print" target="_blank" novalidate>
-    <fieldset class="stack tight" style="border:0;padding:0;margin:0">
-      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">1</span>What to print</legend>
-      <div class="row tight" id="kind-picker">
-        <label class="checkbox chip"><input type="radio" name="kind" value="spine"> Spine labels</label>
-        <label class="checkbox chip"><input type="radio" name="kind" value="item" checked> Item barcode labels</label>
-        <label class="checkbox chip"><input type="radio" name="kind" value="patron"> Patron cards</label>
-      </div>
-    </fieldset>
-    <fieldset class="stack" style="border:0;padding:0;margin:0">
-      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">2</span>Which ones</legend>
-      <div id="source-fields"></div>
-    </fieldset>
-    <fieldset class="stack" style="border:0;padding:0;margin:0">
-      <legend class="small" style="font-weight:600;margin-bottom:.35rem"><span class="step-num">3</span>Sheet</legend>
-      <div class="grid cols-2">
-        <div class="field" style="grid-column:1/-1"><label for="layout_id">Layout</label><select id="layout_id" name="layout_id" required></select>
-          <span class="hint" id="layout-hint"></span></div>
-        <div class="field"><label for="start">Start at label</label><input id="start" name="start" type="number" min="1" value="1" required>
-          <span class="hint">Skip labels already used on a partly used sheet.</span></div>
-        <div class="field"><label for="copies">Copies of each</label><input id="copies" name="copies" type="number" min="1" max="20" value="1" required></div>
-      </div>
-      <div><span class="small muted" id="picker-label">Click the first free label on your sheet:</span>
-        <div class="sheet-picker" id="sheet-picker" role="group" aria-labelledby="picker-label"></div></div>
-      <label class="checkbox small" id="split-wrap" hidden><input type="checkbox" name="split_decimal"> Split Dewey numbers at the decimal point (823 / .912)</label>
-    </fieldset>
-    <div class="row end">
-      <button class="btn" type="button" id="preview-btn"><svg class="icon"><use href="#i-search"></use></svg>Check selection</button>
-      <button class="btn primary" type="submit" id="print-btn"><svg class="icon"><use href="#i-barcode"></use></svg>Open print sheet</button>
+<div class="coll coll-labels">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('coll.labels.title') }}</h1>
+      <p class="ph-sub">{{ t('coll.labels.subtitle') }}</p>
     </div>
-  </form>
-  <aside class="stack">
-    <div class="card"><div class="card-head"><h3>Selection</h3></div><div class="card-body" id="preview-out" aria-live="polite">
-      <p class="small muted">Use “Check selection” to see how many labels and sheets you will print, and any barcodes that were not found.</p></div></div>
-    <div class="card"><div class="card-head"><h3>Sheet layouts</h3><button class="btn sm" type="button" id="new-layout"><svg class="icon"><use href="#i-plus"></use></svg>New</button></div>
-      <div class="card-body" id="layouts"></div></div>
-  </aside>
+    <div class="ph-actions">
+      <button type="button" class="btn" id="layouts-btn"><svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg>{{ t('coll.labels.layouts') }}</button>
+      <button type="submit" class="btn primary" form="job" id="print-btn"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>{{ t('coll.labels.open_print') }}</button>
+    </div>
+  </header>
+  <div class="coll-split wide-side labels-layout">
+    <form class="card pad labels-form" id="job" method="post" action="/staff/labels/print" target="_blank" novalidate>
+      <fieldset class="step">
+        <legend><span class="step-no" aria-hidden="true">1</span>{{ t('coll.labels.step_what') }}</legend>
+        <div class="segmented big-seg" role="radiogroup" aria-label="{{ t('coll.labels.step_what') }}">
+          <label><input type="radio" name="kind" value="spine"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg><span>{{ t('coll.labels.kind_spine') }}</span></label>
+          <label><input type="radio" name="kind" value="item" checked><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span>{{ t('coll.labels.kind_item') }}</span></label>
+          <label><input type="radio" name="kind" value="patron"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg><span>{{ t('coll.labels.kind_patron') }}</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="step">
+        <legend><span class="step-no" aria-hidden="true">2</span>{{ t('coll.labels.step_which') }}</legend>
+        <div id="source-fields" class="source-fields"></div>
+      </fieldset>
+      <fieldset class="step">
+        <legend><span class="step-no" aria-hidden="true">3</span>{{ t('coll.labels.step_sheet') }}</legend>
+        <div class="form-grid">
+          <div class="field span-2"><label for="layout_id">{{ t('coll.labels.layout') }}</label><select id="layout_id" name="layout_id" required aria-describedby="layout-hint"></select>
+            <div class="field-help" id="layout-hint">&nbsp;</div></div>
+          <div class="field"><label for="start">{{ t('coll.labels.start') }}</label><input id="start" name="start" type="number" min="1" value="1" required aria-describedby="start-help">
+            <div class="field-help" id="start-help">{{ t('coll.labels.start_help') }}</div></div>
+          <div class="field"><label for="copies">{{ t('coll.labels.copies') }}</label><input id="copies" name="copies" type="number" min="1" max="20" value="1" required></div>
+          <label class="checkbox span-2" id="split-wrap" hidden><input type="checkbox" name="split_decimal"> {{ t('coll.labels.split') }}</label>
+        </div>
+      </fieldset>
+    </form>
+    <aside class="card labels-preview" aria-labelledby="preview-h">
+      <div class="card-head"><h2 id="preview-h"><svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg> {{ t('coll.labels.preview') }}</h2><span class="small muted" id="preview-status" aria-live="polite"></span></div>
+      <div class="card-body">
+        <div class="sheet-wrap" id="sheet-wrap"><div class="sheet skeleton" style="aspect-ratio:210/297"></div></div>
+        <div id="preview-summary" class="preview-summary" aria-live="polite"></div>
+      </div>
+    </aside>
+  </div>
 </div>
 {% endblock %}

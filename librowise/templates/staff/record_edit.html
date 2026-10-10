@@ -1,47 +1,33 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Edit record{% endblock %}
-{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.record_edit') if path_params.biblio_id else t('nav.detail.record_new') }}</span></li>{% endblock %}
+{#- FORM PAGE template: sectioned form with a sticky save bar (unsaved-changes guard) and an assistant side
+    panel (ISBN lookup, AI suggestions and live duplicate check, each with accept / dismiss). -#}
+{% set editing = path_params and path_params.biblio_id %}
+{% block page_title %}{{ t('nav.detail.record_edit') if editing else t('nav.detail.record_new') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
+{% block crumbs_extra %}{% if editing %}<li><a id="crumb-record" href="/staff/catalog/{{ path_params.biblio_id }}">{{ t('nav.detail.record') }}</a></li><li><span id="crumb" aria-current="page">{{ t('nav.detail.record_edit') }}</span></li>{% else %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.record_new') }}</span></li>{% endif %}{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1 id="heading">New record</h1><div class="sub">Start from an ISBN to fetch metadata, then let AI suggest subjects and classification.</div></div>
-</div>
-<div class="grid split">
-  <form id="rec-form" class="card pad stack" novalidate>
-    <div class="field"><label for="isbn">ISBN</label>
-      <div class="input-group"><input id="isbn" name="isbn" placeholder="978…" autocomplete="off">
-        <button class="btn" type="button" id="isbn-lookup"><svg class="icon"><use href="#i-search"></use></svg>Fetch metadata</button></div>
-      <span class="hint" id="isbn-hint">Looks up Open Library and checks for duplicates in your catalogue.</span></div>
-    <div class="grid cols-2">
-      <div class="field" style="grid-column:1/-1"><label for="title">Title *</label><input id="title" name="title" required maxlength="500"></div>
-      <div class="field" style="grid-column:1/-1"><label for="subtitle">Subtitle</label><input id="subtitle" name="subtitle" maxlength="500"></div>
-      <div class="field" style="grid-column:1/-1"><label for="authors">Authors</label><input id="authors" name="authors" placeholder="Surname, Forename; Surname, Forename"><span class="hint">Separate multiple authors with semicolons.</span></div>
-      <div class="field"><label for="publisher">Publisher</label><input id="publisher" name="publisher"></div>
-      <div class="field"><label for="pub_year">Year</label><input id="pub_year" name="pub_year" type="number" min="0" max="2100"></div>
-      <div class="field"><label for="edition">Edition</label><input id="edition" name="edition"></div>
-      <div class="field"><label for="pages">Pages</label><input id="pages" name="pages" type="number" min="0"></div>
-      <div class="field"><label for="material_type">Format</label><select id="material_type" name="material_type"></select></div>
-      <div class="field"><label for="language">Language (ISO code)</label><input id="language" name="language" value="en" maxlength="8"></div>
-      <div class="field"><label for="audience">Audience</label><select id="audience" name="audience"><option value="">—</option><option value="children">Children</option><option value="young_adult">Young adult</option><option value="adult">Adult</option></select></div>
-      <div class="field"><label for="classification">Classification (Dewey)</label><input id="classification" name="classification" class="mono"></div>
-      <div class="field"><label for="series">Series</label><input id="series" name="series"></div>
-      <div class="field"><label for="cover_url">Cover image URL</label><input id="cover_url" name="cover_url" type="url"></div>
-      <div class="field" style="grid-column:1/-1"><label for="subjects">Subjects</label><input id="subjects" name="subjects" placeholder="Subject; Subject -- Subdivision"><span class="hint">Separate with semicolons.</span></div>
-      <div class="field" style="grid-column:1/-1"><label for="description">Description / summary</label><textarea id="description" name="description" maxlength="20000"></textarea></div>
+<div class="coll coll-edit" data-editing="{{ path_params.biblio_id if editing else '' }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('coll.edit.title_edit') if editing else t('coll.edit.title_new') }}</h1>
+      <p class="ph-sub" id="edit-sub">{{ t('coll.edit.subtitle_edit') if editing else t('coll.edit.subtitle_new') }}</p>
     </div>
-    <div id="dupes"></div>
-    <div class="row end"><a class="btn" href="/staff/catalog" id="cancel">Cancel</a><button class="btn primary" type="submit" id="save">Save record</button></div>
-  </form>
-  <aside class="stack">
-    <div class="card panel-ai"><div class="card-head"><h3><svg class="icon"><use href="#i-sparkle"></use></svg> AI assistant</h3><span class="badge ai" id="ai-engine">…</span></div>
-      <div class="card-body stack">
-        <p class="small muted">Fill in a title and a description (or fetch by ISBN), then ask for suggestions. Nothing is applied until you click.</p>
-        <button class="btn ai" type="button" id="suggest"><svg class="icon"><use href="#i-sparkle"></use></svg>Suggest subjects & classification</button>
-        <div id="suggestions"></div>
-      </div></div>
-    <div class="card pad small muted stack tight"><strong>Tips</strong>
-      <span>• Required: title only. Everything else improves search and recommendations.</span>
-      <span>• Items (barcodes) are added from the record page after saving.</span>
-      <span>• Bulk loads: import MARC21/MARCXML (including Koha exports with 952 holdings) in Administration → System.</span></div>
-  </aside>
+    {% if not editing %}
+    <div class="ph-actions">
+      <a class="btn" href="/staff/copycat"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>{{ t('coll.edit.copycat') }}</a>
+    </div>
+    {% endif %}
+  </header>
+  <div class="coll-split wide-side edit-layout">
+    <div id="edit-form-slot">
+      <div class="card pad edit-sk" aria-hidden="true">
+        {% for _ in range(5) %}<div class="edit-sk-section"><div class="skeleton sk-line w-30"></div><div class="skeleton edit-sk-field"></div><div class="skeleton edit-sk-field"></div></div>{% endfor %}
+      </div>
+    </div>
+    <aside class="assistant" aria-labelledby="assist-h" id="assistant">
+      <h2 class="sr-only" id="assist-h">{{ t('coll.assist.title') }}</h2>
+      <div class="skeleton" style="height:9rem;border-radius:10px" aria-hidden="true"></div>
+    </aside>
+  </div>
 </div>
 {% endblock %}

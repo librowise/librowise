@@ -1,14 +1,23 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Batch &amp; inventory{% endblock %}
+{#- Batch & inventory: choose items → choose changes → preview every change → apply. Withdraw/delete with the
+    same preview and a type-to-confirm. Inventory: scan a shelf and compare it with the catalogue. -#}
+{% block page_title %}{{ t('nav.tab.batch') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Batch item tools &amp; inventory</h1>
-    <div class="sub">Change many items at once with a preview of every change, withdraw or delete in bulk, and run a stocktake.</div></div>
+<div class="coll coll-batch">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('nav.tab.batch') }}</h1>
+      <p class="ph-sub">{{ t('coll.batch.subtitle') }}</p>
+    </div>
+  </header>
+  <div class="tablist" role="tablist" aria-label="{{ t('coll.batch.tools') }}" id="batch-tabs">
+    <button type="button" role="tab" id="tab-modify" data-tab="modify" aria-selected="true" aria-controls="batch-panel" tabindex="0"><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>{{ t('coll.batch.tab_modify') }}</button>
+    <button type="button" role="tab" id="tab-delete" data-tab="delete" aria-selected="false" aria-controls="batch-panel" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>{{ t('coll.batch.tab_delete') }}</button>
+    <button type="button" role="tab" id="tab-inventory" data-tab="inventory" aria-selected="false" aria-controls="batch-panel" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg>{{ t('coll.batch.tab_inventory') }}</button>
+  </div>
+  <section id="batch-panel" role="tabpanel" aria-labelledby="tab-modify" tabindex="-1">
+    <div class="skeleton" style="height:28rem;border-radius:10px" aria-hidden="true"></div>
+  </section>
 </div>
-<div class="tabs" role="tablist" aria-label="Batch tools" id="batch-tabs">
-  <button role="tab" id="tab-modify" data-tab="modify" aria-selected="true" aria-controls="batch-panel">Batch modify</button>
-  <button role="tab" id="tab-delete" data-tab="delete" aria-selected="false" aria-controls="batch-panel" tabindex="-1">Withdraw / delete</button>
-  <button role="tab" id="tab-inventory" data-tab="inventory" aria-selected="false" aria-controls="batch-panel" tabindex="-1">Inventory</button>
-</div>
-<section id="batch-panel" role="tabpanel" aria-labelledby="tab-modify"></section>
 {% endblock %}

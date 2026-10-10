@@ -1,10 +1,15 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Course{% endblock %}
+{#- One course: detail header, "add to reserve" (scan a barcode or find a title), reserve list as a data table. -#}
+{% block page_title %}{{ t('nav.detail.course') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
+{% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.course') }}</span></li>{% endblock %}
 {% block content %}
-<nav class="small muted" style="margin-bottom:.75rem"><a href="/staff/courses">← All courses</a></nav>
-<div id="course-detail">
-  <div class="skeleton" style="height:2.2rem;width:55%"></div>
-  <div class="skeleton" style="height:1rem;width:35%;margin-top:.8rem"></div>
-  <div class="skeleton" style="height:16rem;margin-top:1.5rem"></div>
+<div class="coll coll-course" id="course-detail" aria-busy="true" data-can-write="{{ 1 if can(user, 'courses:write') else 0 }}">
+  <header class="detail-head no-cover is-loading" aria-hidden="true">
+    <div class="dh-main"><div class="skeleton sk-line w-30"></div><div class="skeleton dh-title-sk"></div><div class="skeleton sk-line w-50"></div></div>
+  </header>
+  <div class="skeleton" style="height:11rem;border-radius:10px;margin-bottom:1.25rem" aria-hidden="true"></div>
+  <div class="skeleton" style="height:18rem;border-radius:10px" aria-hidden="true"></div>
+  <p class="sr-only" role="status">{{ t('common.loading') }}</p>
 </div>
 {% endblock %}

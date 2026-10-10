@@ -1,21 +1,32 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Authorities{% endblock %}
+{#- Authorities: two-pane browse (search · type · usage, keyboard list) and edit (heading, see-from variants,
+    see-also references, linked records) + the unlinked-headings report. Tools live in one menu. -#}
+{% block page_title %}{{ t('coll.auth.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Authorities</h1>
-    <div class="sub">Authorised names, subjects and series with their see-from and see-also references. Record headings link automatically.</div></div>
-  <div class="row tight">
-    <button class="btn" type="button" id="tool-generate"><svg class="icon"><use href="#i-sparkle"></use></svg>Generate from catalogue</button>
-    <button class="btn" type="button" id="tool-import"><svg class="icon"><use href="#i-upload"></use></svg>Import MARC</button>
-    <a class="btn" href="/api/v1/authorities/export?fmt=xml" id="tool-export"><svg class="icon"><use href="#i-download"></use></svg>Export</a>
-    <button class="btn" type="button" id="tool-relink" title="Re-derive every link and rewrite variant headings"><svg class="icon"><use href="#i-refresh"></use></svg>Relink all</button>
-    <button class="btn primary" type="button" id="new-authority"><svg class="icon"><use href="#i-plus"></use></svg>New authority</button>
+<div class="coll coll-auth" id="auth" data-can-write="{{ 1 if can(user, 'authorities:write') else 0 }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('coll.auth.title') }}<span class="ph-count" id="auth-count" aria-live="polite"></span></h1>
+      <p class="ph-sub">{{ t('coll.auth.subtitle') }}</p>
+    </div>
+    <div class="ph-actions" id="auth-actions">
+      <span class="tools-slot" id="tools-slot"><button type="button" class="btn" disabled><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>{{ t('coll.auth.tools') }}</button></span>
+      {% if can(user, 'authorities:write') %}
+      <button type="button" class="btn primary" id="new-authority"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('coll.auth.new') }}</button>
+      {% endif %}
+    </div>
+  </header>
+  <div class="tablist" role="tablist" aria-label="{{ t('coll.auth.views') }}" id="auth-tabs">
+    <button type="button" role="tab" id="auth-tab-list" aria-controls="auth-panel" data-tab="list" aria-selected="true" tabindex="0">{{ t('coll.auth.tab_list') }}</button>
+    <button type="button" role="tab" id="auth-tab-unlinked" aria-controls="auth-panel" data-tab="unlinked" aria-selected="false" tabindex="-1">{{ t('coll.auth.tab_unlinked') }}</button>
   </div>
+  <section id="auth-panel" role="tabpanel" aria-labelledby="auth-tab-list" tabindex="-1">
+    <div class="auth-panes" aria-hidden="true">
+      <div class="auth-browse card"><div class="skeleton" style="height:2.3rem;margin:1rem;border-radius:6px"></div>
+        {% for _ in range(8) %}<div class="skeleton sk-line" style="margin:1.1rem 1rem"></div>{% endfor %}</div>
+      <div class="auth-detail card"><div class="skeleton" style="height:30rem;margin:1rem;border-radius:8px"></div></div>
+    </div>
+  </section>
 </div>
-
-<div class="tabs" role="tablist" aria-label="Authority views" id="auth-tabs">
-  <button role="tab" id="tab-list" data-tab="list" aria-selected="true" aria-controls="auth-panel">Authorities</button>
-  <button role="tab" id="tab-unlinked" data-tab="unlinked" aria-selected="false" aria-controls="auth-panel" tabindex="-1">Unlinked headings</button>
-</div>
-<section id="auth-panel" role="tabpanel" aria-labelledby="tab-list"></section>
 {% endblock %}

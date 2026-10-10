@@ -1,35 +1,26 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Course reserves{% endblock %}
+{#- LIST PAGE: course reserves — filters in the URL, data table with bulk activate / deactivate, end of term. -#}
+{% block page_title %}{{ t('nav.courses') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Course reserves</h1>
-    <div class="sub">Courses, instructors and short-loan reserve copies. Deactivating a course restores its items.</div>
-  </div>
-  <div class="row tight">
-    <button class="btn" id="end-term"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>End of term…</button>
-    <button class="btn primary" id="new-course"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New course</button>
-  </div>
-</div>
-
-<form class="card pad row" id="course-filters" role="search" style="margin-bottom:1.25rem">
-  <div class="field grow"><label for="cf-q">Search</label>
-    <input id="cf-q" name="q" type="search" placeholder="Code, name, department or instructor" autocomplete="off" data-search-focus></div>
-  <div class="field"><label for="cf-dept">Department</label><select id="cf-dept" name="department"><option value="">All departments</option></select></div>
-  <div class="field"><label for="cf-term">Term</label><select id="cf-term" name="term"><option value="">All terms</option></select></div>
-  <div class="field"><label for="cf-active">Status</label>
-    <select id="cf-active" name="active"><option value="true">Active</option><option value="false">Inactive</option><option value="">All</option></select></div>
-</form>
-
-<section class="card flush" aria-labelledby="courses-h">
-  <div class="card-head" style="padding-bottom:var(--pad)">
-    <h2 id="courses-h">Courses <span class="muted small" id="course-count"></span></h2>
-    <div class="row tight hidden" id="course-bulk">
-      <span class="small muted" id="course-selected"></span>
-      <button class="btn sm" data-bulk="activate">Activate selected</button>
-      <button class="btn sm danger" data-bulk="deactivate">Deactivate selected</button>
+<div class="coll list-page coll-courses" id="courses" data-can-write="{{ 1 if can(user, 'courses:write') else 0 }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('nav.courses') }}<span class="ph-count" id="course-count" aria-live="polite"></span></h1>
+      <p class="ph-sub">{{ t('coll.crs.subtitle') }}</p>
     </div>
+    {% if can(user, 'courses:write') %}
+    <div class="ph-actions">
+      <button type="button" class="btn" id="end-term"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>{{ t('coll.crs.end_term') }}</button>
+      <button type="button" class="btn primary" id="new-course"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('coll.crs.new') }}</button>
+    </div>
+    {% endif %}
+  </header>
+  <div class="filter-bar" id="c-filters" role="region" aria-label="{{ t('ui.filters.label') }}">
+    <div id="c-views"></div>
+    <div class="filter-row" id="c-filter-row"></div>
+    <div id="c-chips"></div>
   </div>
-  <div class="card-body" id="course-list"></div>
-</section>
+  <div id="c-table"></div>
+</div>
 {% endblock %}

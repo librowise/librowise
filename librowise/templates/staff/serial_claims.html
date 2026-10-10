@@ -1,15 +1,19 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Claim letters{% endblock %}
+{#- Printable claim letters for one claim batch: one letter per vendor, with print and e-mail actions. -#}
+{% block page_title %}{{ t('nav.detail.serial_claims') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/collection.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head claim-letters-head">
-  <div>
-    <nav class="small muted" style="margin-bottom:.5rem"><a href="/staff/serials">← Serials</a></nav>
-    <h1>Claim letters</h1>
-    <div class="sub">One letter per vendor. Print them or email the vendor directly.</div>
-  </div>
-  <div class="row tight">
-    <button class="btn primary" id="print-letters"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Print letters</button>
-  </div>
+<div class="coll coll-claims">
+  <header class="page-header claim-letters-head">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('nav.detail.serial_claims') }}</h1>
+      <p class="ph-sub">{{ t('coll.claims.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <a class="btn" href="/staff/serials#history"><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg>{{ t('coll.claims.history') }}</a>
+      <button type="button" class="btn primary" id="print-letters"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>{{ t('coll.claims.print') }}</button>
+    </div>
+  </header>
+  <div id="claim-letters" class="stack"><div class="card pad"><div class="skeleton" style="height:22rem" aria-hidden="true"></div></div></div>
 </div>
-<div id="claim-letters" class="stack"><div class="card pad"><div class="skeleton" style="height:12rem"></div></div></div>
 {% endblock %}

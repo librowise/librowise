@@ -457,7 +457,7 @@ def test_staff_pages_render(client, lib, db, serial):
     staff_h = login(client, "librarian")
     for path in ("/staff/serials", f"/staff/serials/{sub.id}"):
         r = client.get(path, headers=staff_h)
-        assert r.status_code == 200 and 'data-page="staff-serials"' in r.text
+        assert r.status_code == 200 and 'data-page="staff-serial' in r.text  # list: staff-serials, detail: staff-serial
     patron = login(client, "reader1")
     r = client.get("/staff/serials", headers=patron, follow_redirects=False)
     assert r.status_code == 303

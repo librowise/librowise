@@ -133,6 +133,8 @@ def test_unnamed_library_reminds_administrators(client, db, lib):
     assert "library_name_unset" not in kinds("admin")
     assert client.get("/api/v1/opac/config").json()["library_name"] == "Riverside Library"
     assert "Riverside Library" in client.get("/").text
+    admin = login(client, "admin")
+    assert client.put("/api/v1/admin/settings/library_name", json={"value": "   "}, headers=admin).status_code == 422
 
 
 # ------------------------------------------------------------------ patrons list (reference page API)

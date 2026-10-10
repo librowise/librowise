@@ -61,8 +61,8 @@ def set_library_name(name: str) -> dict:
     if not name:
         return {"changed": False}
     with session_scope() as db:
-        settings_svc.set_value(db, "library_name", name[:200])
-    return {"changed": True, "library_name": name[:200]}
+        settings_svc.set_value(db, "library_name", name[:120])
+    return {"changed": True, "library_name": name[:120]}
 
 
 def bootstrap_admin(username: str, email: str) -> dict:

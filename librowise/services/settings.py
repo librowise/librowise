@@ -126,6 +126,11 @@ def set_value(db: Session, key: str, value: Any) -> None:
         value = int(value)
     elif isinstance(default, str):
         value = str(value)
+        meta = META.get(key, {})
+        if meta.get("required") and not value.strip():
+            raise ValueError(f"{meta.get('label', key)} cannot be empty")
+        if meta.get("max_length") and len(value) > meta["max_length"]:
+            raise ValueError(f"{meta.get('label', key)} is limited to {meta['max_length']} characters")
     row = db.get(Setting, key)
     if row is None:
         db.add(Setting(key=key, value=value, description=DEFAULTS[key][1]))

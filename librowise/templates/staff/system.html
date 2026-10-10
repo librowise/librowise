@@ -1,67 +1,59 @@
 {% extends "staff_base.html" %}
-{% block page_title %}System{% endblock %}
+{#- Administration › System (jobs:manage): health tiles, job queue, schedules, workers, database, latency, backups.
+    Every block is server-rendered with a fixed-height skeleton the size of its final content (no layout shift). -#}
+{% block page_title %}{{ t('admin.system.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-settings.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>System</h1>
-    <div class="sub">Health, background jobs, schedules, workers, database and backups.</div>
-  </div>
-  <div class="row tight">
-    <span class="small muted" id="sys-updated" aria-live="polite"></span>
-    <button class="btn" type="button" id="sys-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>Refresh</button>
-  </div>
-</div>
+<div class="as-page sys-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('admin.system.title') }}</h1>
+      <p class="ph-sub">{{ t('admin.system.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <span class="small muted sys-updated" id="sys-updated" aria-live="polite"></span>
+      <button class="btn" type="button" id="sys-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>{{ t('admin.common.refresh') }}</button>
+    </div>
+  </header>
 
-<div class="grid cols-4" id="sys-health">{% for _ in range(4) %}<div class="card stat"><div class="skeleton" style="height:3.2rem"></div></div>{% endfor %}</div>
+  <section class="sys-kpis" id="sys-health" aria-label="{{ t('admin.system.health') }}" aria-busy="true">
+    {% for _ in range(4) %}<div class="card kpi-tile sys-kpi" aria-hidden="true"><div class="skeleton sk-line sys-sk-label"></div><div class="skeleton sys-sk-value"></div><div class="skeleton sk-line sys-sk-foot"></div></div>{% endfor %}
+  </section>
 
-<section class="card sys-section" aria-labelledby="sys-jobs-h">
-  <div class="card-head">
-    <h2 id="sys-jobs-h">Job queue</h2>
-    <span class="small muted" id="sys-queue-summary"></span>
-  </div>
-  <div class="card-body stack">
-    <form class="row tight sys-filters" id="sys-job-filters">
-      <div class="field"><label for="sys-status">Status</label>
-        <select id="sys-status" name="status">
-          <option value="">All</option>
-          <option value="queued">Queued</option><option value="running">Running</option>
-          <option value="failed">Failed (retrying)</option><option value="dead">Dead</option>
-          <option value="succeeded">Succeeded</option><option value="cancelled">Cancelled</option>
-        </select></div>
-      <div class="field"><label for="sys-type">Type</label><select id="sys-type" name="type"><option value="">All</option></select></div>
-      <div class="spacer grow"></div>
-      <div class="field"><label for="sys-enqueue-type">Run a job now</label>
-        <div class="input-group"><select id="sys-enqueue-type" name="enqueue_type"></select>
-          <button class="btn primary" type="button" id="sys-enqueue"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Queue</button></div></div>
-    </form>
-    <div id="sys-jobs" aria-live="polite"><div class="skeleton" style="height:6rem"></div></div>
-  </div>
-</section>
+  <section class="card sys-card" aria-labelledby="sys-jobs-h">
+    <header class="sys-card-head">
+      <div><h2 id="sys-jobs-h">{{ t('admin.system.jobs_title') }}</h2><p class="small muted" id="sys-queue-summary">&nbsp;</p></div>
+      <button class="btn primary" type="button" id="sys-run"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{ t('admin.system.run_job') }}</button>
+    </header>
+    <div class="filter-bar sys-filters" id="sys-filters" role="region" aria-label="{{ t('ui.filters.label') }}"><div class="filter-row" id="sys-filter-row"></div></div>
+    <div id="sys-jobs" class="sys-jobs"></div>
+  </section>
 
-<div class="grid cols-2 sys-section">
-  <section class="card" aria-labelledby="sys-sched-h">
-    <div class="card-head"><h2 id="sys-sched-h">Schedules</h2><span class="small muted" id="sys-tz"></span></div>
-    <div class="card-body" id="sys-schedules"><div class="skeleton" style="height:4rem"></div></div>
-  </section>
-  <section class="card" aria-labelledby="sys-workers-h">
-    <div class="card-head"><h2 id="sys-workers-h">Workers</h2></div>
-    <div class="card-body" id="sys-workers"><div class="skeleton" style="height:4rem"></div></div>
-  </section>
-  <section class="card" aria-labelledby="sys-db-h">
-    <div class="card-head"><h2 id="sys-db-h">Database</h2></div>
-    <div class="card-body" id="sys-db"><div class="skeleton" style="height:4rem"></div></div>
-  </section>
-  <section class="card" aria-labelledby="sys-latency-h">
-    <div class="card-head"><h2 id="sys-latency-h">Request latency</h2><span class="small muted">this process, since start</span></div>
-    <div class="card-body" id="sys-latency"><div class="skeleton" style="height:4rem"></div></div>
+  <div class="sys-grid">
+    <section class="card sys-card" aria-labelledby="sys-sched-h">
+      <header class="sys-card-head"><div><h2 id="sys-sched-h">{{ t('admin.system.schedules_title') }}</h2><p class="small muted" id="sys-tz">&nbsp;</p></div></header>
+      <div class="sys-body" id="sys-schedules" tabindex="0" role="region" aria-labelledby="sys-sched-h"><div class="skeleton sys-sk-block"></div></div>
+    </section>
+    <section class="card sys-card" aria-labelledby="sys-workers-h">
+      <header class="sys-card-head"><div><h2 id="sys-workers-h">{{ t('admin.system.workers_title') }}</h2><p class="small muted">{{ t('admin.system.workers_desc') }}</p></div></header>
+      <div class="sys-body" id="sys-workers" tabindex="0" role="region" aria-labelledby="sys-workers-h"><div class="skeleton sys-sk-block"></div></div>
+    </section>
+    <section class="card sys-card" aria-labelledby="sys-db-h">
+      <header class="sys-card-head"><div><h2 id="sys-db-h">{{ t('admin.system.db_title') }}</h2><p class="small muted">{{ t('admin.system.db_desc') }}</p></div></header>
+      <div class="sys-body" id="sys-db" tabindex="0" role="region" aria-labelledby="sys-db-h"><div class="skeleton sys-sk-block"></div></div>
+    </section>
+    <section class="card sys-card" aria-labelledby="sys-latency-h">
+      <header class="sys-card-head"><div><h2 id="sys-latency-h">{{ t('admin.system.latency_title') }}</h2><p class="small muted">{{ t('admin.system.latency_desc') }}</p></div></header>
+      <div class="sys-body" id="sys-latency" tabindex="0" role="region" aria-labelledby="sys-latency-h"><div class="skeleton sys-sk-block"></div></div>
+    </section>
+  </div>
+
+  <section class="card sys-card" aria-labelledby="sys-backups-h">
+    <header class="sys-card-head"><div><h2 id="sys-backups-h">{{ t('admin.system.backups_title') }}</h2><p class="small muted" id="sys-backup-dir">&nbsp;</p></div></header>
+    <div class="sys-body">
+      <p class="small muted sys-note"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg><span>{{ t('admin.system.backups_note') }}</span></p>
+      <div id="sys-backups"><div class="skeleton sys-sk-block short"></div></div>
+    </div>
   </section>
 </div>
-
-<section class="card sys-section" aria-labelledby="sys-backups-h">
-  <div class="card-head"><h2 id="sys-backups-h">Backups</h2><span class="small muted" id="sys-backup-dir"></span></div>
-  <div class="card-body stack">
-    <p class="small muted" style="margin:0">Backups are created by the <code>backup</code> job or <code>python -m librowise backup</code> and are never downloadable through the web interface. Restore with <code>python -m librowise restore FILE --yes</code>.</p>
-    <div id="sys-backups"><div class="skeleton" style="height:3rem"></div></div>
-  </div>
-</section>
 {% endblock %}

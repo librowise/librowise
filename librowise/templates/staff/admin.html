@@ -1,23 +1,57 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Administration{% endblock %}
+{#- Administration › Settings: a settings layout (Linear / Vercel style) — section navigation on the inline-start
+    side, one section at a time on the right. Sections are addressed by URL hash; the legacy hashes
+    #settings (→ #profile) and #system (→ #maintenance) keep working. -#}
+{% block page_title %}{{ t('admin.settings.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-settings.css?v={{ version }}">{% endblock %}
+{% set sections = [
+  ('library', [('profile', 'home'), ('branches', 'map'), ('item-types', 'book'), ('categories', 'users')]),
+  ('circulation', [('rules', 'repeat'), ('policies', 'shield'), ('notices', 'send')]),
+  ('system', [('integrations', 'layers'), ('audit', 'activity'), ('maintenance', 'refresh')]),
+] %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Administration</h1>
-    <div class="sub">Branches, item types, patron categories, circulation rules, system settings and maintenance.</div>
+<div class="as-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('admin.settings.title') }}</h1>
+      <p class="ph-sub">{{ t('admin.settings.subtitle') }}</p>
+    </div>
+  </header>
+  {% if can(user, 'admin') %}
+  <div class="as-layout" id="as-layout">
+    <div class="as-nav-wrap">
+      <div class="as-nav-select field">
+        <label for="as-jump">{{ t('admin.settings.nav.jump') }}</label>
+        <select id="as-jump">
+          {% for group, items in sections %}<optgroup label="{{ t('admin.settings.nav.group.' ~ group) }}">
+            {% for key, icon_name in items %}<option value="{{ key }}">{{ t('admin.settings.nav.' ~ key|replace('-', '_')) }}</option>{% endfor %}
+          </optgroup>{% endfor %}
+        </select>
+      </div>
+      <nav class="as-nav" id="as-nav" aria-label="{{ t('admin.settings.nav.label') }}">
+        {% for group, items in sections %}
+        <div class="as-nav-group">
+          <h2 class="as-nav-heading" id="as-nav-{{ group }}">{{ t('admin.settings.nav.group.' ~ group) }}</h2>
+          <ul aria-labelledby="as-nav-{{ group }}">
+            {% for key, icon_name in items %}<li><a href="#{{ key }}" data-section="{{ key }}"><svg class="icon" aria-hidden="true"><use href="#i-{{ icon_name }}"></use></svg><span>{{ t('admin.settings.nav.' ~ key|replace('-', '_')) }}</span></a></li>{% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+        <p class="as-nav-foot small"><a href="/staff/system">{{ t('admin.settings.nav.system_link') }}</a></p>
+      </nav>
+    </div>
+    <section class="as-panel" id="as-panel" aria-labelledby="as-section-title" tabindex="-1">
+      <div class="as-section-head"><div class="skeleton as-sk-title"></div><div class="skeleton as-sk-sub"></div></div>
+      <div class="card as-sk-card" aria-hidden="true">{% for _ in range(6) %}<div class="skeleton sk-line"></div>{% endfor %}</div>
+    </section>
   </div>
+  {% else %}
+  <div class="card as-denied" role="status">
+    <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+    <h2>{{ t('admin.settings.denied.title') }}</h2>
+    <p>{{ t('admin.settings.denied.body') }}</p>
+    <a class="btn" href="/staff">{{ t('admin.common.back_home') }}</a>
+  </div>
+  {% endif %}
 </div>
-
-<div id="admin-denied"></div>
-
-<div class="tabs" role="tablist" aria-label="Administration sections" id="admin-tabs">
-  <button role="tab" id="tab-branches" data-tab="branches" aria-selected="true" aria-controls="admin-panel">Branches</button>
-  <button role="tab" id="tab-item-types" data-tab="item-types" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Item types</button>
-  <button role="tab" id="tab-categories" data-tab="categories" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Patron categories</button>
-  <button role="tab" id="tab-rules" data-tab="rules" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Circulation rules</button>
-  <button role="tab" id="tab-settings" data-tab="settings" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Settings</button>
-  <button role="tab" id="tab-audit" data-tab="audit" aria-selected="false" aria-controls="admin-panel" tabindex="-1">Audit log</button>
-  <button role="tab" id="tab-system" data-tab="system" aria-selected="false" aria-controls="admin-panel" tabindex="-1">System</button>
-</div>
-<section id="admin-panel" role="tabpanel" aria-labelledby="tab-branches"></section>
 {% endblock %}

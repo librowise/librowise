@@ -1,9 +1,9 @@
 import csv
 import io
-from datetime import date
+from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -90,9 +90,54 @@ def explain_rule(branch_id: int, category_id: int, item_type_id: int, db: Sessio
             "explanation": f"Matched rule #{r.source_rule_id}" if r.source_rule_id else "No rule matched; built-in defaults apply"}
 
 
+@router.get("/rules/matrix")
+def rules_matrix(branch_id: int | None = Query(default=None, ge=1), db: Session = Depends(get_db),
+                 _: Patron = Depends(require("catalog:read"))):
+    """Effective rule for every patron category × item type combination (``None`` = "Any") at one branch
+    (or library-wide when ``branch_id`` is omitted), resolved exactly like checkout does, plus the explicit
+    rule (if any) defined for that exact combination."""
+    if branch_id is not None and db.get(Branch, branch_id) is None:
+        raise NotFound("Branch not found")
+    categories = db.scalars(select(PatronCategory).order_by(PatronCategory.name)).all()
+    types = db.scalars(select(ItemType).order_by(ItemType.name)).all()
+    explicit = {(r.category_id, r.item_type_id): r.id for r in db.scalars(
+        select(CirculationRule).where(CirculationRule.branch_id.is_(None) if branch_id is None
+                                      else CirculationRule.branch_id == branch_id))}
+    cells = []
+    for cat in [None, *categories]:
+        for typ in [None, *types]:
+            cid, tid = (cat.id if cat else None), (typ.id if typ else None)
+            eff = circulation.resolve_rule(db, branch_id, cid, tid)  # type: ignore[arg-type]
+            cells.append({"category_id": cid, "item_type_id": tid, "effective": eff.__dict__,
+                          "explicit_rule_id": explicit.get((cid, tid))})
+    return {"branch_id": branch_id,
+            "categories": [{"id": c.id, "code": c.code, "name": c.name} for c in categories],
+            "item_types": [{"id": t.id, "code": t.code, "name": t.name} for t in types],
+            "cells": cells}
+
+
 @router.get("/settings")
 def get_settings(db: Session = Depends(get_db), _: Patron = Depends(require("settings:manage"))):
-    return {"results": settings_svc.all_settings(db)}
+    from ..config import get_settings as app_settings
+
+    s = app_settings()
+    # Read-only deployment facts shown next to the editable settings (never secrets).
+    environment = {
+        "email_backend": s.email_backend, "smtp_host": s.smtp_host if s.email_backend == "smtp" else None,
+        "smtp_from": s.smtp_from, "sms_backend": s.sms_backend, "sms_webhook_configured": bool(s.sms_webhook_url),
+        "ai_enabled": s.ai_enabled, "ai_claude": _claude_available(), "public_url": s.public_url or None,
+        "timezone": s.timezone, "currency": s.currency,
+    }
+    return {"results": settings_svc.all_settings(db), "sections": list(settings_svc.SECTIONS), "environment": environment}
+
+
+def _claude_available() -> bool:
+    try:
+        from ..ai import llm
+
+        return bool(llm.available())
+    except Exception:  # pragma: no cover - optional dependency / configuration
+        return False
 
 
 @router.put("/settings/{key}")
@@ -110,17 +155,42 @@ def put_setting(key: str, body: SettingIn, db: Session = Depends(get_db), user: 
 
 @router.get("/audit")
 def audit_log(action: str | None = None, entity: str | None = None, page: int = Query(default=1, ge=1),
+              actor: str | None = Query(default=None, max_length=120),
+              entity_id: int | None = None, date_from: date | None = None, date_to: date | None = None,
+              per_page: int = Query(default=50, ge=1, le=200),
               db: Session = Depends(get_db), _: Patron = Depends(require("audit:read"))):
     stmt = select(AuditLog)
     if action:
         stmt = stmt.where(AuditLog.action == action)
     if entity:
         stmt = stmt.where(AuditLog.entity == entity)
+    if entity_id is not None:
+        stmt = stmt.where(AuditLog.entity_id == entity_id)
+    if actor and actor.strip():
+        term = f"%{actor.strip().lower()}%"
+        if actor.strip().lower() in ("system", "-"):
+            stmt = stmt.where(AuditLog.actor_id.is_(None))
+        else:
+            stmt = stmt.join(Patron, Patron.id == AuditLog.actor_id).where(or_(
+                func.lower(Patron.first_name + " " + Patron.last_name).like(term),
+                func.lower(Patron.card_number).like(term), func.lower(func.coalesce(Patron.email, "")).like(term)))
+    if date_from:
+        stmt = stmt.where(AuditLog.at >= datetime.combine(date_from, time.min))
+    if date_to:
+        stmt = stmt.where(AuditLog.at < datetime.combine(date_to + timedelta(days=1), time.min))
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
-    rows = db.scalars(stmt.order_by(AuditLog.id.desc()).offset((page - 1) * 50).limit(50)).all()
-    return {"total": total, "results": [
+    rows = db.scalars(stmt.order_by(AuditLog.id.desc()).offset((page - 1) * per_page).limit(per_page)).all()
+    return {"total": total, "page": page, "per_page": per_page, "results": [
         {"id": a.id, "at": a.at, "action": a.action, "entity": a.entity, "entity_id": a.entity_id,
-         "actor": a.actor.full_name if a.actor else None, "ip": a.ip, "details": a.details} for a in rows]}
+         "actor": a.actor.full_name if a.actor else None, "actor_id": a.actor_id, "ip": a.ip,
+         "details": a.details} for a in rows]}
+
+
+@router.get("/audit/facets")
+def audit_facets(db: Session = Depends(get_db), _: Patron = Depends(require("audit:read"))):
+    """Distinct actions and entities present in the audit log (for filter menus)."""
+    return {"actions": sorted(db.scalars(select(AuditLog.action).distinct())),
+            "entities": sorted(db.scalars(select(AuditLog.entity).distinct()))}
 
 
 @router.post("/jobs/nightly")

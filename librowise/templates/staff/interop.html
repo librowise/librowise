@@ -1,17 +1,30 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Interoperability{% endblock %}
+{#- Administration › Interoperability: SIP2 accounts, copy-cataloguing targets and protocol endpoints.
+    In-page tabs (shared tabs()/wireTabsPanel markup, server-rendered); hashes #sip #targets #endpoints. -#}
+{% block page_title %}{{ t('admin.interop.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-settings.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Interoperability</h1>
-    <div class="sub">SIP2 self-service terminals, copy-cataloguing targets and the standard protocol endpoints (SRU, OAI-PMH, schema.org).</div>
+<div class="as-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('admin.interop.title') }}</h1>
+      <p class="ph-sub">{{ t('admin.interop.subtitle') }}</p>
+    </div>
+  </header>
+  {% if not can(user, 'interop:manage') %}
+  <div class="alert info as-readonly" role="note"><svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
+    <div><strong>{{ t('admin.common.read_only') }}.</strong> {{ t('admin.interop.read_only') }}</div></div>
+  {% endif %}
+  <div id="io-tabs" class="as-tabs" data-can-manage="{{ 'true' if can(user, 'interop:manage') else 'false' }}">
+    <div class="tablist" role="tablist" aria-label="{{ t('admin.interop.tabs_label') }}">
+      {% for key, icon_name in [('sip', 'monitor'), ('targets', 'download'), ('endpoints', 'globe')] %}
+      <button type="button" role="tab" id="io-tab-{{ key }}" aria-controls="io-panel" data-tab="{{ key }}"
+        aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}"><svg class="icon" aria-hidden="true"><use href="#i-{{ icon_name }}"></use></svg>{{ t('admin.interop.tab.' ~ key) }}</button>
+      {% endfor %}
+    </div>
+    <div role="tabpanel" id="io-panel" aria-labelledby="io-tab-sip" tabindex="0" class="as-tabpanel">
+      <div class="as-sk-card card" aria-hidden="true">{% for _ in range(6) %}<div class="skeleton sk-line"></div>{% endfor %}</div>
+    </div>
   </div>
 </div>
-
-<div class="tabs" role="tablist" aria-label="Interoperability sections" id="io-tabs">
-  <button role="tab" id="tab-sip" data-tab="sip" aria-selected="true" aria-controls="io-panel">SIP2 accounts</button>
-  <button role="tab" id="tab-targets" data-tab="targets" aria-selected="false" aria-controls="io-panel" tabindex="-1">Copy-cataloguing targets</button>
-  <button role="tab" id="tab-endpoints" data-tab="endpoints" aria-selected="false" aria-controls="io-panel" tabindex="-1">Protocol endpoints</button>
-</div>
-<section id="io-panel" role="tabpanel" aria-labelledby="tab-sip"></section>
 {% endblock %}

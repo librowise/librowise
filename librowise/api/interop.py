@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import codecs
 import ipaddress
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import client_ip, require
-from ..errors import NotFound
+from ..errors import DomainError, NotFound
 from ..interop import copycat
 from ..models import Branch, CopyCatTarget, Patron, SipAccount
 from ..schemas import biblio_out
@@ -269,6 +270,23 @@ def delete_target(target_id: int, request: Request, db: Session = Depends(get_db
     audit.record(db, "delete", "copycat_target", target_id, actor=user, ip=client_ip(request))
     db.commit()
     return {"ok": True}
+
+
+@router.post("/copycat/targets/{target_id}/test")
+def test_target(target_id: int, db: Session = Depends(get_db), _: Patron = Depends(MANAGE)):
+    """Check that a target answers SRU searches: runs a one-record title search and reports the outcome
+    (always HTTP 200 — ``ok`` says whether the remote server worked). Disabled targets can be tested too."""
+    target = next((t for t in copycat.targets(db) if t.id == target_id), None)
+    if target is None:
+        raise NotFound("Target not found")
+    started = time.perf_counter()
+    try:
+        res = copycat.search(db, target, "title", "library", maximum=1)
+    except DomainError as exc:
+        return {"ok": False, "latency_ms": round((time.perf_counter() - started) * 1000), "total": None,
+                "message": str(exc)}
+    return {"ok": True, "latency_ms": round((time.perf_counter() - started) * 1000), "total": res["total"],
+            "message": None}
 
 
 # ------------------------------------------------------------------ copy-cataloguing workflow

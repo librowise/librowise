@@ -1,18 +1,35 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Roles &amp; permissions{% endblock %}
+{#- Administration › Roles & permissions: custom roles, staff accounts, per-user access, single sign-on.
+    In-page tabs (shared tabs()/wireTabsPanel markup, server-rendered); hashes #roles #staff #user #user-<id> #sso. -#}
+{% block page_title %}{{ t('admin.roles.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-settings.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Roles &amp; permissions</h1>
-    <div class="sub">Custom staff roles, staff access, per-user security controls and single sign-on.</div>
+<div class="as-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('admin.roles.title') }}</h1>
+      <p class="ph-sub">{{ t('admin.roles.subtitle') }}</p>
+    </div>
+  </header>
+  {% if can(user, 'patrons:manage_staff') %}
+  <div id="roles-tabs" class="as-tabs">
+    <div class="tablist" role="tablist" aria-label="{{ t('admin.roles.tabs_label') }}">
+      {% for key, icon_name in [('roles', 'shield'), ('staff', 'users'), ('user', 'user'), ('sso', 'key')] %}
+      <button type="button" role="tab" id="roles-tab-{{ key }}" aria-controls="roles-panel" data-tab="{{ key }}"
+        aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}"><svg class="icon" aria-hidden="true"><use href="#i-{{ icon_name }}"></use></svg>{{ t('admin.roles.tab.' ~ key) }}</button>
+      {% endfor %}
+    </div>
+    <div role="tabpanel" id="roles-panel" aria-labelledby="roles-tab-roles" tabindex="0" class="as-tabpanel">
+      <div class="as-sk-card card" aria-hidden="true">{% for _ in range(6) %}<div class="skeleton sk-line"></div>{% endfor %}</div>
+    </div>
   </div>
+  {% else %}
+  <div class="card as-denied" role="status">
+    <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+    <h2>{{ t('admin.roles.denied_title') }}</h2>
+    <p>{{ t('admin.roles.denied_body') }}</p>
+    <a class="btn" href="/staff">{{ t('admin.common.back_home') }}</a>
+  </div>
+  {% endif %}
 </div>
-<div id="roles-denied"></div>
-<div class="tabs" role="tablist" aria-label="Access control sections" id="roles-tabs">
-  <button role="tab" id="tab-roles" data-tab="roles" aria-selected="true" aria-controls="roles-panel">Roles</button>
-  <button role="tab" id="tab-staff" data-tab="staff" aria-selected="false" aria-controls="roles-panel" tabindex="-1">Staff accounts</button>
-  <button role="tab" id="tab-user" data-tab="user" aria-selected="false" aria-controls="roles-panel" tabindex="-1">User access</button>
-  <button role="tab" id="tab-sso" data-tab="sso" aria-selected="false" aria-controls="roles-panel" tabindex="-1">Single sign-on</button>
-</div>
-<section id="roles-panel" role="tabpanel" aria-labelledby="tab-roles"></section>
 {% endblock %}

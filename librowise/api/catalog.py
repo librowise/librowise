@@ -71,6 +71,13 @@ def get_biblio(biblio_id: int, db: Session = Depends(get_db), user: Patron | Non
     out = biblio_out(b, avail, full=True)
     staff = has_permission(user, "catalog:read")
     out["items"] = [item_out(i) for i in b.items if i.deleted_at is None and (staff or i.status.value != "withdrawn")]
+    if staff and out["items"]:
+        # Staff see when on-loan copies are due back (one query for every open loan of this record).
+        from ..models import Loan
+        due = dict(db.execute(select(Loan.item_id, Loan.due_at).where(
+            Loan.item_id.in_([i["id"] for i in out["items"]]), Loan.returned_at.is_(None))).all())
+        for i in out["items"]:
+            i["due_at"] = due.get(i["id"])
     reviews = db.scalars(select(Review).where(Review.biblio_id == b.id, Review.approved.is_(True))
                          .order_by(Review.created_at.desc()).limit(20)).all()
     out["rating"] = {

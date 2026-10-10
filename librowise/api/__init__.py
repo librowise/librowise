@@ -59,3 +59,8 @@ from . import covers, ui  # noqa: E402
 
 for module in (ui, covers):
     api_router.include_router(module.router)
+
+# ---- collection: record tools (duplicate detection, record history) ----
+from . import record_tools  # noqa: E402
+
+api_router.include_router(record_tools.router)

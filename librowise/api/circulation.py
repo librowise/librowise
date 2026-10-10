@@ -116,11 +116,14 @@ def recent(limit: int = Query(default=20, le=100), db: Session = Depends(get_db)
 
 @router.get("/holds")
 def holds(status: str | None = Query(default=None, pattern="^(queued|ready|fulfilled|cancelled|expired)$"),
-          branch_id: int | None = None, db: Session = Depends(get_db), _: Patron = Depends(require("holds:manage"))):
+          branch_id: int | None = None, biblio_id: int | None = None,
+          db: Session = Depends(get_db), _: Patron = Depends(require("holds:manage"))):
     stmt = select(Hold)
     stmt = stmt.where(Hold.status == HoldStatus(status)) if status else stmt.where(Hold.status.in_(circulation.ACTIVE_HOLD_STATUSES))
     if branch_id:
         stmt = stmt.where(Hold.pickup_branch_id == branch_id)
+    if biblio_id:
+        stmt = stmt.where(Hold.biblio_id == biblio_id)
     rows = db.scalars(stmt.order_by(Hold.created_at).limit(500)).all()
     return {"results": [hold_out(h, circulation.hold_queue_position(db, h)) for h in rows]}
 

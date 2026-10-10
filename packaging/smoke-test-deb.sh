@@ -32,7 +32,7 @@ test -f /usr/lib/systemd/system/librowise-web@.service
 id librowise
 
 step "Creating instance $NAME (SQLite, no proxy, port $PORT)"
-librowise instance create "$NAME" --db sqlite --no-proxy --port "$PORT" --no-start --admin-email admin@example.org
+librowise instance create "$NAME" --db sqlite --no-proxy --port "$PORT" --no-start --library-name "Smoke Test Library" --admin-email admin@example.org
 stat -c '%a %U:%G %n' "/etc/librowise/$NAME.env"
 test "$(stat -c '%a %U:%G' "/etc/librowise/$NAME.env")" = "640 root:librowise"
 librowise instance create "$NAME" --no-start >/dev/null  # idempotent re-run
@@ -41,6 +41,7 @@ step "Starting the web process"
 librowise instance start "$NAME"
 curl -fsS "http://127.0.0.1:$PORT/healthz"; echo
 curl -fsS "http://127.0.0.1:$PORT/readyz"; echo
+curl -fsS "http://127.0.0.1:$PORT/api/v1/opac/config" | grep -q '"library_name":"Smoke Test Library"'
 librowise instance list
 librowise instance backup "$NAME"
 librowise instance doctor "$NAME"

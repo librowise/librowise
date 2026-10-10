@@ -1,20 +1,27 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Patron requests{% endblock %}
+{#- Two review queues (online registrations, purchase suggestions): tabs with reserved counts → status views →
+    data table → side-panel review. #registrations / #suggestions deep links; ?status= keeps the view. -#}
+{% block page_title %}{{ t('nav.requests') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-people.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Patron requests</h1>
-    <div class="sub">Approve online registrations and review what patrons would like the library to buy.</div>
+<div class="list-page rq-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('people.requests.title') }}</h1>
+      <p class="ph-sub">{{ t('people.requests.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn ghost" id="rq-refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>{{ t('people.requests.refresh') }}</button>
+    </div>
+  </header>
+  <div class="tablist" role="tablist" aria-label="{{ t('people.requests.tabs_label') }}">
+    <button type="button" role="tab" id="rq-tab-registrations" aria-controls="rq-panel" data-tab="registrations" aria-selected="true" tabindex="0"><svg class="icon" aria-hidden="true"><use href="#i-user-plus"></use></svg>{{ t('people.requests.tab_registrations') }}<span class="count pp-count" data-count="registrations" aria-hidden="true"></span></button>
+    <button type="button" role="tab" id="rq-tab-suggestions" aria-controls="rq-panel" data-tab="suggestions" aria-selected="false" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>{{ t('people.requests.tab_suggestions') }}<span class="count pp-count" data-count="suggestions" aria-hidden="true"></span></button>
   </div>
-  <div class="row tight">
-    <label for="rq-status" class="sr-only">Status</label>
-    <select id="rq-status" style="width:auto"></select>
-    <button class="btn" id="rq-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+  <div role="tabpanel" id="rq-panel" class="rq-panel" aria-labelledby="rq-tab-registrations" tabindex="-1">
+    <div class="rq-views" id="rq-views"><div class="saved-views rq-views-sk" aria-hidden="true">{% for _ in range(4) %}<span class="skeleton"></span>{% endfor %}</div></div>
+    <div id="rq-table"><div class="card pp-table-sk" aria-hidden="true"><div class="pp-table-sk-bar"><span class="skeleton sk-line"></span></div>
+      {%- for _ in range(3) %}<div class="pp-table-sk-row"><span class="skeleton sk-line"></span><span class="skeleton sk-line"></span><span class="skeleton sk-line"></span></div>{% endfor %}</div></div>
   </div>
 </div>
-<div class="tabs" role="tablist" aria-label="Request types" id="rq-tabs">
-  <button role="tab" id="tab-registrations" data-tab="registrations" aria-selected="true" aria-controls="rq-panel">Registrations <span class="badge hidden" id="count-registrations"></span></button>
-  <button role="tab" id="tab-suggestions" data-tab="suggestions" aria-selected="false" aria-controls="rq-panel" tabindex="-1">Purchase suggestions <span class="badge hidden" id="count-suggestions"></span></button>
-</div>
-<section id="rq-panel" role="tabpanel" aria-labelledby="tab-registrations" aria-live="polite"></section>
 {% endblock %}

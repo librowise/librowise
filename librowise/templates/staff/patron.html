@@ -1,6 +1,33 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Patron{% endblock %}
+{#- DETAIL PAGE: header (avatar, name, status pills, quick actions) → tabs (hash deep links) → panels.
+    The header and the tab bar are reserved/server-rendered so nothing shifts when the patron loads. -#}
+{% block page_title %}{{ t('nav.detail.patron') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-people.css?v={{ version }}">{% endblock %}
 {% block crumbs_extra %}<li><span id="crumb" aria-current="page">{{ t('nav.detail.patron') }}</span></li>{% endblock %}
 {% block content %}
-<div id="patron"><div class="skeleton" style="height:10rem"></div></div>
+<div class="pp-page" id="patron">
+  <header class="card pp-head" id="pp-head" aria-busy="true">
+    <div class="pp-head-main" aria-hidden="true">
+      <div class="skeleton sk-circle pp-sk-avatar"></div>
+      <div class="pp-head-text">
+        <div class="skeleton sk-line pp-sk-title"></div>
+        <div class="skeleton sk-line pp-sk-line"></div>
+        <div class="skeleton sk-line pp-sk-line short"></div>
+      </div>
+    </div>
+    <h1 class="sr-only">{{ t('nav.detail.patron') }}</h1>
+  </header>
+  <div class="tablist pp-tabs" role="tablist" aria-label="{{ t('people.patron.tabs_label') }}">
+    {%- for id, key, count in [('overview', 'people.patron.tab.overview', false), ('loans', 'people.patron.tab.loans', true), ('holds', 'people.patron.tab.holds', true),
+        ('history', 'people.patron.tab.history', false), ('account', 'people.patron.tab.account', false), ('messages', 'people.patron.tab.messages', false),
+        ('activity', 'people.patron.tab.activity', false), ('recs', 'people.patron.tab.recs', false)] %}
+    <button type="button" role="tab" id="pp-tab-{{ id }}" aria-controls="pp-panel" data-tab="{{ id }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}">
+      {%- if id == 'recs' %}<svg class="icon" aria-hidden="true"><use href="#i-sparkle"></use></svg>{% endif %}{{ t(key) }}
+      {%- if count %}<span class="count pp-count" data-count="{{ id }}" aria-hidden="true"></span>{% endif %}</button>
+    {%- endfor %}
+  </div>
+  <div role="tabpanel" id="pp-panel" class="pp-panel" aria-labelledby="pp-tab-overview" tabindex="0">
+    <div class="pp-panel-skeleton" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div></div>
+  </div>
+</div>
 {% endblock %}

@@ -2,6 +2,7 @@
 {#- Reference implementation of the LIST PAGE template (docs/DESIGN_SYSTEM.md §Page templates):
     page header → saved views + filter bar → data table. All state lives in the URL. -#}
 {% block page_title %}{{ t('nav.patrons') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-people.css?v={{ version }}">{% endblock %}
 {% block content %}
 <div class="list-page">
   <header class="page-header">

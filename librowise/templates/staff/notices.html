@@ -1,17 +1,30 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Notices{% endblock %}
+{#- Notices: Templates (list | editor | live preview) and the delivery Outbox. #templates / #outbox deep links. -#}
+{% block page_title %}{{ t('nav.notices') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/admin.css?v={{ version }}"><link rel="stylesheet" href="/static/css/pages/admin-people.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Notices</h1>
-    <div class="sub">Edit the emails and text messages patrons receive, and watch the delivery outbox.</div>
+<div class="list-page nt-page">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('people.notices.title') }}</h1>
+      <p class="ph-sub">{{ t('people.notices.subtitle') }}</p>
+    </div>
+    {% if can(user, 'notices:manage') %}
+    <div class="ph-actions">
+      <button type="button" class="btn" id="deliver-now"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>{{ t('people.notices.process_now') }}</button>
+    </div>
+    {% endif %}
+  </header>
+  <div class="tablist" role="tablist" aria-label="{{ t('people.notices.tabs_label') }}">
+    <button type="button" role="tab" id="nt-tab-templates" aria-controls="nt-panel" data-tab="templates" aria-selected="true" tabindex="0"><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>{{ t('people.notices.tab_templates') }}</button>
+    <button type="button" role="tab" id="nt-tab-outbox" aria-controls="nt-panel" data-tab="outbox" aria-selected="false" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg>{{ t('people.notices.tab_outbox') }}<span class="count pp-count" data-count="failed" aria-hidden="true"></span></button>
   </div>
-  <button class="btn hidden" id="deliver-now"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>Process outbox now</button>
+  <div role="tabpanel" id="nt-panel" class="nt-panel" aria-labelledby="nt-tab-templates" tabindex="-1">
+    <div class="nt-layout" aria-hidden="true">
+      <div class="card nt-list nt-sk">{% for _ in range(7) %}<div class="skeleton sk-line"></div>{% endfor %}</div>
+      <div class="card nt-editor nt-sk"><div class="skeleton nt-sk-block"></div></div>
+      <div class="card nt-preview nt-sk"><div class="skeleton nt-sk-block"></div></div>
+    </div>
+  </div>
 </div>
-
-<div class="tabs" role="tablist" aria-label="Notice views" id="n-tabs">
-  <button role="tab" id="tab-templates" data-tab="templates" aria-selected="true" aria-controls="n-panel">Templates</button>
-  <button role="tab" id="tab-outbox" data-tab="outbox" aria-selected="false" aria-controls="n-panel" tabindex="-1">Outbox <span class="badge hidden" id="count-failed"></span></button>
-</div>
-<section id="n-panel" role="tabpanel" aria-labelledby="tab-templates"></section>
 {% endblock %}

@@ -259,6 +259,8 @@ def template_out(db: Session, code: str, channel: str) -> dict:
     return {"code": code, "name": label, "description": description, "patron_configurable": configurable,
             "channel": channel, "subject": row.subject if row else default[0], "body": row.body if row else default[1],
             "is_active": row.is_active if row else True, "customized": row is not None,
+            # True when the wording is the built-in default (a stored copy of the default text counts as default).
+            "is_default": row is None or ((row.subject or ""), row.body) == (default[0] or "", default[1]),
             "updated_at": row.updated_at if row else None}
 
 

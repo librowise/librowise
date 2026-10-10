@@ -1,12 +1,17 @@
-// Staff dashboard: branch-aware KPIs with sparklines and deltas, today's desk work, alerts and recent
-// activity. Refreshes every 60 s while the tab is visible.
-import { $, BOOT, api, badge, date, datetime, empty, html, icon, num, qs, relative, toast } from "/static/js/core.js";
-import { barChart, hBarChart, kpiTile } from "/static/js/charts.js";
-import { t } from "/static/js/i18n.js";
+// Staff › Home (Today). Scannable at a glance: today's numbers with 14-day sparklines, desk tasks with counts
+// that deep-link into the filtered page, alerts, the next items to pull, recent activity and late-return risk.
+// The template lays everything out at its final size; this script only fills values (no layout shift).
+// Refreshes every 60 s while the tab is visible; the branch choice is remembered.
+import { $, BOOT, api, date, datetime, html, icon, num, qs, relative } from "/static/js/core.js";
+import { barChart, hBarChart, sparkline } from "/static/js/charts.js";
+import { locale, t } from "/static/js/i18n.js";
+import { emptyState, errorState } from "/static/js/ui/empty.js";
+import { statusPill } from "/static/js/ui/status.js";
 
 const REFRESH_MS = 60_000;
 const STORE = "sw-dash-branch";
 const state = { branch: "", auto: true, timer: 0, last: 0, loading: false };
+const pct = (v) => new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(v || 0);
 
 function initialBranch(branches) {
   const p = new URLSearchParams(location.search).get("branch");
@@ -16,99 +21,121 @@ function initialBranch(branches) {
   return candidate === "" || branches.some((b) => String(b.id) === candidate) ? candidate : "";
 }
 
-const pctText = (v) => `${Math.round((v || 0) * 100)}%`;
-
-function renderKpis(k) {
-  const branchQ = state.branch ? `?${qs({ branch: state.branch })}` : "";
-  return html`
-    ${kpiTile({ label: t("dash.kpi_checkouts"), value: k.checkouts_7d.value, previous: k.checkouts_7d.previous, spark: k.checkouts_7d.spark,
-      href: `/staff/analytics${branchQ}`, compareLabel: t("dash.vs_prev_week") })}
-    ${kpiTile({ label: t("dash.kpi_returns"), value: k.returns_7d.value, previous: k.returns_7d.previous, spark: k.returns_7d.spark,
-      href: `/staff/analytics${branchQ}`, compareLabel: t("dash.vs_prev_week") })}
-    ${kpiTile({ label: t("dash.kpi_on_loan"), value: k.open_loans.value, href: "/staff/circulation",
-      note: t("dash.kpi_overdue_note", { count: k.overdue.value, rate: pctText(k.overdue.rate) }), alert: k.overdue.rate >= 0.15 })}
-    ${kpiTile({ label: t("dash.kpi_holds"), value: k.holds_queued.value, href: "/staff/holds", note: t("dash.kpi_holds_note", { count: k.holds_queued.ready }) })}
-    ${kpiTile({ label: t("dash.kpi_active"), value: k.active_patrons_7d.value, previous: k.active_patrons_7d.previous, compareLabel: t("dash.vs_prev_week") })}
-    ${kpiTile({ label: t("dash.kpi_new_patrons"), value: k.new_patrons_30d.value, previous: k.new_patrons_30d.previous, href: "/staff/patrons",
-      compareLabel: t("dash.vs_prev_30") })}`;
-}
-
-function vsLastWeek(now, then) {
-  if (!then && !now) return "";
+/** "+3 vs last Wednesday" style comparison, coloured by good/bad, with screen-reader words. */
+function compare(now, then, label, { goodWhen = "up" } = {}) {
+  if (then === undefined || then === null) return html`<span class="tk-cmp">${label}</span>`;
   const d = now - then;
-  return t("dash.same_day_last_week", { count: then, diff: `${d > 0 ? "+" : ""}${d}` });
+  const dir = d > 0 ? "up" : d < 0 ? "down" : "flat";
+  const tone = dir === "flat" ? "flat" : dir === goodWhen ? "good" : "bad";
+  const n = new Intl.NumberFormat(locale, { signDisplay: "exceptZero" }).format(d);
+  return html`<span class="tk-delta ${tone}"><span aria-hidden="true">${dir === "up" ? "▲" : dir === "down" ? "▼" : "■"}</span> ${d === 0 ? t("desk.today.same") : n}</span>
+    <span class="tk-cmp">${label}</span>`;
 }
 
-function renderDesk(d) {
-  const list = (items, row, emptyMsg) => (items.length ? html`<ul class="desk-list">${items.map(row)}</ul>` : html`<p class="small muted">${emptyMsg}</p>`);
-  return html`<div class="desk-stats">
-      <div class="desk-stat"><span class="value">${num(d.checkouts_today)}</span><span class="label">${t("dash.checkouts_today")}</span><span class="tiny muted">${vsLastWeek(d.checkouts_today, d.checkouts_same_day_last_week)}</span></div>
-      <div class="desk-stat"><span class="value">${num(d.checkins_today)}</span><span class="label">${t("dash.checkins_today")}</span><span class="tiny muted">${vsLastWeek(d.checkins_today, d.checkins_same_day_last_week)}</span></div>
-      <a class="desk-stat ${d.holds_to_pull ? "attn" : ""}" href="/staff/holds#pull"><span class="value">${num(d.holds_to_pull)}</span><span class="label">${t("dash.holds_to_pull")}</span></a>
-      <a class="desk-stat" href="/staff/holds"><span class="value">${num(d.holds_ready)}</span><span class="label">${t("dash.holds_ready")}</span></a>
-      <div class="desk-stat ${d.in_transit_stale ? "warn" : ""}"><span class="value">${num(d.in_transit_stale)}</span><span class="label">${t("dash.in_transit")}</span></div>
-    </div>
-    <div class="desk-lists">
-      <div><h3 class="an-block-title">${t("dash.pull_list")}</h3>${list(d.holds_to_pull_sample, (r) => html`<li>
-        <span class="grow"><strong>${r.title}</strong><span class="tiny muted"> · ${r.patron} → ${r.pickup}</span></span>
-        <span class="mono small">${r.call_number || r.barcode}</span></li>`, t("dash.nothing_to_pull"))}</div>
-      <div><h3 class="an-block-title">${t("dash.expiring")}</h3>${list(d.holds_expiring, (h) => html`<li>
-        <span class="grow"><strong>${h.title}</strong><span class="tiny muted"> · <a href="/staff/patrons/${h.patron_id}">${h.patron}</a></span></span>
-        ${badge("warn", t("dash.expires", { when: relative(h.expires_at) }))}</li>`, t("dash.none_expiring"))}</div>
-      ${d.in_transit_sample.length ? html`<div><h3 class="an-block-title">${t("dash.transit_list")}</h3>${list(d.in_transit_sample, (i) => html`<li>
-        <span class="grow"><strong>${i.title}</strong><span class="tiny muted"> · ${i.home}</span></span>
-        <span class="mono small">${i.barcode}</span><span class="tiny muted">${date(i.since)}</span></li>`, "")}</div>` : ""}
-    </div>`;
+function fillKpi(key, { value, note, spark, alert = false }) {
+  const tile = $(`[data-kpi="${key}"]`);
+  if (!tile) return;
+  $(".tk-value", tile).textContent = num(value);
+  $(".tk-spark", tile).innerHTML = spark ? sparkline(spark, { width: 96, height: 30 }) : "";
+  $(".tk-note", tile).innerHTML = note || "&nbsp;";
+  tile.classList.toggle("is-alert", alert);
 }
 
-const ALERT_ICON = { overdue_spike: "alert", budget: "wallet", holds_ratio: "bookmark", failed_notices: "bell" };
+function renderKpis(d) {
+  const k = d.kpis, desk = d.desk;
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: "long" }).format(new Date());
+  const lastWeek = t("desk.today.vs_last", { weekday });
+  fillKpi("checkouts", { value: desk.checkouts_today, spark: k.checkouts_7d.spark,
+    note: compare(desk.checkouts_today, desk.checkouts_same_day_last_week, lastWeek) });
+  fillKpi("checkins", { value: desk.checkins_today, spark: k.returns_7d.spark,
+    note: compare(desk.checkins_today, desk.checkins_same_day_last_week, lastWeek) });
+  fillKpi("on_loan", { value: k.open_loans.value, alert: k.overdue.rate >= 0.15,
+    note: k.overdue.value ? html`<span class="tk-delta bad">${t("desk.today.overdue_n", { count: k.overdue.value, rate: pct(k.overdue.rate) })}</span>`
+      : html`<span class="tk-delta good">${t("desk.today.none_overdue")}</span>` });
+  fillKpi("holds", { value: k.holds_queued.value, note: html`<span class="tk-cmp">${t("desk.today.on_shelf_n", { count: k.holds_queued.ready })}</span>` });
+  fillKpi("active", { value: k.active_patrons_7d.value, note: compare(k.active_patrons_7d.value, k.active_patrons_7d.previous, t("dash.vs_prev_week")) });
+  fillKpi("new_patrons", { value: k.new_patrons_30d.value, note: compare(k.new_patrons_30d.value, k.new_patrons_30d.previous, t("dash.vs_prev_30")) });
+  $("#kpis").removeAttribute("aria-busy");
+}
+
+function renderTasks(tasks) {
+  for (const task of tasks) {
+    const a = $(`[data-task="${task.id}"]`);
+    if (!a) continue;
+    const c = $("[data-count]", a);
+    c.textContent = num(task.count);
+    a.dataset.tone = task.count ? task.tone : "neutral";
+  }
+}
+
+const ALERT_ICON = { overdue_spike: "trend", budget: "wallet", holds_ratio: "bookmark", failed_notices: "send" };
 function renderAlerts(alerts) {
-  $("#alerts-count").textContent = alerts.length ? num(alerts.length) : "";
-  $("#alerts-count").className = `badge ${alerts.length ? "warn" : ""}`;
-  if (!alerts.length) return html`<div class="alert ok">${icon("check")}<div>${t("dash.no_alerts")}</div></div>`;
-  return html`<ul class="alert-list">${alerts.map((a) => html`<li class="alert ${a.level}">${icon(ALERT_ICON[a.kind] || "info")}
-    <div class="grow"><strong>${t(`dash.alert_${a.kind}`, {}, "")}</strong><div>${t(`dash.alert_msg_${a.kind}`, a.params || {}, a.message)}</div></div>
-    ${a.href ? html`<a class="btn sm" href="${a.href}">${t("dash.review")}</a>` : ""}</li>`)}</ul>`;
+  const count = $("#alerts-count");
+  count.textContent = alerts.length ? num(alerts.length) : "";
+  count.className = `badge ${alerts.length ? "warn" : ""}`;
+  $("#alerts").innerHTML = alerts.length ? html`<ul class="today-alert-list">${alerts.map((a) => html`<li class="today-alert tone-${a.level}">
+      <span class="ta-icon" aria-hidden="true">${icon(ALERT_ICON[a.kind] || "alert")}</span>
+      <div class="grow"><strong>${t(`dash.alert_${a.kind}`, {}, "")}</strong><div class="small">${t(`dash.alert_msg_${a.kind}`, a.params || {}, a.message)}</div></div>
+      ${a.href ? html`<a class="btn sm" href="${a.href}">${t("dash.review")}</a>` : ""}</li>`)}</ul>`
+    : emptyState({ art: "done", compact: true, title: t("desk.today.all_clear"), body: t("dash.no_alerts") });
+}
+
+function renderPull(desk) {
+  const el = $("#pull");
+  if (!el) return;
+  const rows = desk.holds_to_pull_sample.slice(0, 5);
+  el.innerHTML = rows.length ? html`<ul class="today-rows">${rows.map((r) => html`<li>
+      <span class="mono tr-call">${r.call_number || r.barcode}</span>
+      <span class="grow"><strong>${r.title}</strong><span class="small muted">${t("desk.today.for_at", { name: r.patron, branch: r.pickup })}</span></span></li>`)}</ul>
+    ${desk.holds_to_pull > rows.length ? html`<p class="small today-more"><a href="/staff/holds#pull">${t("desk.today.more_to_pull", { count: desk.holds_to_pull - rows.length })}</a></p>` : ""}`
+    : emptyState({ art: "done", compact: true, title: t("dash.nothing_to_pull") });
+}
+
+function renderRecent(rows) {
+  $("#recent").innerHTML = rows.length ? html`<ul class="today-rows">${rows.slice(0, 7).map((l) => html`<li>
+      <span class="tr-event ${l.returned_at ? "in" : "out"}" aria-hidden="true">${icon(l.returned_at ? "arrow-down" : "arrow-up")}</span>
+      <span class="grow"><a href="/staff/catalog/${l.item.biblio.id}"><strong>${l.item.biblio.title}</strong></a>
+        <span class="small muted">${l.returned_at ? t("desk.today.ev_returned") : t("desk.today.ev_borrowed")}${l.patron ? html` · <a href="/staff/patrons/${l.patron.id}">${l.patron.full_name}</a>` : html` · ${t("dash.anonymised")}`}</span></span>
+      ${!l.returned_at && l.overdue ? statusPill("loan", "overdue") : ""}
+      <time class="small muted nowrap" datetime="${l.returned_at || l.issued_at}" title="${datetime(l.returned_at || l.issued_at)}">${relative(l.returned_at || l.issued_at)}</time></li>`)}</ul>`
+    : emptyState({ art: "inbox", compact: true, title: t("dash.no_activity") });
 }
 
 async function refresh({ quiet = false } = {}) {
   if (state.loading) return;
   state.loading = true;
-  const branchParam = state.branch ? `?${qs({ branch_id: state.branch })}` : "";
+  const branchQ = state.branch ? { branch_id: state.branch } : {};
   try {
-    const [d, recent, top] = await Promise.all([
-      api(`/analytics/dashboard${branchParam}`),
-      api("/circulation/recent?limit=10").catch(() => ({ results: [] })),
-      api(`/analytics/top?${qs({ branch_id: state.branch || undefined })}`).catch(() => null),
+    const [d, tasks, recent, top] = await Promise.all([
+      api(`/analytics/dashboard?${qs(branchQ)}`),
+      api(`/circulation/today?${qs(branchQ)}`).catch(() => ({ tasks: [] })),
+      api("/circulation/recent?limit=7").catch(() => ({ results: [] })),
+      api(`/analytics/top?${qs(branchQ)}`).catch(() => null),
     ]);
-    $("#kpis").innerHTML = renderKpis(d.kpis);
-    $("#kpis").removeAttribute("aria-busy");
-    $("#desk").innerHTML = renderDesk(d.desk);
-    $("#alerts").innerHTML = renderAlerts(d.alerts);
+    renderKpis(d);
+    renderTasks(tasks.tasks);
+    renderAlerts(d.alerts);
+    renderPull(d.desk);
     const hours = d.hourly_today;
     const total = hours.reduce((a, b) => a + b, 0);
     $("#hourly-total").textContent = t("dash.checkouts_count", { count: total });
-    const firstHour = Math.min(8, ...hours.map((v, i) => (v ? i : 24)));
-    const lastHour = Math.max(20, ...hours.map((v, i) => (v ? i : 0)));
-    const span = hours.slice(firstHour, lastHour + 1);
-    barChart($("#hourly"), { labels: span.map((_, i) => `${String(firstHour + i).padStart(2, "0")}:00`), height: 170,
+    const first = Math.min(8, ...hours.map((v, i) => (v ? i : 24)));
+    const last = Math.max(20, ...hours.map((v, i) => (v ? i : 0)));
+    const span = hours.slice(first, last + 1);
+    const fmtHour = new Intl.DateTimeFormat(locale, { hour: "numeric" });
+    barChart($("#hourly"), { labels: span.map((_, i) => fmtHour.format(new Date(2024, 0, 1, first + i))), height: 170,
       series: [{ name: t("dash.kpi_checkouts_short"), values: span }], summary: t("dash.hourly_summary", { count: total }) });
+    const topEl = $("#top");
     if (top?.titles?.length) {
-      hBarChart($("#top"), { items: top.titles.slice(0, 6).map((r) => ({ label: r.label, value: r.value, href: `/staff/catalog/${r.id}` })),
+      hBarChart(topEl, { items: top.titles.slice(0, 5).map((r) => ({ label: r.label, value: r.value, href: `/staff/catalog/${r.id}` })),
         valueLabel: t("dash.loans"), summary: t("dash.top_title") });
-    } else $("#top").innerHTML = empty(t("dash.no_loans_month"), "book");
-    $("#recent").innerHTML = recent.results.length ? html`<div class="table-wrap"><table class="table">
-      <caption class="sr-only">${t("dash.recent_title")}</caption>
-      <thead><tr><th scope="col">${t("dash.col_title")}</th><th scope="col">${t("dash.col_patron")}</th><th scope="col">${t("dash.col_event")}</th><th scope="col">${t("dash.col_when")}</th></tr></thead><tbody>
-      ${recent.results.map((l) => html`<tr><td><a href="/staff/catalog/${l.item.biblio.id}">${l.item.biblio.title}</a><div class="tiny muted mono">${l.item.barcode}</div></td>
-        <td>${l.patron ? html`<a href="/staff/patrons/${l.patron.id}">${l.patron.full_name}</a>` : html`<span class="muted">${t("dash.anonymised")}</span>`}</td>
-        <td>${l.returned_at ? badge("ok", t("dash.returned")) : l.overdue ? badge("overdue", t("dash.overdue")) : badge("info", t("dash.due", { date: date(l.due_at) }))}</td>
-        <td class="muted small nowrap">${relative(l.returned_at || l.issued_at)}</td></tr>`)}</tbody></table></div>` : empty(t("dash.no_activity"));
+    } else topEl.innerHTML = emptyState({ art: "books", compact: true, title: t("dash.no_loans_month") });
+    renderRecent(recent.results);
     state.last = Date.now();
-    $("#dash-updated").textContent = t("dash.updated", { time: datetime(new Date().toISOString().slice(0, 19)) });
+    $("#dash-updated").textContent = t("dash.updated", { time: new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date()) });
   } catch (e) {
-    if (!quiet) toast(e.message, "error");
     $("#dash-updated").textContent = t("dash.update_failed");
+    if (!quiet && !state.last) $("#alerts").innerHTML = errorState(e, { retry: false });
   } finally {
     state.loading = false;
   }
@@ -117,18 +144,18 @@ async function refresh({ quiet = false } = {}) {
 async function loadRisk() {
   try {
     const d = await api("/reports/dashboard");
-    $("#risk").innerHTML = d.risk.length ? html`<ul class="desk-list">${d.risk.map((r) => html`<li>
-      <span class="grow"><strong>${r.title}</strong><span class="tiny muted"> · <a href="/staff/patrons/${r.patron_id}">${r.patron}</a> · ${t("dash.due", { date: date(r.due_at) })}</span></span>
-      ${badge(r.level, `${Math.round(r.risk * 100)}%`)}</li>`)}</ul>` : empty(t("dash.no_risk"));
+    $("#risk").innerHTML = d.risk.length ? html`<ul class="today-rows">${d.risk.slice(0, 5).map((r) => html`<li>
+      <span class="grow"><strong>${r.title}</strong><span class="small muted"><a href="/staff/patrons/${r.patron_id}">${r.patron}</a> · ${t("dash.due", { date: date(r.due_at) })}</span></span>
+      ${statusPill("loan", r.level === "high" ? "overdue" : r.level === "medium" ? "due_soon" : "active", t("desk.today.risk", { pct: pct(r.risk) }))}</li>`)}</ul>`
+      : emptyState({ art: "done", compact: true, title: t("dash.no_risk") });
   } catch (e) {
-    $("#risk").innerHTML = empty(e.message, "alert");
+    $("#risk").innerHTML = errorState(e, { retry: false });
   }
 }
 
 function schedule() {
   clearInterval(state.timer);
-  if (!state.auto) return;
-  state.timer = setInterval(() => { if (!document.hidden) refresh({ quiet: true }); }, REFRESH_MS);
+  if (state.auto) state.timer = setInterval(() => { if (!document.hidden) refresh({ quiet: true }); }, REFRESH_MS);
 }
 
 function setAuto(on) {
@@ -140,10 +167,9 @@ function setAuto(on) {
 }
 
 export default async function init() {
-  $("#today").textContent = new Intl.DateTimeFormat(document.documentElement.lang || undefined,
-    { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  $("#today-date").textContent = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
   let branches = [];
-  try { branches = (await api("/lookups")).branches; } catch { /* fall back to "all branches" */ }
+  try { branches = (await api("/lookups")).branches; } catch { /* "All branches" still works */ }
   const sel = $("#dash-branch");
   sel.insertAdjacentHTML("beforeend", html`${branches.map((b) => html`<option value="${b.id}">${b.name}</option>`)}`);
   state.branch = initialBranch(branches);

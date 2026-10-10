@@ -1,14 +1,19 @@
-// Self-checkout kiosk: touch-first, large type, audio feedback, idle auto sign-out, printable receipt.
-// Authenticates ONLY with the device token (localStorage) + a short-lived patron session token; it never
-// relies on cookies and signs out any staff session left open in this browser.
-import { $, $$, html, icon } from "/static/js/core.js";
+// Self-checkout kiosk: touch-first, large type, three clear steps (sign in → scan → finish), audio feedback,
+// idle auto sign-out with a visible countdown, printed or emailed receipt.
+// * Authenticates ONLY with the device token (localStorage) + a short-lived patron session token; it never
+//   relies on cookies and signs out any staff session left open in this browser.
+// * Scans are queued and processed one at a time (each gets its own line), so a fast scanner never loses one.
+// * Works in every UI language and direction; honours the reader's high-contrast and sound choices.
+import { $, $$, html, icon, trapFocus } from "/static/js/core.js";
 import { formatDate, t } from "/static/js/i18n.js";
+import { tone } from "/static/js/pages/lib/desk-feedback.js";
+import { reasonText } from "/static/js/pages/lib/desk-ui.js";
 
 const TOKEN_KEY = "sw-kiosk-token";
 const PREFS_KEY = "sw-kiosk-prefs";
 const IDLE_WARN_MS = 45_000; // inactivity before "Are you still there?"
 const IDLE_GRACE_S = 15; // countdown before automatic sign-out
-const DONE_RETURN_S = 20; // receipt screen returns to welcome
+const DONE_RETURN_S = 15; // the goodbye screen returns to the start
 const WELCOME_CLEAR_MS = 60_000; // half-typed credentials are wiped
 
 const store = {
@@ -18,7 +23,8 @@ const store = {
 const prefs = (() => { try { return JSON.parse(store.get(PREFS_KEY) || "{}"); } catch { return {}; } })();
 const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
 
-const state = { device: null, session: null, data: null, screen: "loading", idleTimer: 0, countdown: 0, doneTimer: 0, welcomeTimer: 0, receipt: null };
+const state = { device: null, session: null, data: null, screen: "loading", idleTimer: 0, countdown: 0, doneTimer: 0, welcomeTimer: 0,
+  receipt: null, lines: [], queue: [], busy: false, seq: 0, releaseIdle: null };
 
 // ------------------------------------------------------------------ API (kiosk headers only)
 
@@ -34,42 +40,31 @@ async function kapi(path, { method = "GET", body } = {}) {
   const csrf = document.cookie.split("; ").find((c) => c.startsWith("sw_csrf="));
   if (csrf) headers["X-CSRF-Token"] = decodeURIComponent(csrf.split("=")[1]);
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const res = await fetch(`/api/v1/kiosk${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "omit" });
+  let res;
+  try {
+    res = await fetch(`/api/v1/kiosk${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: "omit" });
+  } catch { throw new KioskError(0, { code: "network" }); }
   const data = (res.headers.get("content-type") || "").includes("json") ? await res.json() : null;
   if (!res.ok) throw new KioskError(res.status, data);
   return data;
 }
 
-// ------------------------------------------------------------------ audio feedback (WebAudio)
-
-let audio = null;
-function beep(kind) {
-  if (prefs.sound === false) return;
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state === "suspended") audio.resume();
-    const tones = { ok: [[880, 0.09], [1320, 0.12]], error: [[196, 0.22], [147, 0.3]], info: [[660, 0.08]], done: [[660, 0.09], [880, 0.09], [1320, 0.16]] }[kind] || [[660, 0.08]];
-    let at = audio.currentTime;
-    for (const [freq, dur] of tones) {
-      const osc = audio.createOscillator(), gain = audio.createGain();
-      osc.type = kind === "error" ? "square" : "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(kind === "error" ? 0.12 : 0.2, at + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-      osc.connect(gain).connect(audio.destination);
-      osc.start(at);
-      osc.stop(at + dur + 0.02);
-      at += dur + 0.03;
-    }
-  } catch { /* audio unavailable */ }
-}
+const beep = (kind) => tone(kind, { enabled: prefs.sound !== false });
 
 // ------------------------------------------------------------------ screens & status
 
 function show(screen, focusSel) {
   state.screen = screen;
+  $("#kiosk").dataset.screenNow = screen;
   $$("[data-screen]").forEach((s) => { s.hidden = s.dataset.screen !== screen; });
+  const steps = $("#k-steps");
+  steps.classList.toggle("is-hidden", !["welcome", "session", "receipt", "done"].includes(screen));
+  const order = ["welcome", "session", "receipt"];
+  const at = screen === "done" ? 3 : order.indexOf(screen);
+  $$("[data-step]", steps).forEach((li, i) => {
+    li.classList.toggle("is-done", i < at);
+    if (i === at) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+  });
   clearTimeout(state.welcomeTimer);
   const target = focusSel ? $(focusSel) : $(`[data-screen="${screen}"] h1`);
   if (target) {
@@ -90,16 +85,18 @@ const due = (iso) => formatDate(new Date(`${iso}Z`), { weekday: "short", day: "n
 
 function errorMessage(e) {
   const code = e.data?.code;
+  if (!e.status) return t("kiosk.err_offline");
   if (e.status === 429) return t("kiosk.err_rate");
   if (code === "reserved") return t("kiosk.err_reserved");
-  if (code === "not_found") return t("kiosk.err_not_found");
+  if (code === "not_found" || e.status === 404) return t("kiosk.err_not_found");
   if (code === "already_on_loan") return t("kiosk.err_already_yours");
   if (code === "on_loan") return t("kiosk.err_on_loan");
   if (code === "checkout_blocked" || code === "renewal_blocked" || code === "policy_blocked") {
-    return `${t(code === "renewal_blocked" ? "kiosk.err_renew_blocked" : "kiosk.err_blocked")} (${(e.data.reasons || [e.message]).join("; ")})`;
+    const reasons = (e.data.reason_codes?.length ? e.data.reason_codes : (e.data.reasons || [e.message]).map((m) => ({ message: m }))).map(reasonText);
+    return `${t(code === "renewal_blocked" ? "kiosk.err_renew_blocked" : "kiosk.err_blocked")}: ${reasons.join("; ")}`;
   }
-  if (code === "conflict") return t("kiosk.err_conflict");
-  return e.message || t("kiosk.err_generic");
+  if (code === "conflict" || code === "withdrawn") return t("kiosk.err_conflict");
+  return t("kiosk.err_generic");
 }
 
 // ------------------------------------------------------------------ device setup
@@ -111,6 +108,7 @@ async function hello() {
     $("#k-library").textContent = state.device.library_name;
     $("#k-branch").textContent = `${t("kiosk.title")} · ${state.device.branch.name}`;
     document.title = `${t("kiosk.title")} · ${state.device.library_name}`;
+    status("");
     show("welcome", "#k-card");
   } catch (e) {
     if (e.status === 401) {
@@ -126,22 +124,38 @@ async function hello() {
 
 // ------------------------------------------------------------------ session rendering
 
+function lineHtml(l) {
+  const ic = l.status === "pending" ? html`<span class="spinner" aria-hidden="true"></span>` : icon(l.status === "error" ? "alert" : l.kind === "renew" ? "refresh" : "check");
+  const text = l.status === "pending" ? t("kiosk.working")
+    : l.status === "error" ? l.error
+      : `${l.kind === "renew" ? t("kiosk.renewed") : t("kiosk.borrowed")} · ${t("kiosk.due", { date: due(l.due_at) })}`;
+  return html`<li class="kiosk-line is-${l.status} ${l.kind}">
+    <span class="kiosk-line-icon" aria-hidden="true">${ic}</span>
+    <span class="grow"><strong>${l.title || l.barcode}</strong><span class="small ${l.status === "error" ? "kiosk-overdue" : "muted"}">${text}</span></span></li>`;
+}
+
+function renderLines() {
+  const done = state.lines.filter((l) => l.status === "ok");
+  $("#k-now-count").textContent = done.length ? `(${done.length})` : "";
+  $("#k-now").innerHTML = state.lines.length ? html`${state.lines.map(lineHtml)}` : html`<li class="kiosk-empty">${t("kiosk.nothing_yet")}</li>`;
+}
+
 function renderSession() {
   const d = state.data;
   $("#k-session-h").textContent = t("kiosk.hello", { name: d.patron.first_name });
-  $("#k-blocks").innerHTML = d.blocks.length ? html`<div class="kiosk-alert">${icon("alert")}<div><strong>${t("kiosk.blocked_title")}</strong><div>${d.blocks.join("; ")}</div></div></div>` : "";
-  const visit = (d.activity || []).length;
-  $("#k-now").innerHTML = state.visitLines?.length ? html`${state.visitLines.map((l) => html`<li class="kiosk-line ${l.kind}">
-      <span class="kiosk-line-icon" aria-hidden="true">${icon(l.kind === "renew" ? "refresh" : "check")}</span>
-      <span class="grow"><strong>${l.title}</strong><span class="small muted">${l.kind === "renew" ? t("kiosk.renewed") : t("kiosk.borrowed")} · ${t("kiosk.due", { date: due(l.due_at) })}</span></span></li>`)}`
-    : html`<li class="kiosk-empty">${visit ? "" : t("kiosk.nothing_yet")}</li>`;
+  $("#k-session-sub").textContent = t("desk.kiosk.session_sub", { count: d.loans.length, max: d.max_loans });
+  const blocks = d.block_codes?.length ? d.block_codes.map(reasonText) : d.blocks;
+  $("#k-blocks").innerHTML = blocks.length ? html`<div class="kiosk-alert" role="note">${icon("alert")}<div><strong>${t("kiosk.blocked_title")}</strong>
+    <ul>${blocks.map((b) => html`<li>${b}</li>`)}</ul><div class="small">${t("desk.kiosk.blocked_help")}</div></div></div>` : "";
+  renderLines();
+  $("#k-loans-count").textContent = d.loans.length ? `(${d.loans.length})` : "";
   $("#k-loans").innerHTML = d.loans.length ? html`${d.loans.map((l) => html`<li class="kiosk-line ${l.overdue ? "overdue" : ""}">
-      <span class="grow"><strong>${l.title}</strong><span class="small ${l.overdue ? "kiosk-overdue" : "muted"}">${l.overdue ? t("kiosk.overdue") : t("kiosk.due", { date: due(l.due_at) })}</span></span>
-      ${state.device?.allow_renewal ? html`<button type="button" class="btn kiosk-btn sm" data-renew="${l.id}" ${l.can_renew ? "" : "disabled"}
-        aria-label="${t("kiosk.renew_item", { title: l.title })}" title="${l.can_renew ? "" : l.renew_blocks.join("; ")}">${icon("refresh")}${t("kiosk.renew")}</button>` : ""}</li>`)}`
+      <span class="grow"><strong>${l.title}</strong><span class="small ${l.overdue ? "kiosk-overdue" : "muted"}">${l.overdue ? t("kiosk.overdue") : t("kiosk.due", { date: due(l.due_at) })}</span>
+        ${state.device?.allow_renewal && !l.can_renew ? html`<span class="small kiosk-why">${t("desk.kiosk.cant_renew", { reason: (l.renew_codes || []).map(reasonText).join("; ") || l.renew_blocks.join("; ") })}</span>` : ""}</span>
+      ${state.device?.allow_renewal && l.can_renew ? html`<button type="button" class="btn kiosk-btn sm" data-renew="${l.id}" aria-label="${t("kiosk.renew_item", { title: l.title })}">${icon("refresh")}${t("kiosk.renew")}</button>` : ""}</li>`)}`
     : html`<li class="kiosk-empty">${t("kiosk.no_loans")}</li>`;
   $("#k-holds-wrap").hidden = !d.holds_ready.length;
-  $("#k-holds").innerHTML = html`${d.holds_ready.map((h) => html`<li class="kiosk-line"><span class="grow"><strong>${h.title}</strong>
+  $("#k-holds").innerHTML = html`${d.holds_ready.map((h) => html`<li class="kiosk-line"><span class="kiosk-line-icon hold" aria-hidden="true">${icon("bookmark")}</span><span class="grow"><strong>${h.title}</strong>
     <span class="small muted">${h.here ? t("kiosk.hold_here") : t("kiosk.hold_at", { branch: h.pickup })}</span></span></li>`)}`;
 }
 
@@ -155,7 +169,9 @@ async function refreshSession() {
 function sessionExpired() {
   state.session = null;
   state.data = null;
-  state.visitLines = [];
+  state.lines = [];
+  state.queue = [];
+  hideIdle();
   status(t("kiosk.session_expired"));
   show("welcome", "#k-card");
 }
@@ -169,15 +185,18 @@ async function signIn(e) {
   if (!card || !password) { showError(err, t("kiosk.err_missing")); beep("error"); (card ? form.password : form.card).focus(); return; }
   showError(err, "");
   const btn = $("button[type=submit]", form);
-  btn.disabled = true;
+  btn.setAttribute("aria-busy", "true");
   try {
     const r = await kapi("/session", { method: "POST", body: { card, password } });
     state.session = r.session_token;
     state.data = r;
-    state.visitLines = [];
+    state.lines = [];
     form.reset();
+    setPwVisible(false);
     beep("info");
     renderSession();
+    $("#k-scan-result").className = "kiosk-result";
+    $("#k-scan-result").textContent = "";
     show("session", "#k-barcode");
     status(t("kiosk.signed_in", { name: r.patron.first_name }));
   } catch (ex) {
@@ -185,70 +204,114 @@ async function signIn(e) {
     showError(err, ex.status === 401 ? t("kiosk.err_login") : errorMessage(ex));
     form.password.value = "";
     form.password.focus();
-  } finally { btn.disabled = false; }
+  } finally { btn.removeAttribute("aria-busy"); }
 }
 
-async function borrow(e) {
+function result(kind, msg) {
+  const out = $("#k-scan-result");
+  out.className = `kiosk-result ${kind}`;
+  out.innerHTML = html`${icon(kind === "ok" ? "check" : kind === "bad" ? "alert" : "info")}<span>${msg}</span>`;
+}
+
+/** Queue a scan; the field is never disabled and is cleared at once for the next one. */
+function borrow(e) {
   e.preventDefault();
-  const input = $("#k-barcode"), out = $("#k-scan-result");
+  const input = $("#k-barcode");
   const barcode = input.value.trim();
-  if (!barcode) { input.focus(); return; }
   input.value = "";
-  out.className = "kiosk-result";
-  out.textContent = t("kiosk.working");
-  try {
-    const r = await kapi("/checkout", { method: "POST", body: { barcode } });
-    state.visitLines = [{ kind: "checkout", title: r.loan.title, due_at: r.loan.due_at }, ...(state.visitLines || [])];
-    out.className = "kiosk-result ok";
-    out.innerHTML = html`${icon("check")}<span><strong>${r.loan.title}</strong> — ${t("kiosk.due", { date: due(r.loan.due_at) })}</span>`;
-    beep("ok");
-    await refreshSession();
-  } catch (ex) {
-    if (ex.status === 401) { sessionExpired(); return; }
-    out.className = "kiosk-result bad";
-    out.innerHTML = html`${icon("alert")}<span>${errorMessage(ex)}</span>`;
-    beep("error");
-  }
   input.focus();
+  if (!barcode) return;
+  const line = { id: ++state.seq, kind: "checkout", status: "pending", barcode };
+  state.lines.unshift(line);
+  renderLines();
+  state.queue.push(line);
+  pump();
+}
+
+async function pump() {
+  if (state.busy) return;
+  state.busy = true;
+  while (state.queue.length && state.session) {
+    const line = state.queue.shift();
+    try {
+      const r = await kapi("/checkout", { method: "POST", body: { barcode: line.barcode } });
+      Object.assign(line, { status: "ok", title: r.loan.title, due_at: r.loan.due_at });
+      result("ok", html`<strong>${r.loan.title}</strong> · ${t("kiosk.due", { date: due(r.loan.due_at) })}`);
+      beep("ok");
+    } catch (ex) {
+      if (ex.status === 401) { state.busy = false; sessionExpired(); return; }
+      Object.assign(line, { status: "error", error: errorMessage(ex) });
+      result("bad", line.error);
+      beep("error");
+    }
+    renderLines();
+  }
+  state.busy = false;
+  if (state.session) refreshSession();
 }
 
 async function renewLoan(btn) {
+  btn.setAttribute("aria-busy", "true");
   btn.disabled = true;
-  const out = $("#k-scan-result");
   try {
     const r = await kapi("/renew", { method: "POST", body: { loan_id: Number(btn.dataset.renew) } });
-    state.visitLines = [{ kind: "renew", title: r.loan.title, due_at: r.loan.due_at }, ...(state.visitLines || [])];
-    out.className = "kiosk-result ok";
-    out.innerHTML = html`${icon("refresh")}<span>${t("kiosk.renewed_until", { title: r.loan.title, date: due(r.loan.due_at) })}</span>`;
+    state.lines.unshift({ id: ++state.seq, kind: "renew", status: "ok", title: r.loan.title, due_at: r.loan.due_at, barcode: r.loan.barcode });
+    result("ok", t("kiosk.renewed_until", { title: r.loan.title, date: due(r.loan.due_at) }));
     beep("ok");
     await refreshSession();
   } catch (ex) {
     if (ex.status === 401) { sessionExpired(); return; }
-    out.className = "kiosk-result bad";
-    out.innerHTML = html`${icon("alert")}<span>${errorMessage(ex)}</span>`;
+    result("bad", errorMessage(ex));
     beep("error");
     btn.disabled = false;
+    btn.removeAttribute("aria-busy");
   }
 }
 
-async function finish() {
+/** Finish → receipt choice (only when something happened this visit) → goodbye. */
+function finish() {
+  hideIdle();
+  const n = state.lines.filter((l) => l.status === "ok").length;
+  if (!n || !state.session) { endSession("none"); return; }
+  $("#k-receipt-lead").textContent = t("desk.kiosk.receipt_lead", { count: n });
+  const hint = state.data?.patron?.email_hint;
+  $("#k-email-choice").hidden = !hint;
+  $("#k-email-to").textContent = hint || "";
+  show("receipt", '[data-receipt="print"]');
+}
+
+async function endSession(choice) {
   hideIdle();
   let receipt = null;
-  try { receipt = await kapi("/session/end", { method: "POST" }); } catch { /* session may already have expired */ }
+  if (state.session) {
+    try { receipt = await kapi("/session/end", { method: "POST", body: { email_receipt: choice === "email" } }); } catch { /* may have expired */ }
+  }
   state.session = null;
   state.data = null;
   state.receipt = receipt;
-  state.visitLines = [];
+  const lines = receipt?.lines || [];
+  state.lines = [];
+  state.queue = [];
   status("");
   $("#k-scan-result").textContent = "";
-  const n = receipt?.lines?.length || 0;
-  $("#k-done-lead").textContent = n ? t("kiosk.done_lead", { count: n }) : t("kiosk.done_lead_none");
-  $("#k-print").hidden = !receipt;
+  let lead = t("kiosk.done_lead_none");
+  if (choice === "print" && receipt) lead = t("desk.kiosk.printing");
+  else if (choice === "email") lead = receipt?.emailed_to ? t("desk.kiosk.emailed", { to: receipt.emailed_to }) : t("desk.kiosk.email_failed");
+  else if (lines.length) lead = t("desk.kiosk.goodbye");
+  $("#k-done-lead").textContent = lead;
+  $("#k-done-list").innerHTML = html`${lines.filter((l) => l.kind === "checkout").slice(0, 6).map((l) => html`<li><span>${l.title}</span><strong>${t("kiosk.due", { date: due(l.due_at) })}</strong></li>`)}`;
   beep("done");
-  show("done", "#k-print");
+  show("done", "#k-again");
+  if (choice === "print" && receipt) printReceipt();
+  countdownHome();
+}
+
+function countdownHome() {
   let left = DONE_RETURN_S;
+  const bar = $("#k-done-bar");
   const tick = () => {
     $("#k-done-timer").textContent = t("kiosk.returning", { count: left });
+    bar.style.width = `${(100 * left) / DONE_RETURN_S}%`;
     if (left-- <= 0) { clearInterval(state.doneTimer); backToWelcome(); }
   };
   clearInterval(state.doneTimer);
@@ -274,16 +337,14 @@ function printReceipt() {
     ${r.lines.length ? html`<ol>${r.lines.map((l) => html`<li><strong>${l.title}</strong><br>${l.kind === "renew" ? t("kiosk.renewed") : t("kiosk.borrowed")} · ${t("kiosk.due", { date: due(l.due_at) })}<br><small>${l.barcode}</small></li>`)}</ol>` : html`<p>${t("kiosk.nothing_yet")}</p>`}
     ${r.open_loans.length ? html`<h2>${t("kiosk.your_loans")}</h2><ul>${r.open_loans.map((l) => html`<li>${l.title} — ${due(l.due_at)}</li>`)}</ul>` : ""}
     <p class="thanks">${t("kiosk.receipt_thanks")}</p>`;
-  clearInterval(state.doneTimer);
-  window.print();
-  setTimeout(backToWelcome, 1500);
+  setTimeout(() => { try { window.print(); } catch { /* no printer */ } }, 50);
 }
 
 // ------------------------------------------------------------------ inactivity
 
 function resetIdle() {
   clearTimeout(state.idleTimer);
-  if (state.screen === "session") state.idleTimer = setTimeout(showIdle, IDLE_WARN_MS);
+  if (state.screen === "session" || state.screen === "receipt") state.idleTimer = setTimeout(showIdle, IDLE_WARN_MS);
   else if (state.screen === "welcome") {
     clearTimeout(state.welcomeTimer);
     state.welcomeTimer = setTimeout(() => { $("#k-login-form").reset(); showError($("#k-login-error"), ""); }, WELCOME_CLEAR_MS);
@@ -293,12 +354,15 @@ function resetIdle() {
 function showIdle() {
   const box = $("#k-idle");
   box.hidden = false;
+  state.releaseIdle = trapFocus(box);
   let left = IDLE_GRACE_S;
+  const ring = $("#k-idle-ring");
   const tick = () => {
     $("#k-idle-count").textContent = left;
     $("#k-idle-text").textContent = t("kiosk.idle_text", { count: left });
+    ring.style.strokeDashoffset = String(326.7 * (1 - left / IDLE_GRACE_S));
     if (left === IDLE_GRACE_S || left <= 5) beep("info");
-    if (left-- <= 0) { hideIdle(); finish(); }
+    if (left-- <= 0) { hideIdle(); endSession("none"); }
   };
   tick();
   clearInterval(state.countdown);
@@ -308,6 +372,8 @@ function showIdle() {
 
 function hideIdle() {
   clearInterval(state.countdown);
+  state.releaseIdle?.();
+  state.releaseIdle = null;
   $("#k-idle").hidden = true;
 }
 
@@ -315,21 +381,33 @@ function hideIdle() {
 
 function applyPrefs() {
   const d = document.documentElement;
-  if (prefs.contrast) d.dataset.theme = "contrast"; else if (d.dataset.theme === "contrast") delete d.dataset.theme;
+  // The kiosk's own high-contrast switch wins; otherwise keep the device's appearance setting (sw-prefs.theme).
+  let base = null;
+  try { base = JSON.parse(store.get("sw-prefs") || "{}").theme || null; } catch { /* ignore */ }
+  if (prefs.contrast) d.dataset.theme = "contrast";
+  else if (base && base !== "system" && base !== "contrast") d.dataset.theme = base;
+  else delete d.dataset.theme;
   $("#k-contrast").setAttribute("aria-pressed", String(!!prefs.contrast));
   $("#k-sound").setAttribute("aria-pressed", String(prefs.sound !== false));
   $("#k-sound use").setAttribute("href", prefs.sound === false ? "#i-volume-off" : "#i-volume");
 }
 
+function setPwVisible(on) {
+  $("#k-password").type = on ? "text" : "password";
+  $("#k-show-pw").setAttribute("aria-pressed", String(on));
+  $("#k-show-pw").textContent = on ? t("desk.kiosk.hide_pw") : t("desk.kiosk.show_pw");
+}
+
 async function scanWithCamera() {
   const dlg = document.createElement("dialog");
   dlg.className = "scanner";
-  dlg.innerHTML = html`<div class="dialog-head"><h2>${t("kiosk.camera")}</h2><button class="btn ghost icon-only" data-close aria-label="${t("common.close")}">${icon("x")}</button></div>
+  dlg.setAttribute("aria-labelledby", "k-cam-h");
+  dlg.innerHTML = html`<div class="dialog-head"><h2 id="k-cam-h">${t("kiosk.camera")}</h2><button type="button" class="btn ghost icon-only" data-close aria-label="${t("common.close")}">${icon("x")}</button></div>
     <div class="dialog-body"><video autoplay playsinline muted></video></div>`;
   document.body.append(dlg);
   dlg.showModal();
   let stream, active = true;
-  const stop = () => { active = false; stream?.getTracks().forEach((tr) => tr.stop()); dlg.close(); dlg.remove(); $("#k-barcode").focus(); };
+  const stop = () => { active = false; stream?.getTracks().forEach((tr) => tr.stop()); if (dlg.open) dlg.close(); dlg.remove(); $("#k-barcode").focus(); };
   dlg.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) stop(); });
   dlg.addEventListener("cancel", stop);
   try {
@@ -354,7 +432,8 @@ export default async function init() {
   // Keep patrons inside the kiosk: no command palette / navigation shortcuts.
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && ["k", "j"].includes(e.key.toLowerCase())) { e.stopImmediatePropagation(); e.preventDefault(); }
-    if (e.key === "/" && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) e.stopImmediatePropagation();
+    if ((e.key === "/" || e.key === "?") && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) e.stopImmediatePropagation();
+    if (e.key === "Escape" && !$("#k-idle").hidden) { e.preventDefault(); hideIdle(); resetIdle(); refreshSession(); }
   }, true);
   applyPrefs();
   ["pointerdown", "keydown", "input", "touchstart"].forEach((ev) => document.addEventListener(ev, () => { if ($("#k-idle").hidden) resetIdle(); }, { passive: true }));
@@ -364,6 +443,7 @@ export default async function init() {
   $("#k-fullscreen").addEventListener("click", () => {
     if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {});
   });
+  $("#k-show-pw").addEventListener("click", () => setPwVisible($("#k-password").type === "password"));
   $("#k-setup-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const token = e.target.token.value.trim();
@@ -377,10 +457,11 @@ export default async function init() {
   $("#k-scan-form").addEventListener("submit", borrow);
   $("#k-loans").addEventListener("click", (e) => { const b = e.target.closest("[data-renew]"); if (b) renewLoan(b); });
   $("#k-finish").addEventListener("click", finish);
-  $("#k-idle-stay").addEventListener("click", () => { hideIdle(); resetIdle(); $("#k-barcode").focus(); refreshSession(); });
-  $("#k-idle-end").addEventListener("click", finish);
-  $("#k-print").addEventListener("click", printReceipt);
-  $("#k-no-receipt").addEventListener("click", backToWelcome);
+  $("#k-back").addEventListener("click", () => show("session", "#k-barcode"));
+  $$("[data-receipt]").forEach((b) => b.addEventListener("click", () => endSession(b.dataset.receipt)));
+  $("#k-again").addEventListener("click", backToWelcome);
+  $("#k-idle-stay").addEventListener("click", () => { hideIdle(); resetIdle(); if (state.screen === "session") $("#k-barcode").focus(); refreshSession(); });
+  $("#k-idle-end").addEventListener("click", () => { hideIdle(); finish(); });
   if ("BarcodeDetector" in window && navigator.mediaDevices) { $("#k-camera").hidden = false; $("#k-camera").addEventListener("click", scanWithCamera); }
   await hello();
 }

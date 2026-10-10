@@ -102,18 +102,35 @@ def open_loans(db: Session, patron_id: int) -> list[Loan]:
     )
 
 
-def patron_blocks(db: Session, patron: Patron, *, today: date | None = None) -> list[str]:
-    """Reasons a patron cannot borrow. Empty list = may borrow."""
+def reason(code: str, message: str, **params) -> dict:
+    """A structured block / warning: a stable ``code`` (+ ``params``) the UI can translate, and the English
+    ``message`` kept for API clients that only read text."""
+    return {"code": code, "message": message, "params": params}
+
+
+def messages(reasons: list[dict]) -> list[str]:
+    return [r["message"] for r in reasons]
+
+
+def patron_block_reasons(db: Session, patron: Patron, *, today: date | None = None) -> list[dict]:
+    """Structured reasons a patron cannot borrow (see :func:`reason`). Empty list = may borrow."""
     today = today or utcnow().date()
     reasons = []
     if not patron.is_active or patron.deleted_at is not None:
-        reasons.append("Account is inactive")
+        reasons.append(reason("inactive", "Account is inactive"))
     if patron.expires_on and patron.expires_on < today:
-        reasons.append(f"Membership expired on {patron.expires_on.isoformat()}")
+        reasons.append(reason("expired", f"Membership expired on {patron.expires_on.isoformat()}",
+                              date=patron.expires_on.isoformat()))
     owed = balance(db, patron.id)
     if owed >= patron.category.block_fine_threshold:
-        reasons.append(f"Outstanding charges ({owed / 100:.2f}) exceed the limit")
+        reasons.append(reason("fines", f"Outstanding charges ({owed / 100:.2f}) exceed the limit",
+                              amount=owed / 100, limit=patron.category.block_fine_threshold / 100))
     return reasons
+
+
+def patron_blocks(db: Session, patron: Patron, *, today: date | None = None) -> list[str]:
+    """Reasons a patron cannot borrow. Empty list = may borrow."""
+    return messages(patron_block_reasons(db, patron, today=today))
 
 
 def pay(db: Session, patron: Patron, amount: int, actor: Patron | None, note: str | None = None) -> int:
@@ -166,6 +183,13 @@ def charge(db: Session, patron: Patron, amount: int, actor: Patron, note: str) -
 class CheckoutResult:
     loan: Loan
     warnings: list[str] = field(default_factory=list)
+    warning_codes: list[dict] = field(default_factory=list)
+    audit: object | None = None  # the transaction's audit entry; its id is the undo token
+
+    @property
+    def undo_token(self) -> int | None:
+        """Id of the audit entry (assigned when the session flushes), passed back to :func:`undo`."""
+        return getattr(self.audit, "id", None)
 
 
 def checkout(
@@ -178,27 +202,30 @@ def checkout(
     override: bool = False,
     now: datetime | None = None,
     due_at: datetime | None = None,
+    override_reason: str | None = None,
 ) -> CheckoutResult:
     now = now or utcnow()
-    warnings: list[str] = []
-    blocks = patron_blocks(db, patron, today=now.date())
+    warnings: list[dict] = []
+    blocks = patron_block_reasons(db, patron, today=now.date())
 
     if item.deleted_at is not None or item.status in (ItemStatus.withdrawn,):
-        raise Conflict("Item has been withdrawn from circulation")
+        raise Conflict("Item has been withdrawn from circulation", code="withdrawn")
     if item.status == ItemStatus.on_loan:
         current = db.scalar(select(Loan).where(Loan.item_id == item.id, Loan.returned_at.is_(None)))
         if current and current.patron_id == patron.id:
-            raise Conflict("Item is already on loan to this patron — renew it instead", code="already_on_loan")
+            raise Conflict("Item is already on loan to this patron — renew it instead", code="already_on_loan",
+                           details={"loan_id": current.id})
         raise Conflict("Item is on loan to another patron — check it in first", code="on_loan")
+    prev_status = item.status
     if item.status in (ItemStatus.lost, ItemStatus.damaged, ItemStatus.processing, ItemStatus.in_transit):
-        blocks.append(f"Item status is '{item.status.value}'")
+        blocks.append(reason("item_status", f"Item status is '{item.status.value}'", status=item.status.value))
 
     # Holds: an item waiting on the hold shelf is reserved for exactly one patron.
     ready_hold = db.scalar(
         select(Hold).where(Hold.item_id == item.id, Hold.status == HoldStatus.ready)
     )
     if ready_hold and ready_hold.patron_id != patron.id:
-        blocks.append("Item is waiting on the hold shelf for another patron")
+        blocks.append(reason("reserved", "Item is waiting on the hold shelf for another patron"))
     queued_others = db.scalar(
         select(func.count()).select_from(Hold).where(
             Hold.biblio_id == item.biblio_id,
@@ -207,23 +234,28 @@ def checkout(
         )
     )
     if queued_others and not ready_hold:
-        warnings.append(f"{queued_others} other patron(s) have holds on this title")
+        warnings.append(reason("holds_waiting", f"{queued_others} other patron(s) have holds on this title",
+                               count=queued_others))
 
     loans_now = len(open_loans(db, patron.id))
     if loans_now >= patron.category.max_loans:
-        blocks.append(f"Loan limit reached ({patron.category.max_loans})")
+        blocks.append(reason("loan_limit", f"Loan limit reached ({patron.category.max_loans})",
+                             max=patron.category.max_loans))
 
     if blocks and not override:
-        raise PolicyBlocked("; ".join(blocks), code="checkout_blocked", details={"reasons": blocks})
+        raise PolicyBlocked("; ".join(messages(blocks)), code="checkout_blocked",
+                            details={"reasons": messages(blocks), "reason_codes": blocks})
     if blocks:
-        warnings.extend(f"Overridden: {b}" for b in blocks)
+        warnings.extend(reason("overridden", f"Overridden: {b['message']}", reason=b["code"], **b["params"])
+                        for b in blocks)
 
     rule = resolve_rule(db, branch_id, patron.category_id, item.item_type_id)
     # Library calendar: a computed due date never lands on a day the issuing branch is closed.
     due = due_at or calendar_svc.adjust_due(db, branch_id, end_of_day((now + timedelta(days=rule.loan_days)).date()))
     if patron.expires_on and due.date() > patron.expires_on:
         due = end_of_day(patron.expires_on)
-        warnings.append("Due date shortened to membership expiry")
+        warnings.append(reason("due_shortened", "Due date shortened to membership expiry",
+                               date=patron.expires_on.isoformat()))
 
     loan = Loan(
         item_id=item.id,
@@ -237,6 +269,7 @@ def checkout(
     item.status = ItemStatus.on_loan
     item.times_borrowed = (item.times_borrowed or 0) + 1
     item.last_seen_at = now
+    fulfilled = []
     for hold in db.scalars(
         select(Hold).where(
             Hold.patron_id == patron.id,
@@ -244,6 +277,7 @@ def checkout(
             Hold.status.in_(ACTIVE_HOLD_STATUSES),
         )
     ):
+        fulfilled.append(_hold_state(hold))
         hold.status = HoldStatus.fulfilled
         hold.item = item
     try:
@@ -251,9 +285,12 @@ def checkout(
     except IntegrityError as exc:  # concurrent checkout of the same item
         db.rollback()
         raise Conflict("Item was just checked out by another transaction") from exc
-    audit.record(db, "checkout", "loan", loan.id, actor=actor, item=item.barcode,
-                 patron=patron.card_number, override=override or None)
-    return CheckoutResult(loan=loan, warnings=warnings)
+    entry = audit.record(db, "checkout", "loan", loan.id, actor=actor, item=item.barcode,
+                         patron=patron.card_number, override=override or None,
+                         override_reason=override_reason if override else None,
+                         # what undo() needs to put everything back exactly
+                         undo={"item_id": item.id, "prev_status": prev_status.value, "holds": fulfilled})
+    return CheckoutResult(loan=loan, warnings=messages(warnings), warning_codes=warnings, audit=entry)
 
 
 # ------------------------------------------------------------------ check-in
@@ -266,6 +303,15 @@ class CheckinResult:
     fine: int = 0
     hold: Hold | None = None
     messages: list[str] = field(default_factory=list)
+    # What staff should do with the item: hold_shelf · transit · home_branch · reshelve · already_on_hold_shelf
+    routing: str | None = None
+    to_branch: Branch | None = None
+    lost_found: bool = False
+    audit: object | None = None  # the check-in's audit entry; its id is the undo token
+
+    @property
+    def undo_token(self) -> int | None:
+        return getattr(self.audit, "id", None)
 
 
 def overdue_fine(loan: Loan, rule: EffectiveRule, when: datetime, db: Session | None = None) -> int:
@@ -290,7 +336,9 @@ def checkin(
 ) -> CheckinResult:
     now = now or utcnow()
     result = CheckinResult(item=item)
+    prev_status = item.status
     loan = db.scalar(select(Loan).where(Loan.item_id == item.id, Loan.returned_at.is_(None)))
+    loan_patron_id = loan.patron_id if loan is not None else None
     if loan is not None:
         patron = db.get(Patron, loan.patron_id) if loan.patron_id else None
         if patron:
@@ -309,28 +357,163 @@ def checkin(
         result.loan = loan
     elif item.status == ItemStatus.lost:
         result.messages.append("Lost item found and returned to circulation")
+        result.lost_found = True
     elif item.status == ItemStatus.on_hold_shelf:
         result.messages.append("Item is already on the hold shelf")
+        result.routing = "already_on_hold_shelf"
         result.hold = db.scalar(select(Hold).where(Hold.item_id == item.id, Hold.status == HoldStatus.ready))
+        if result.hold:
+            result.to_branch = result.hold.pickup_branch
         return result
 
     item.last_seen_at = now
+    queued = db.scalars(select(Hold).where(Hold.biblio_id == item.biblio_id, Hold.status == HoldStatus.queued)).all()
+    before = {h.id: _hold_state(h) for h in queued}
     result.hold = _route_to_next_hold(db, item, branch_id=branch_id, now=now)
     if result.hold:
         where = result.hold.pickup_branch.name
+        result.to_branch = result.hold.pickup_branch
         if result.hold.pickup_branch_id == branch_id:
+            result.routing = "hold_shelf"
             result.messages.append(f"Hold found — place on hold shelf for {result.hold.patron.full_name}")
         else:
+            result.routing = "transit"
             result.messages.append(f"Hold found — transfer to {where} for {result.hold.patron.full_name}")
     else:
         item.status = ItemStatus.available
         if item.branch_id != branch_id:
             home = db.get(Branch, item.branch_id)
+            result.routing, result.to_branch = "home_branch", home
             result.messages.append(f"Return item to its home branch: {home.name if home else item.branch_id}")
+        else:
+            result.routing = "reshelve"
     db.flush()
-    audit.record(db, "checkin", "item", item.id, actor=actor, barcode=item.barcode,
-                 fine=result.fine or None, hold=result.hold.id if result.hold else None)
+    entry = audit.record(db, "checkin", "item", item.id, actor=actor, barcode=item.barcode,
+                         fine=result.fine or None, hold=result.hold.id if result.hold else None,
+                         undo={"loan_id": loan.id if loan is not None else None, "patron_id": loan_patron_id,
+                               "prev_status": prev_status.value, "post_status": item.status.value,
+                               "fine": result.fine, "hold": before.get(result.hold.id) if result.hold else None})
+    result.audit = entry
     return result
+
+
+def _hold_state(hold: Hold) -> dict:
+    """Snapshot of the hold fields circulation changes, so :func:`undo` can put them back."""
+    return {"id": hold.id, "status": hold.status.value, "item_id": hold.item_id,
+            "ready_at": hold.ready_at.isoformat() if hold.ready_at else None,
+            "expires_at": hold.expires_at.isoformat() if hold.expires_at else None,
+            "suspended": bool(hold.suspended),
+            "suspended_until": hold.suspended_until.isoformat() if hold.suspended_until else None}
+
+
+def _restore_hold(hold: Hold, state: dict) -> None:
+    hold.status = HoldStatus(state["status"])
+    hold.item_id = state["item_id"]
+    hold.ready_at = datetime.fromisoformat(state["ready_at"]) if state.get("ready_at") else None
+    hold.expires_at = datetime.fromisoformat(state["expires_at"]) if state.get("expires_at") else None
+    hold.suspended = bool(state.get("suspended"))
+    hold.suspended_until = date.fromisoformat(state["suspended_until"]) if state.get("suspended_until") else None
+
+
+# ------------------------------------------------------------------ undo (the desk's safety net)
+
+UNDO_WINDOW = timedelta(seconds=30)
+UNDO_GRACE = timedelta(seconds=15)  # network latency / clock skew between the desk and the server
+
+
+def undo(db: Session, token: int, *, actor: Patron, may_undo_others: bool = False,
+         now: datetime | None = None) -> dict:
+    """Reverse a checkout or check-in made moments ago at the desk.
+
+    ``token`` is the id of the transaction's audit entry (returned by checkout / check-in as ``undo_token``).
+    Allowed only within :data:`UNDO_WINDOW`, by the same staff member (or one who may override), once, and
+    only while nothing else has touched the item — otherwise :class:`Conflict`. The reversal is itself
+    audited (``checkout_undone`` / ``checkin_undone``). A fine charged by the check-in is reversed with a
+    waiver entry so the ledger stays append-only, and a hold-ready notice that has not been sent yet is
+    withdrawn.
+    """
+    from ..models import AuditLog
+
+    now = now or utcnow()
+    entry = db.get(AuditLog, token)
+    if entry is None or entry.action not in ("checkout", "checkin") or not isinstance(entry.details, dict) \
+            or "undo" not in entry.details:
+        raise NotFound("Nothing to undo", code="undo_not_found")
+    if entry.actor_id != actor.id and not may_undo_others:
+        raise Conflict("Only the staff member who made this transaction can undo it", code="undo_not_yours")
+    if entry.at is None or now - entry.at > UNDO_WINDOW + UNDO_GRACE:
+        raise Conflict("Too late to undo: the undo window has passed", code="undo_expired")
+    done = db.scalar(select(func.count()).select_from(AuditLog).where(
+        AuditLog.action.in_(("checkout_undone", "checkin_undone")), AuditLog.entity_id == entry.id))
+    if done:
+        raise Conflict("This transaction has already been undone", code="undo_done")
+    info = entry.details["undo"]
+    stale = Conflict("The item has changed since, so undo is no longer safe", code="undo_stale")
+
+    if entry.action == "checkout":
+        loan = db.get(Loan, entry.entity_id)
+        item = db.get(Item, info["item_id"])
+        if loan is None or item is None or loan.returned_at is not None or loan.renewals or loan.fine_charged \
+                or item.status != ItemStatus.on_loan:
+            raise stale
+        if db.scalar(select(func.count()).select_from(LedgerEntry).where(LedgerEntry.loan_id == loan.id)):
+            raise stale
+        for state in info.get("holds") or []:
+            hold = db.get(Hold, state["id"])
+            if hold is None or hold.status != HoldStatus.fulfilled or hold.item_id != item.id:
+                raise stale
+            _restore_hold(hold, state)
+        patron = loan.patron
+        item.status = ItemStatus(info["prev_status"])
+        item.times_borrowed = max(0, (item.times_borrowed or 0) - 1)
+        db.delete(loan)  # the loan never really happened; the audit trail keeps both events
+        db.flush()
+        audit.record(db, "checkout_undone", "audit", entry.id, actor=actor, item=item.barcode,
+                     patron=patron.card_number if patron else None)
+        return {"undone": "checkout", "item": item, "patron": patron}
+
+    item = db.get(Item, entry.entity_id)
+    if item is None or item.status.value != info["post_status"]:
+        raise stale
+    if db.scalar(select(func.count()).select_from(Loan).where(Loan.item_id == item.id, Loan.returned_at.is_(None))):
+        raise stale
+    later = db.scalar(select(func.count()).select_from(AuditLog).where(
+        AuditLog.id > entry.id, AuditLog.entity == "item", AuditLog.entity_id == item.id))
+    if later:
+        raise stale
+    hold = None
+    notice_sent = False
+    if info.get("hold"):
+        hold = db.get(Hold, info["hold"]["id"])
+        if hold is None or hold.item_id != item.id or hold.status not in ACTIVE_HOLD_STATUSES:
+            raise stale
+        if hold.status == HoldStatus.ready:  # withdraw the "ready for pickup" notice while it is still queued
+            for n in db.scalars(select(Notification).where(
+                    Notification.patron_id == hold.patron_id, Notification.code == "HOLD_READY",
+                    Notification.created_at >= entry.at - timedelta(seconds=1))):
+                if n.status == "pending":
+                    db.delete(n)
+                else:
+                    notice_sent = True
+        _restore_hold(hold, info["hold"])
+    loan = db.get(Loan, info["loan_id"]) if info.get("loan_id") else None
+    patron = None
+    if loan is not None:
+        if loan.returned_at is None:
+            raise stale
+        loan.returned_at = None
+        loan.patron_id = info.get("patron_id")
+        patron = db.get(Patron, loan.patron_id) if loan.patron_id else None
+        fine = int(info.get("fine") or 0)
+        if fine and patron is not None:
+            db.add(LedgerEntry(patron_id=patron.id, loan_id=loan.id, kind=LedgerKind.waiver, amount=-fine,
+                               note="Check-in undone: overdue fine reversed", created_by_id=actor.id))
+            loan.fine_charged = max(0, loan.fine_charged - fine)
+    item.status = ItemStatus(info["prev_status"])
+    db.flush()
+    audit.record(db, "checkin_undone", "audit", entry.id, actor=actor, item=item.barcode,
+                 loan=loan.id if loan is not None else None, hold=hold.id if hold else None)
+    return {"undone": "checkin", "item": item, "patron": patron, "loan": loan, "notice_sent": notice_sent}
 
 
 def _route_to_next_hold(db: Session, item: Item, *, branch_id: int, now: datetime) -> Hold | None:
@@ -372,6 +555,7 @@ def receive_transfer(db: Session, item: Item, *, branch_id: int, actor: Patron |
         raise Conflict("Item is not in transit")
     hold = db.scalar(select(Hold).where(Hold.item_id == item.id, Hold.status == HoldStatus.queued))
     result = CheckinResult(item=item)
+    result.to_branch = hold.pickup_branch if hold else None
     if hold and hold.pickup_branch_id == branch_id:
         rule = resolve_rule(db, branch_id, hold.patron.category_id, item.item_type_id)
         hold.status = HoldStatus.ready
@@ -379,12 +563,21 @@ def receive_transfer(db: Session, item: Item, *, branch_id: int, actor: Patron |
         hold.expires_at = end_of_day(calendar_svc.pickup_deadline(db, branch_id, now.date(), rule.hold_pickup_days))
         item.status = ItemStatus.on_hold_shelf
         result.hold = hold
+        result.routing = "hold_shelf"
         result.messages.append(f"Place on hold shelf for {hold.patron.full_name}")
         notify(db, hold.patron, "Your hold is ready for pickup",
                f"'{item.biblio.title}' is waiting for you at {hold.pickup_branch.name}.",
                code="HOLD_READY", context=_hold_ready_ctx(hold, item))
+    elif hold:  # arrived at another branch: it stays in transit towards the pickup branch
+        result.hold = hold
+        result.routing = "transit"
+        result.messages.append(f"Hold found — transfer to {hold.pickup_branch.name} for {hold.patron.full_name}")
     else:
         item.status = ItemStatus.available
+        if item.branch_id == branch_id:
+            result.routing = "reshelve"
+        else:
+            result.routing, result.to_branch = "home_branch", db.get(Branch, item.branch_id)
         result.messages.append("Item received and available")
     audit.record(db, "transfer_received", "item", item.id, actor=actor)
     db.flush()
@@ -395,16 +588,20 @@ def receive_transfer(db: Session, item: Item, *, branch_id: int, actor: Patron |
 
 
 def renewal_blocks(db: Session, loan: Loan, *, now: datetime | None = None) -> list[str]:
+    return messages(renewal_block_reasons(db, loan, now=now))
+
+
+def renewal_block_reasons(db: Session, loan: Loan, *, now: datetime | None = None) -> list[dict]:
     now = now or utcnow()
     reasons = []
     if loan.returned_at is not None:
-        return ["Loan is already closed"]
+        return [reason("loan_closed", "Loan is already closed")]
     patron = db.get(Patron, loan.patron_id) if loan.patron_id else None
     if patron is None:
-        return ["Loan has no patron"]
+        return [reason("no_patron", "Loan has no patron")]
     rule = resolve_rule(db, loan.branch_id, patron.category_id, loan.item.item_type_id)
     if loan.renewals >= rule.max_renewals:
-        reasons.append(f"Renewal limit reached ({rule.max_renewals})")
+        reasons.append(reason("renew_limit", f"Renewal limit reached ({rule.max_renewals})", max=rule.max_renewals))
     queued = db.scalar(
         select(func.count()).select_from(Hold).where(
             Hold.biblio_id == loan.item.biblio_id,
@@ -413,17 +610,18 @@ def renewal_blocks(db: Session, loan: Loan, *, now: datetime | None = None) -> l
         )
     )
     if queued:
-        reasons.append("Another patron is waiting for this title")
-    reasons.extend(patron_blocks(db, patron, today=now.date()))
+        reasons.append(reason("title_wanted", "Another patron is waiting for this title"))
+    reasons.extend(patron_block_reasons(db, patron, today=now.date()))
     return reasons
 
 
 def renew(db: Session, loan: Loan, *, actor: Patron | None = None, override: bool = False,
-          now: datetime | None = None) -> Loan:
+          now: datetime | None = None, override_reason: str | None = None) -> Loan:
     now = now or utcnow()
-    blocks = renewal_blocks(db, loan, now=now)
+    blocks = renewal_block_reasons(db, loan, now=now)
     if blocks and not override:
-        raise PolicyBlocked("; ".join(blocks), code="renewal_blocked", details={"reasons": blocks})
+        raise PolicyBlocked("; ".join(messages(blocks)), code="renewal_blocked",
+                            details={"reasons": messages(blocks), "reason_codes": blocks})
     patron = db.get(Patron, loan.patron_id)
     assert patron is not None
     rule = resolve_rule(db, loan.branch_id, patron.category_id, loan.item.item_type_id)
@@ -440,7 +638,9 @@ def renew(db: Session, loan: Loan, *, actor: Patron | None = None, override: boo
     loan.due_at = new_due
     loan.renewals += 1
     db.flush()
-    audit.record(db, "renew", "loan", loan.id, actor=actor, due=new_due.isoformat())
+    audit.record(db, "renew", "loan", loan.id, actor=actor, due=new_due.isoformat(),
+                 override=(override and bool(blocks)) or None,
+                 override_reason=override_reason if (override and blocks) else None)
     return loan
 
 

@@ -1,45 +1,108 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Circulation{% endblock %}
+{#- Circulation desk: mode bar (F2/F3/F4/F6) → scan form that never drops a scan (queued, one request at a time)
+    → transaction log with per-scan status, undo and slips; patron context panel on the side. All behaviour in
+    static/js/pages/staff-circulation.js; styles in static/css/pages/desk.css. -#}
+{% block page_title %}{{ t('desk.circ.title') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/desk.css?v={{ version }}">
+<script src="/static/js/desk-boot.js?v={{ version }}"></script>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Circulation desk</h1><div class="sub">Scan or type barcodes. <kbd>F2</kbd> check out · <kbd>F3</kbd> check in · <kbd>F4</kbd> receive transfer</div></div>
-  <div class="row tight">
-    <label for="desk-branch" class="sr-only">Branch</label>
-    <select id="desk-branch" style="width:auto" aria-label="Working branch"></select>
-  </div>
-</div>
-<div class="desk">
-  <section class="stack">
-    <div class="card pad stack">
-      <div class="mode-switch" role="group" aria-label="Desk mode">
-        <button data-mode="checkout" aria-pressed="true"><svg class="icon"><use href="#i-arrow-up"></use></svg>Check out</button>
-        <button data-mode="checkin" aria-pressed="false"><svg class="icon"><use href="#i-arrow-down"></use></svg>Check in</button>
-        <button data-mode="transfer" aria-pressed="false"><svg class="icon"><use href="#i-map"></use></svg>Receive transfer</button>
-      </div>
-      <form id="patron-form" class="field">
-        <label for="patron-card">Patron card number</label>
-        <div class="input-group">
-          <input id="patron-card" class="scan" placeholder="Scan library card…" autocomplete="off" inputmode="numeric">
-          <button class="btn" type="button" data-camera="patron-card" title="Scan with camera" hidden><svg class="icon"><use href="#i-barcode"></use></svg></button>
-          <button class="btn" type="submit">Load</button>
-        </div>
-        <span class="hint">Tip: you can also type a name — we'll search.</span>
-      </form>
-      <div id="patron-panel"></div>
-      <form id="item-form" class="field">
-        <label for="barcode" id="barcode-label">Item barcode</label>
-        <div class="input-group">
-          <input id="barcode" class="scan" placeholder="Scan item barcode…" autocomplete="off">
-          <button class="btn" type="button" data-camera="barcode" title="Scan with camera" hidden><svg class="icon"><use href="#i-barcode"></use></svg></button>
-          <button class="btn primary" type="submit" id="item-submit">Check out</button>
-        </div>
-      </form>
+{%- set preload_patron = request.query_params.get('patron') -%}
+<div class="desk-page circ" id="circ" data-mode="checkout" data-library="{{ library_name }}"
+     data-can-override="{{ 'true' if can(user, 'circulation:override') else 'false' }}"
+     data-can-patrons="{{ 'true' if can(user, 'patrons:read') else 'false' }}">
+  <header class="page-header circ-header">
+    <div class="ph-main">
+      <h1>{{ t('desk.circ.title') }}</h1>
+      <p class="ph-sub">{{ t('desk.circ.subtitle') }}</p>
     </div>
-    <div class="card" id="loans-card" hidden><div class="card-head"><h3>Current loans</h3><button class="btn sm" id="renew-all"><svg class="icon"><use href="#i-refresh"></use></svg>Renew all</button></div><div class="card-body" id="patron-loans"></div></div>
-  </section>
-  <section class="card">
-    <div class="card-head"><h3>This session</h3><button class="btn ghost sm" id="print-slip"><svg class="icon"><use href="#i-download"></use></svg>Print receipt</button></div>
-    <div class="card-body" id="feed"><div class="empty"><svg class="icon"><use href="#i-barcode"></use></svg><div>Transactions appear here as you scan.</div></div></div>
-  </section>
+    <div class="ph-actions circ-tools">
+      <div class="select-with-icon">
+        <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+        <label class="sr-only" for="desk-branch">{{ t('desk.circ.working_branch') }}</label>
+        <select id="desk-branch"><option value="{{ user.home_branch_id }}">{{ user.home_branch.name }}</option></select>
+      </div>
+      <button type="button" class="btn ghost" id="circ-sound" aria-pressed="true" data-tip="{{ t('desk.circ.sound_tip') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-volume"></use></svg><span>{{ t('desk.circ.sound') }}</span></button>
+      <button type="button" class="btn ghost icon-only" id="circ-keys" aria-label="{{ t('desk.circ.keys_title') }}" data-tip="{{ t('desk.circ.keys_title') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-keyboard"></use></svg></button>
+    </div>
+  </header>
+
+  <div class="circ-modes" role="radiogroup" aria-label="{{ t('desk.circ.mode') }}" id="circ-modes">
+    {%- for key, ic, label, kbd in [('checkout', 'arrow-up', 'desk.mode.checkout', 'F2'), ('checkin', 'arrow-down', 'desk.mode.checkin', 'F3'),
+                                    ('renew', 'refresh', 'desk.mode.renew', 'F4'), ('transfer', 'truck', 'desk.mode.transfer', 'F6')] %}
+    <button type="button" role="radio" data-mode="{{ key }}" aria-checked="{{ 'true' if key == 'checkout' else 'false' }}" tabindex="{{ '0' if key == 'checkout' else '-1' }}" aria-keyshortcuts="{{ kbd }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg><span class="m-label">{{ t(label) }}</span><kbd aria-hidden="true">{{ kbd }}</kbd></button>
+    {%- endfor %}
+  </div>
+
+  <div class="circ-layout">
+    <div class="circ-main">
+      <div class="circ-banner" id="circ-banner" role="alert" hidden></div>
+      <span class="sr-only" id="circ-announce" aria-live="polite"></span>
+
+      <form class="card circ-scan" id="patron-form" novalidate autocomplete="off"{% if preload_patron %} hidden{% endif %}>
+        <label for="patron-card" class="circ-scan-label">{{ t('desk.circ.patron_label') }}</label>
+        <div class="circ-scan-row">
+          <input id="patron-card" class="scan-input" type="text" inputmode="text" spellcheck="false" autocomplete="off"
+                 aria-describedby="patron-hint" placeholder="{{ t('desk.circ.patron_placeholder') }}">
+          <button class="btn icon-only lg" type="button" data-camera="patron" aria-label="{{ t('desk.circ.camera') }}" hidden><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg></button>
+          <button class="btn primary lg" type="submit">{{ t('desk.circ.load') }}</button>
+        </div>
+        <p class="circ-hint" id="patron-hint">{{ t('desk.circ.patron_hint') }}</p>
+        <div id="patron-matches" class="circ-matches" hidden></div>
+      </form>
+
+      <form class="card circ-scan" id="item-form" novalidate autocomplete="off"{% if not preload_patron %} hidden{% endif %}>
+        <label for="barcode" class="circ-scan-label" id="barcode-label">{{ t('desk.circ.item_label.checkout') }}</label>
+        <div class="circ-scan-row">
+          <input id="barcode" class="scan-input" type="text" spellcheck="false" autocomplete="off" aria-describedby="item-hint circ-queue">
+          <button class="btn icon-only lg" type="button" data-camera="item" aria-label="{{ t('desk.circ.camera') }}" hidden><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg></button>
+          <button class="btn primary lg" type="submit" id="item-submit">{{ t('desk.circ.submit.checkout') }}</button>
+        </div>
+        <div class="circ-scan-foot">
+          <p class="circ-hint" id="item-hint">{{ t('desk.circ.item_hint') }}</p>
+          <p class="circ-queue" id="circ-queue"></p>
+        </div>
+      </form>
+
+      <section class="card circ-log" aria-labelledby="log-h">
+        <div class="card-head">
+          <h2 id="log-h">{{ t('desk.circ.log_title') }} <span class="ph-count" id="log-count"></span></h2>
+          <div class="row tight circ-log-actions">
+            <button type="button" class="btn sm" id="print-receipt"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>{{ t('desk.circ.print_receipt') }}</button>
+            <button type="button" class="btn sm" id="email-receipt"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>{{ t('desk.circ.email_receipt') }}</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <ol class="circ-log-list" id="circ-log" aria-labelledby="log-h"></ol>
+          <div class="circ-log-empty" id="circ-log-empty">
+            <svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg>
+            <p>{{ t('desk.circ.log_empty') }}</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="circ-side" id="circ-side" aria-label="{{ t('desk.circ.side_label') }}">
+      {%- if preload_patron %}
+      <div class="card circ-panel is-loading" aria-busy="true">
+        <div class="pt-head"><div class="skeleton" style="width:4rem;height:4rem;border-radius:50%"></div>
+          <div class="grow stack tight"><div class="skeleton" style="height:1.3rem;width:70%"></div><div class="skeleton" style="height:.9rem;width:45%"></div></div></div>
+        <div class="skeleton" style="height:2rem;margin-top:1rem"></div>
+        <div class="skeleton" style="height:12rem;margin-top:1rem"></div>
+      </div>
+      {%- else %}
+      <section class="card circ-panel circ-welcome">
+        <h2>{{ t('desk.side.checkout_title') }}</h2>
+        <p class="muted">{{ t('desk.side.checkout_body') }}</p>
+        <ul class="circ-keys-list">
+          {%- for k, l in [('F2', 'desk.mode.checkout'), ('F3', 'desk.mode.checkin'), ('F4', 'desk.mode.renew'), ('F6', 'desk.mode.transfer'), ('Ctrl Z', 'desk.keys.undo'), ('Esc', 'desk.keys.dismiss')] %}
+          <li><kbd>{{ k }}</kbd><span>{{ t(l) }}</span></li>{% endfor %}
+        </ul>
+      </section>
+      {%- endif %}
+    </aside>
+  </div>
 </div>
 {% endblock %}

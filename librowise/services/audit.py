@@ -16,14 +16,14 @@ def record(
     actor: Patron | None = None,
     ip: str | None = None,
     **details,
-) -> None:
-    db.add(
-        AuditLog(
-            action=action,
-            entity=entity,
-            entity_id=entity_id,
-            actor_id=actor.id if actor else None,
-            ip=ip,
-            details={k: v for k, v in details.items() if v is not None},
-        )
+) -> AuditLog:
+    entry = AuditLog(
+        action=action,
+        entity=entity,
+        entity_id=entity_id,
+        actor_id=actor.id if actor else None,
+        ip=ip,
+        details={k: v for k, v in details.items() if v is not None},
     )
+    db.add(entry)
+    return entry

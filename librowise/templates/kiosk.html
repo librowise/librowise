@@ -1,9 +1,14 @@
 {% extends "base.html" %}
+{#- Self-checkout kiosk: touch-first, three clear steps (sign in → scan → finish), works in every language and
+    direction, never drops a scan, idle timeout with a visible countdown, printed or emailed receipt.
+    Behaviour: static/js/pages/kiosk.js (device token + short patron sessions only, never staff cookies). -#}
 {% block title %}{{ t('kiosk.title') }} · {{ library_name }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/desk.css?v={{ version }}">
+<script src="/static/js/kiosk-boot.js?v={{ version }}"></script>{% endblock %}
 {% block body %}
-<div class="kiosk" id="kiosk">
+<div class="kiosk" id="kiosk" data-screen-now="loading">
   <header class="kiosk-bar">
-    <div class="kiosk-brand"><img class="brand-logo seal" src="/static/brand/librowise-seal.svg" alt="" width="40" height="40">
+    <div class="kiosk-brand"><img class="brand-logo seal" src="/static/brand/librowise-seal.svg" alt="" width="44" height="44">
       <div><strong id="k-library">{{ library_name }}</strong><div class="small muted" id="k-branch">{{ t('kiosk.title') }}</div></div></div>
     <div class="kiosk-tools">
       {% include "_lang_switch.html" %}
@@ -12,6 +17,14 @@
       <button type="button" class="btn ghost kiosk-tool" id="k-fullscreen"><svg class="icon" aria-hidden="true"><use href="#i-maximize"></use></svg><span>{{ t('kiosk.fullscreen') }}</span></button>
     </div>
   </header>
+
+  <nav class="kiosk-steps is-hidden" aria-label="{{ t('desk.kiosk.steps') }}" id="k-steps">
+    <ol>
+      <li data-step="welcome"><span class="ks-n" aria-hidden="true">1</span><span>{{ t('desk.kiosk.step_signin') }}</span></li>
+      <li data-step="session"><span class="ks-n" aria-hidden="true">2</span><span>{{ t('desk.kiosk.step_scan') }}</span></li>
+      <li data-step="receipt"><span class="ks-n" aria-hidden="true">3</span><span>{{ t('desk.kiosk.step_finish') }}</span></li>
+    </ol>
+  </nav>
 
   <main id="main" class="kiosk-main" tabindex="-1">
     <div class="kiosk-status" id="k-status" role="status" aria-live="polite"></div>
@@ -35,7 +48,7 @@
     </section>
 
     <section class="kiosk-screen" data-screen="welcome" hidden aria-labelledby="k-welcome-h">
-      <div class="kiosk-card">
+      <div class="kiosk-card kiosk-welcome">
         <span class="kiosk-hero-icon" aria-hidden="true"><svg class="icon"><use href="#i-barcode"></use></svg></span>
         <h1 id="k-welcome-h">{{ t('kiosk.welcome_title') }}</h1>
         <p class="kiosk-lead">{{ t('kiosk.welcome_lead') }}</p>
@@ -43,9 +56,10 @@
           <div class="field"><label for="k-card">{{ t('kiosk.card') }}</label>
             <input id="k-card" name="card" class="kiosk-input" inputmode="numeric" autocomplete="off" required aria-describedby="k-login-error"></div>
           <div class="field"><label for="k-password">{{ t('kiosk.password') }}</label>
-            <input id="k-password" name="password" type="password" class="kiosk-input" autocomplete="off" required aria-describedby="k-login-error"></div>
+            <div class="kiosk-pw"><input id="k-password" name="password" type="password" class="kiosk-input" autocomplete="off" required aria-describedby="k-login-error">
+              <button type="button" class="btn kiosk-btn sm" id="k-show-pw" aria-pressed="false">{{ t('desk.kiosk.show_pw') }}</button></div></div>
           <p class="kiosk-error" id="k-login-error" role="alert" hidden></p>
-          <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.sign_in') }}</button>
+          <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.sign_in') }}<svg class="icon kiosk-dir" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button>
         </form>
         <p class="small muted">{{ t('kiosk.help') }}</p>
       </div>
@@ -54,25 +68,39 @@
     <section class="kiosk-screen" data-screen="session" hidden aria-labelledby="k-session-h">
       <div class="kiosk-session">
         <div class="kiosk-session-head">
-          <h1 id="k-session-h"></h1>
+          <div><h1 id="k-session-h"></h1><p class="kiosk-lead" id="k-session-sub"></p></div>
           <button type="button" class="btn primary kiosk-btn" id="k-finish"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>{{ t('kiosk.finish') }}</button>
         </div>
         <div id="k-blocks"></div>
         <form id="k-scan-form" class="kiosk-scan" novalidate>
-          <label for="k-barcode">{{ t('kiosk.scan_label') }}</label>
+          <div class="kiosk-scan-intro"><span class="kiosk-scan-icon" aria-hidden="true"><svg class="icon"><use href="#i-barcode"></use></svg></span>
+            <div><label for="k-barcode">{{ t('kiosk.scan_label') }}</label><p class="small muted" id="k-scan-hint">{{ t('kiosk.scan_hint') }}</p></div></div>
           <div class="kiosk-scan-row">
-            <input id="k-barcode" name="barcode" class="kiosk-input mono" autocomplete="off" spellcheck="false" required aria-describedby="k-scan-hint k-scan-result">
+            <input id="k-barcode" name="barcode" class="kiosk-input mono" autocomplete="off" spellcheck="false" aria-describedby="k-scan-hint">
             <button class="btn primary kiosk-btn" type="submit">{{ t('kiosk.borrow') }}</button>
-            <button class="btn kiosk-btn" type="button" id="k-camera" hidden><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span class="sr-only">{{ t('kiosk.camera') }}</span></button>
+            <button class="btn kiosk-btn" type="button" id="k-camera" hidden><svg class="icon" aria-hidden="true"><use href="#i-barcode"></use></svg><span>{{ t('kiosk.camera') }}</span></button>
           </div>
-          <p class="small muted" id="k-scan-hint">{{ t('kiosk.scan_hint') }}</p>
-          <div id="k-scan-result" class="kiosk-result" role="alert" aria-live="assertive"></div>
+          <div id="k-scan-result" class="kiosk-result" role="alert"></div>
         </form>
         <div class="kiosk-columns">
-          <section aria-labelledby="k-now-h"><h2 id="k-now-h">{{ t('kiosk.this_visit') }}</h2><ol class="kiosk-list" id="k-now"></ol></section>
-          <section aria-labelledby="k-loans-h"><h2 id="k-loans-h">{{ t('kiosk.your_loans') }}</h2><ul class="kiosk-list" id="k-loans"></ul></section>
+          <section aria-labelledby="k-now-h"><h2 id="k-now-h">{{ t('kiosk.this_visit') }} <span class="kiosk-count" id="k-now-count"></span></h2><ol class="kiosk-list" id="k-now"></ol></section>
+          <section aria-labelledby="k-loans-h"><h2 id="k-loans-h">{{ t('kiosk.your_loans') }} <span class="kiosk-count" id="k-loans-count"></span></h2><ul class="kiosk-list" id="k-loans"></ul></section>
         </div>
         <section id="k-holds-wrap" hidden aria-labelledby="k-holds-h"><h2 id="k-holds-h">{{ t('kiosk.holds_ready') }}</h2><ul class="kiosk-list" id="k-holds"></ul></section>
+      </div>
+    </section>
+
+    <section class="kiosk-screen" data-screen="receipt" hidden aria-labelledby="k-receipt-h">
+      <div class="kiosk-card">
+        <span class="kiosk-hero-icon" aria-hidden="true"><svg class="icon"><use href="#i-printer"></use></svg></span>
+        <h1 id="k-receipt-h">{{ t('desk.kiosk.receipt_title') }}</h1>
+        <p class="kiosk-lead" id="k-receipt-lead"></p>
+        <div class="kiosk-choices">
+          <button type="button" class="kiosk-choice" data-receipt="print"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg><span>{{ t('kiosk.print_receipt') }}</span></button>
+          <button type="button" class="kiosk-choice" data-receipt="email" id="k-email-choice"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg><span>{{ t('desk.kiosk.email_receipt') }}</span><small id="k-email-to"></small></button>
+          <button type="button" class="kiosk-choice" data-receipt="none"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg><span>{{ t('kiosk.no_receipt') }}</span></button>
+        </div>
+        <button type="button" class="btn ghost kiosk-btn sm" id="k-back">{{ t('desk.kiosk.back') }}</button>
       </div>
     </section>
 
@@ -81,11 +109,10 @@
         <span class="kiosk-hero-icon ok" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
         <h1 id="k-done-h">{{ t('kiosk.done_title') }}</h1>
         <p class="kiosk-lead" id="k-done-lead"></p>
-        <div class="row tight" style="justify-content:center">
-          <button type="button" class="btn primary kiosk-btn" id="k-print"><svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>{{ t('kiosk.print_receipt') }}</button>
-          <button type="button" class="btn kiosk-btn" id="k-no-receipt">{{ t('kiosk.no_receipt') }}</button>
-        </div>
-        <p class="small muted" id="k-done-timer" aria-live="off"></p>
+        <ul class="kiosk-due-summary" id="k-done-list"></ul>
+        <div class="kiosk-progress" aria-hidden="true"><span id="k-done-bar"></span></div>
+        <p class="small muted" id="k-done-timer"></p>
+        <button type="button" class="btn primary kiosk-btn" id="k-again">{{ t('desk.kiosk.start_again') }}</button>
       </div>
     </section>
   </main>
@@ -93,9 +120,9 @@
   <div class="kiosk-idle" id="k-idle" role="alertdialog" aria-modal="true" aria-labelledby="k-idle-h" aria-describedby="k-idle-text" hidden>
     <div class="kiosk-card">
       <h2 id="k-idle-h">{{ t('kiosk.idle_title') }}</h2>
+      <div class="kiosk-ring" aria-hidden="true"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"></circle><circle class="bar" id="k-idle-ring" cx="60" cy="60" r="52"></circle></svg><span id="k-idle-count"></span></div>
       <p id="k-idle-text" class="kiosk-lead"></p>
-      <div class="kiosk-countdown" aria-hidden="true"><span id="k-idle-count"></span></div>
-      <div class="row tight" style="justify-content:center">
+      <div class="kiosk-idle-actions">
         <button type="button" class="btn primary kiosk-btn" id="k-idle-stay">{{ t('kiosk.idle_stay') }}</button>
         <button type="button" class="btn kiosk-btn" id="k-idle-end">{{ t('kiosk.finish') }}</button>
       </div>

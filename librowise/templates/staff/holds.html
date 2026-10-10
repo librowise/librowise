@@ -1,25 +1,55 @@
 {% extends "staff_base.html" %}
-{% block page_title %}Holds{% endblock %}
+{#- Holds: one page, four work lists (queue · to pull · hold shelf · in transit) with search, branch filter,
+    bulk actions, printable pull list and slips. Behaviour: static/js/pages/staff-holds.js. -#}
+{% block page_title %}{{ t('nav.holds') }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/desk.css?v={{ version }}">{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Holds</h1>
-    <div class="sub">Work the reservation queue, pull copies from the shelves and manage the pickup shelf.</div>
-  </div>
-  <div class="row tight">
-    <label for="holds-branch" class="sr-only">Filter by pickup branch</label>
-    <select id="holds-branch" style="width:auto">
-      <option value="">All branches</option>
-    </select>
-    <button class="btn" id="holds-refresh" aria-label="Refresh" title="Refresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
-    <button class="btn primary" id="place-hold"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Place hold</button>
-  </div>
-</div>
+<div class="desk-page holds-page" id="holds" data-library="{{ library_name }}">
+  <header class="page-header">
+    <div class="ph-main">
+      <h1 id="page-title">{{ t('desk.holds.title') }}</h1>
+      <p class="ph-sub">{{ t('desk.holds.subtitle') }}</p>
+    </div>
+    <div class="ph-actions">
+      <button type="button" class="btn ghost icon-only" id="holds-refresh" aria-label="{{ t('desk.holds.refresh') }}" data-tip="{{ t('desk.holds.refresh') }}"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+      <button type="button" class="btn primary" id="place-hold"><svg class="icon" aria-hidden="true"><use href="#i-bookmark-plus"></use></svg>{{ t('desk.holds.place') }}</button>
+    </div>
+  </header>
 
-<div class="tabs" role="tablist" aria-label="Hold views" id="holds-tabs">
-  <button role="tab" id="tab-queue" data-tab="queue" aria-selected="true" aria-controls="holds-panel">Active queue <span class="badge hidden" id="count-queue"></span></button>
-  <button role="tab" id="tab-pull" data-tab="pull" aria-selected="false" aria-controls="holds-panel" tabindex="-1">To pull from shelves <span class="badge hidden" id="count-pull"></span></button>
-  <button role="tab" id="tab-ready" data-tab="ready" aria-selected="false" aria-controls="holds-panel" tabindex="-1">Ready for pickup <span class="badge hidden" id="count-ready"></span></button>
+  <div class="tablist holds-tabs" role="tablist" aria-label="{{ t('desk.holds.views') }}" id="holds-tabs">
+    {%- for key, ic in [('queue', 'list'), ('pull', 'shelf'), ('ready', 'bookmark'), ('transit', 'truck')] %}
+    <button type="button" role="tab" id="tab-{{ key }}" data-tab="{{ key }}" aria-controls="holds-panel" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-{{ ic }}"></use></svg>{{ t('desk.holds.tab.' ~ key) }}<span class="count" id="count-{{ key }}"></span>{% if key == 'ready' %}<span class="count tone-warn" id="count-expiring" hidden></span>{% endif %}</button>
+    {%- endfor %}
+  </div>
+
+  <div class="filter-bar holds-filters" role="region" aria-label="{{ t('ui.filters.label') }}" id="holds-filters">
+    <div class="filter-row">
+      <div class="search-field" role="search">
+        <label class="sr-only" for="holds-q">{{ t('desk.holds.search_label') }}</label>
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+        <input id="holds-q" name="q" type="search" placeholder="{{ t('desk.holds.search_placeholder') }}" autocomplete="off" spellcheck="false" data-search-focus aria-keyshortcuts="/">
+        <button type="button" class="clear" data-clear="q" aria-label="{{ t('ui.filters.clear_search') }}" hidden><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      </div>
+      <span class="select-chip"><label class="sr-only" for="holds-branch">{{ t('desk.holds.branch_label') }}</label>
+        <select id="holds-branch" name="branch" data-filter="branch"><option value="">{{ t('common.all_branches') }}</option></select></span>
+      <span class="select-chip" id="status-chip"><label class="sr-only" for="holds-status">{{ t('desk.holds.status_label') }}</label>
+        <select id="holds-status" name="status" data-filter="status">
+          <option value="">{{ t('desk.holds.any_status') }}</option>
+          <option value="queued">{{ t('desk.holds.st_waiting') }}</option>
+          <option value="suspended">{{ t('desk.holds.st_suspended') }}</option>
+          <option value="ready">{{ t('status.ready') }}</option>
+        </select></span>
+      <label class="checkbox holds-expiring" id="expiring-chip" hidden><input type="checkbox" id="holds-expiring" name="expiring"> {{ t('desk.holds.only_expiring') }}</label>
+    </div>
+    <div id="holds-chips"></div>
+  </div>
+
+  <section id="holds-panel" role="tabpanel" aria-labelledby="tab-queue" tabindex="-1">
+    <h2 class="sr-only" id="holds-panel-h">{{ t('desk.holds.tab.queue') }}</h2>
+    <p class="holds-intro" id="holds-intro">{{ t('desk.holds.intro.queue') }}</p>
+    <div id="holds-body"><div class="dt"><div class="dt-toolbar"></div><div class="holds-skeleton">
+      {%- for _ in range(6) %}<div class="skeleton" style="height:2.6rem;margin:.6rem 1rem"></div>{% endfor %}</div></div></div>
+  </section>
 </div>
-<section id="holds-panel" role="tabpanel" aria-labelledby="tab-queue" aria-live="polite"></section>
 {% endblock %}

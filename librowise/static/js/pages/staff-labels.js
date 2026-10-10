@@ -33,7 +33,7 @@ function sourceFields(kind, p = {}) {
     <div data-src="barcodes" ${src !== "barcodes" ? "hidden" : ""} class="field"><label for="barcodes">${t("coll.labels.barcodes")}</label>
       <textarea id="barcodes" name="barcodes" rows="5" class="mono" placeholder="${t("coll.labels.barcodes_placeholder")}" spellcheck="false" aria-describedby="bc-count">${p.barcodes || ""}</textarea>
       <div class="row between"><span class="field-help" id="bc-count" aria-live="polite"></span>
-        <span><input type="file" id="bc-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true"><button type="button" class="btn sm" id="bc-load">${icon("upload")}${t("coll.labels.load_file")}</button></span></div></div>
+        <span><input type="file" id="bc-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true" aria-label="${t("coll.labels.load_file")}"><button type="button" class="btn sm" id="bc-load">${icon("upload")}${t("coll.labels.load_file")}</button></span></div></div>
     <div data-src="recent" ${src !== "recent" ? "hidden" : ""} class="form-grid">
       <div class="field"><label for="days">${t("coll.labels.days")}</label><input id="days" name="days" type="number" min="1" max="3650" value="${p.days || 7}"></div>
       <div class="field"><label for="r-branch">${t("common.branch")}</label><select id="r-branch" name="branch_id">${opts(lk.branches, p.branch_id, t("common.all_branches"))}</select></div></div>

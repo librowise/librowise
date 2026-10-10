@@ -47,7 +47,7 @@ function selectionStep(p) {
     <div data-mode="barcodes" class="field"><label for="${p}-codes">${t("coll.labels.barcodes")}</label>
       <textarea id="${p}-codes" rows="6" class="mono" spellcheck="false" placeholder="${t("coll.labels.barcodes_placeholder")}" aria-describedby="${p}-count"></textarea>
       <div class="row between"><span class="field-help" id="${p}-count" data-count aria-live="polite">${t("coll.labels.n_barcodes", { count: 0, n: num(0) })}</span>
-        <span><input type="file" id="${p}-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true"><button type="button" class="btn sm" data-load="${p}-file">${icon("upload")}${t("coll.labels.load_file")}</button></span></div></div>
+        <span><input type="file" id="${p}-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true" aria-label="${t("coll.labels.load_file")}"><button type="button" class="btn sm" data-load="${p}-file">${icon("upload")}${t("coll.labels.load_file")}</button></span></div></div>
     <div data-mode="search" hidden class="form-grid three">
       <div class="field span-all"><label for="${p}-q">${t("coll.batch.keywords")}</label><input id="${p}-q" data-s="q" type="search" autocomplete="off"></div>
       <div class="field"><label for="${p}-mt">${t("coll.field.format")}</label><select id="${p}-mt" data-s="material_type"><option value="">${t("coll.labels.any")}</option>${lk.material_types.map((m) => html`<option value="${m}">${fmtLabel(m)}</option>`)}</select></div>
@@ -260,7 +260,7 @@ function renderInventory() {
           <input id="i-scan" class="big mono" placeholder="${t("coll.inv.scan_placeholder")}" autocomplete="off" spellcheck="false">
           <button class="btn primary">${icon("plus")}${t("coll.auth.add")}</button></form>
         <div class="row between"><strong aria-live="polite" id="i-count"></strong>
-          <span class="row tight"><input type="file" id="i-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true">
+          <span class="row tight"><input type="file" id="i-file" accept=".txt,.csv,text/plain" class="sr-only" tabindex="-1" aria-hidden="true" aria-label="${t("coll.labels.load_file")}">
             <button type="button" class="btn sm" id="i-load">${icon("upload")}${t("coll.inv.upload")}</button>
             <button type="button" class="btn sm ghost danger" id="i-clear">${icon("trash")}${t("coll.inv.clear")}</button></span></div>
         <ul class="scan-feed" id="i-feed" aria-label="${t("coll.inv.feed")}" tabindex="0"></ul></fieldset>

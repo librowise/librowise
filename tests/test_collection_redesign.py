@@ -185,6 +185,6 @@ def test_collection_detail_pages_have_breadcrumbs(client, db, lib):
 def test_collection_pages_translated(client, lib):
     login(client, "librarian")
     html = client.get("/staff/acquisitions?lang=hi").text
-    assert "खरीद" in html  # page header rendered server-side in Hindi
+    assert '<h1 id="page-title">अधिग्रहण</h1>' in html  # page header rendered server-side in Hindi
     html = client.get("/staff/authorities?lang=ur").text
     assert 'dir="rtl"' in html

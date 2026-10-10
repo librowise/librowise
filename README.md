@@ -82,7 +82,7 @@ services, nightly backups and a first administrator in one command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/librowise/librowise/main/install/install.sh \
-  | sudo bash -s -- --domain catalogue.example.org --email admin@example.org
+  | sudo bash -s -- --domain catalogue.example.org --library-name "Riverside Library" --email admin@example.org
 ```
 
 Then manage libraries like Koha's `koha-*` tools: `librowise instance create|list|doctor|upgrade|backup|remove`.

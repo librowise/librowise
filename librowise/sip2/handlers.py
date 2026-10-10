@@ -383,7 +383,7 @@ class Sip2Handler:
         retries = f"{max(0, min(self.config.retries_allowed, 999)):03d}"
         return Reply("98", ["Y", p.yn(a.allow_checkin), p.yn(a.allow_checkout), p.yn(a.allow_renew), "N", "Y",
                             timeout, retries, c.now(), p.PROTOCOL_VERSION],
-                     [("AO", a.institution_id), ("AM", settings_svc.get(c.db, "library_name")),
+                     [("AO", a.institution_id), ("AM", settings_svc.library_name(c.db)),
                       ("BX", bx), ("AN", c.session.location or a.branch.code), ("AF", ""), ("AG", "")])
 
     # ---------------------------------------------------------------- patrons

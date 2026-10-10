@@ -614,7 +614,9 @@ def test_cli_list_and_errors(tmp_path, monkeypatch, capsys):
     assert "No instances" in capsys.readouterr().out
     assert main(["instance", "create", "Bad_Name", "--no-proxy"]) == 1
     assert "invalid instance name" in capsys.readouterr().err
-    assert main(["instance", "create", "demo", "--no-proxy", "--port", "8790"]) == 0
+    assert main(["instance", "create", "demo", "--no-proxy", "--port", "8790"]) == 1  # no library name
+    assert "--library-name" in capsys.readouterr().err
+    assert main(["instance", "create", "demo", "--no-proxy", "--port", "8790", "--library-name", "Riverside Library"]) == 0
     out = capsys.readouterr().out
     assert "Librowise instance 'demo' is ready." in out and "admin / One-Time#Passw0rd" in out
     assert main(["instance", "list"]) == 0
@@ -700,3 +702,48 @@ def test_bootstrap_admin_and_probe(db):
     assert bootstrap_admin("admin2", "x@example.org") == {"created": False, "reason": "an administrator already exists"}
     p = probe()
     assert p["database"] is True and p["admins"] == 1
+
+
+# ------------------------------------------------------------------ library name (asked for at install time)
+
+
+def test_create_stores_the_library_name(system_layout):
+    m, fake = make(system_layout, users={"postgres"})
+    m.create(CreateOptions("central", domain="cat.example.org", library_name="Riverside Library"))
+    assert fake.ran("_set-library-name", "Riverside Library")
+    entry = json.loads(system_layout.registry.read_text(encoding="utf-8"))["instances"]["central"]
+    assert entry["library_name"] == "Riverside Library"
+
+
+def test_create_without_a_name_sets_nothing(system_layout):
+    m, fake = make(system_layout, users={"postgres"})
+    m.create(CreateOptions("central", domain="cat.example.org"))
+    assert not fake.ran("_set-library-name")
+
+
+def test_cli_requires_a_library_name_when_not_interactive(system_layout, monkeypatch):
+    import argparse
+
+    from librowise.instances import _library_name
+
+    m, _ = make(system_layout)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False, raising=False)
+    ns = lambda **kw: argparse.Namespace(**{"name": "central", "library_name": None, "demo_data": False, **kw})  # noqa: E731
+    assert _library_name(ns(library_name="  Riverside   Library "), m) == "Riverside Library"
+    assert _library_name(ns(demo_data=True), m) is None  # the demo data names it
+    with pytest.raises(InstanceError, match="--library-name"):
+        _library_name(ns(), m)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True, raising=False)
+    monkeypatch.setattr("builtins.input", lambda prompt: "  Hill  Town Library ")
+    assert _library_name(ns(), m) == "Hill Town Library"
+
+
+def test_set_library_name_helper(db):
+    from librowise.instances.bootstrap import set_library_name
+    from librowise.services import settings as settings_svc
+
+    assert settings_svc.library_name(db) == settings_svc.UNNAMED_LIBRARY and not settings_svc.library_name_is_set(db)
+    assert set_library_name("   ") == {"changed": False}
+    assert set_library_name(" Riverside\tLibrary ")["library_name"] == "Riverside Library"
+    db.expire_all()
+    assert settings_svc.library_name(db) == "Riverside Library" and settings_svc.library_name_is_set(db)

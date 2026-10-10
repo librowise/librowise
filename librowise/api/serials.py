@@ -531,7 +531,7 @@ def claim_batch(batch: str, db: Session = Depends(get_db), _: Patron = Depends(r
     first = claims[0]
     return {"batch": batch, "claimed_at": first.claimed_at, "note": first.note,
             "by": first.claimed_by.full_name if first.claimed_by else None,
-            "library_name": settings_svc.get(db, "library_name"),
+            "library_name": settings_svc.library_name(db),
             "letters": sorted(letters.values(), key=lambda g: g["vendor"]["name"].lower())}
 
 

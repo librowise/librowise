@@ -52,6 +52,19 @@ def probe() -> dict:
     return out
 
 
+def set_library_name(name: str) -> dict:
+    """Store the library's name (asked for by the installer); an empty name leaves it unchanged."""
+    from ..db import session_scope
+    from ..services import settings as settings_svc
+
+    name = " ".join(name.split())
+    if not name:
+        return {"changed": False}
+    with session_scope() as db:
+        settings_svc.set_value(db, "library_name", name[:200])
+    return {"changed": True, "library_name": name[:200]}
+
+
 def bootstrap_admin(username: str, email: str) -> dict:
     """Create the first administrator unless one exists.
 

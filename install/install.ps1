@@ -11,8 +11,11 @@
 
     With options, download first:
     irm https://raw.githubusercontent.com/librowise/librowise/main/install/install.ps1 -OutFile install.ps1
-    powershell -ExecutionPolicy Bypass -File install.ps1 -Instance demo -DemoData
+    powershell -ExecutionPolicy Bypass -File install.ps1 -LibraryName "Riverside Library"
 
+.PARAMETER LibraryName
+    Your library's name, shown in the catalogue and notices (asked for if omitted;
+    not needed with -DemoData, which names it "Demo Library").
 .PARAMETER Instance
     Instance name (default: demo).
 .PARAMETER Version
@@ -40,6 +43,7 @@
 #>
 [CmdletBinding()]
 param(
+    [string]$LibraryName = "",
     [string]$Instance = "demo",
     [string]$Version = "v1.1.0",
     [string]$Source = "",
@@ -188,7 +192,19 @@ Set-Content -Path $Shim -Encoding ASCII -Value @(
 )
 
 Write-Step "Creating instance '$Instance'"
+$LibraryName = ($LibraryName -replace '\s+', ' ').Trim()
+$existing = $false
+try { & $Cli instance info $Instance --json *> $null; $existing = ($LASTEXITCODE -eq 0) } catch { $existing = $false }
+if (-not $LibraryName -and -not $existing -and -not $Yes) {
+    while (-not $LibraryName) {
+        $LibraryName = ((Read-Host "Library name (shown in the catalogue and notices)") -replace '\s+', ' ').Trim()
+    }
+}
+if (-not $LibraryName -and -not $existing -and -not $DemoData) {
+    Fail "give your library's name with -LibraryName `"...`" (it is shown in the catalogue and notices)"
+}
 $createArgs = @("instance", "create", $Instance, "--db", "sqlite", "--no-proxy", "--bind", $Bind)
+if ($LibraryName) { $createArgs += @("--library-name", $LibraryName) }
 if ($Port -gt 0) { $createArgs += @("--port", "$Port") }
 if ($DemoData) { $createArgs += "--demo-data" }
 if ($NoStart) { $createArgs += "--no-start" }

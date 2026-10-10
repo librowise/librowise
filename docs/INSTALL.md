@@ -20,9 +20,14 @@ processes, backups and web address, all managed with `librowise instance …`
 Requirements: Ubuntu 22.04 or 24.04, or Debian 12 or 13 (amd64 or arm64), 2 GB RAM, root access,
 and a DNS name pointing at the server (for HTTPS). Ports 80 and 443 must be reachable.
 
+Librowise has no built-in library name: pass yours with `--library-name` (the installer asks for it
+when run interactively). It appears in the catalogue, notices, receipts and SIP2/OAI responses, and
+administrators can change it later under Administration → Settings (`library_name`). Demo data
+names the library "Demo Library".
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/librowise/librowise/main/install/install.sh \
-  | sudo bash -s -- --domain catalogue.example.org --email admin@example.org
+  | sudo bash -s -- --domain catalogue.example.org --library-name "Riverside Library" --email admin@example.org
 ```
 
 The installer:
@@ -33,7 +38,7 @@ The installer:
 2. creates the `librowise` system account and a Python environment in `/opt/librowise/venv`
    with the pinned release (or `--version vX.Y.Z`, or `--source DIR` for a checkout), and links
    `/usr/local/bin/librowise`;
-3. runs `librowise instance create library --domain … --admin-email …`, which creates the
+3. runs `librowise instance create library --domain … --library-name … --admin-email …`, which creates the
    PostgreSQL role and database, `/etc/librowise/library.env` with generated secrets, the systemd
    services, the Caddy site (Let's Encrypt certificate obtained automatically), log rotation,
    nightly backups and the first administrator;
@@ -57,7 +62,7 @@ units and man pages (`man librowise`, `man librowise-instance`).
 ```bash
 sudo apt install ./librowise_1.1.0-1~noble_amd64.deb
 sudo apt install postgresql caddy           # recommended, not required
-sudo librowise instance create library --domain catalogue.example.org --admin-email admin@example.org
+sudo librowise instance create library --domain catalogue.example.org --library-name "Riverside Library" --admin-email admin@example.org
 ```
 
 Installing the package creates the `librowise` account and directories but no instance — like
@@ -106,7 +111,8 @@ options, download it first:
 
 ```powershell
 irm https://raw.githubusercontent.com/librowise/librowise/main/install/install.ps1 -OutFile install.ps1
-powershell -ExecutionPolicy Bypass -File install.ps1 -Instance demo -DemoData -Port 8100
+powershell -ExecutionPolicy Bypass -File install.ps1 -LibraryName "Riverside Library" -Port 8100
+powershell -ExecutionPolicy Bypass -File install.ps1 -Instance demo -DemoData   # sample data, "Demo Library"
 powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall            # add -Purge to delete data
 ```
 
@@ -133,7 +139,7 @@ sudo python3 -m venv /opt/librowise/venv
 sudo /opt/librowise/venv/bin/pip install "librowise[postgres] @ git+https://github.com/librowise/librowise@v1.1.0"
 sudo ln -s /opt/librowise/venv/bin/librowise /usr/local/bin/librowise
 sudo librowise instance create library --domain catalogue.example.org --dry-run   # review the plan
-sudo librowise instance create library --domain catalogue.example.org
+sudo librowise instance create library --domain catalogue.example.org --library-name "Riverside Library"
 ```
 
 Variations:

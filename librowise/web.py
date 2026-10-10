@@ -153,7 +153,7 @@ def _render(request: Request, template: str, page: str, user: Patron | None, db:
     lang = i18n_mod.request_language(request, user)
     response = templates.TemplateResponse(request, template, {
         "page": page, "user": user, "version": __version__,
-        "library_name": settings_svc.get(db, "library_name"),
+        "library_name": settings_svc.library_name(db),
         "announcement": settings_svc.get(db, "opac_announcement"),
         "staff_nav": STAFF_NAV,
         "shell": staff_shell(user, page) if page.startswith("staff") else None,
@@ -193,7 +193,7 @@ def opac_record(biblio_id: int, request: Request, db: Session = Depends(get_db),
     # Server-rendered schema.org JSON-LD + Open Graph tags so search engines and link previews
     # see the record without running JavaScript.
     seo = record_metadata(db, biblio_id, base_url=str(request.base_url),
-                          library_name=settings_svc.get(db, "library_name"))
+                          library_name=settings_svc.library_name(db))
     response = _render(request, "opac/record.html", "opac-record", user, db, biblio_id=biblio_id, seo=seo)
     if seo is None:
         response.status_code = 404
@@ -348,7 +348,7 @@ def offline_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/manifest.webmanifest")
 def web_manifest(request: Request, db: Session = Depends(get_db)):
     lang = i18n_mod.request_language(request)
-    name = settings_svc.get(db, "library_name") or PRODUCT_NAME
+    name = settings_svc.library_name(db)
     tr = lambda key: i18n_mod.translate(lang, key)  # noqa: E731
     manifest = {
         "id": "/", "name": name, "short_name": name if len(name) <= 12 else (name.split()[0][:12] or "Library"),

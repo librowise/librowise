@@ -57,6 +57,7 @@ class CreateOptions:
     db: str | None = None  # postgres | sqlite (default: postgres in system mode, sqlite otherwise)
     db_url: str | None = None
     proxy: str | None = None  # caddy | nginx | none (default: caddy in system mode, none otherwise)
+    library_name: str | None = None
     admin_email: str | None = None
     admin_user: str = "admin"
     timezone: str | None = None
@@ -367,6 +368,11 @@ class Manager:
             self.sys.say("Loading demo data...")
             self.run_app(name, "seed", values=values)
             entry["demo_data"] = True
+            self.save_registry(reg)
+        if o.library_name:
+            self.run_app(name, "instance", "_set-library-name", o.library_name, values=values,
+                         describe=f"name the library {o.library_name!r}")
+            entry["library_name"] = o.library_name
             self.save_registry(reg)
         admin = self._bootstrap_admin(name, o, values)
 

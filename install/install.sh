@@ -26,6 +26,7 @@ PGDG_KEY="/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc"
 # ---------------------------------------------------------------- options
 DOMAIN=""
 EMAIL=""
+LIBRARY_NAME=""
 INSTANCE="library"
 VERSION="$LIBROWISE_VERSION"
 SOURCE=""
@@ -43,12 +44,13 @@ usage() {
     cat <<EOF
 Librowise installer for Ubuntu 22.04/24.04 and Debian 12/13.
 
-Usage: install.sh --domain HOST [options]
+Usage: install.sh --domain HOST --library-name "NAME" [options]
        install.sh --no-proxy [--sqlite] [options]       # local / evaluation install
        install.sh --uninstall [--purge] [--yes]
 
 Options:
   --domain HOST       Public host name of the catalogue (DNS must point here for HTTPS)
+  --library-name NAME Your library's name, shown in the catalogue and notices (asked for if omitted)
   --email ADDRESS     Administrator e-mail (also used for Let's Encrypt notices)
   --instance NAME     Instance name (default: $INSTANCE)
   --version TAG       Release to install from $REPO_URL (default: $LIBROWISE_VERSION)
@@ -89,6 +91,7 @@ parse_args() {
             --*=*) set -- "${1%%=*}" "${1#*=}" "${@:2}"; continue ;;
             --domain) need_value "$@"; DOMAIN="$2"; shift ;;
             --email) need_value "$@"; EMAIL="$2"; shift ;;
+            --library-name) need_value "$@"; LIBRARY_NAME="$2"; shift ;;
             --instance) need_value "$@"; INSTANCE="$2"; shift ;;
             --version) need_value "$@"; VERSION="$2"; shift ;;
             --source) need_value "$@"; SOURCE="$2"; shift ;;
@@ -181,6 +184,23 @@ confirm() {
     printf '%s [y/N] ' "$prompt" >&3
     read -r answer </dev/tty || true
     [[ $answer =~ ^[Yy]([Ee][Ss])?$ ]]
+}
+
+# There is no built-in library name: ask for it up front, before anything is installed.
+ask_library_name() {
+    LIBRARY_NAME="$(printf '%s' "$LIBRARY_NAME" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+    [[ -n $LIBRARY_NAME || $DRY_RUN -eq 1 ]] && return 0
+    if [[ -x $BIN_LINK ]] && "$BIN_LINK" instance info "$INSTANCE" >/dev/null 2>&1; then
+        return 0  # re-running against an existing instance keeps its name
+    fi
+    if { true </dev/tty; } 2>/dev/null; then
+        while [[ -z $LIBRARY_NAME ]]; do
+            printf 'Library name (shown in the catalogue and notices): ' >&3
+            read -r LIBRARY_NAME </dev/tty || break
+            LIBRARY_NAME="$(printf '%s' "$LIBRARY_NAME" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+        done
+    fi
+    [[ -n $LIBRARY_NAME || $DEMO_DATA -eq 1 ]] || die '--library-name "NAME" is required (your library'"'"'s name, shown in the catalogue)'
 }
 
 # ---------------------------------------------------------------- installation steps
@@ -283,6 +303,7 @@ create_instance() {
     step "Creating instance '$INSTANCE'"
     INSTANCE_ARGS=(instance create "$INSTANCE")
     [[ -n $DOMAIN ]] && INSTANCE_ARGS+=(--domain "$DOMAIN")
+    [[ -n $LIBRARY_NAME ]] && INSTANCE_ARGS+=(--library-name "$LIBRARY_NAME")
     [[ -n $EMAIL ]] && INSTANCE_ARGS+=(--admin-email "$EMAIL")
     [[ -n $PORT ]] && INSTANCE_ARGS+=(--port "$PORT")
     [[ -n $TIMEZONE ]] && INSTANCE_ARGS+=(--timezone "$TIMEZONE")
@@ -397,7 +418,8 @@ main() {
         return
     fi
     detect_os
-    info "Plan: instance '$INSTANCE', ${DB} database, proxy: ${PROXY}${DOMAIN:+, domain $DOMAIN}, version: ${SOURCE:-$VERSION}"
+    ask_library_name
+    info "Plan: ${LIBRARY_NAME:+$LIBRARY_NAME, }instance '$INSTANCE', ${DB} database, proxy: ${PROXY}${DOMAIN:+, domain $DOMAIN}, version: ${SOURCE:-$VERSION}"
     confirm "Install Librowise now?" || die "aborted"
     check_dns
     install_base_packages

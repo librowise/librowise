@@ -44,6 +44,8 @@ def add_parser(sub) -> None:
                        help="Reverse proxy to configure (default caddy, with automatic HTTPS)")
     proxy.add_argument("--no-proxy", dest="proxy", action="store_const", const="none",
                        help="Do not configure a reverse proxy")
+    c.add_argument("--library-name",
+                   help="Your library's name, shown in the catalogue and notices (asked for if omitted)")
     c.add_argument("--admin-email", help="E-mail of the first administrator (receives a reset link if SMTP is set)")
     c.add_argument("--admin-user", default="admin", help="Login of the first administrator (default admin)")
     c.add_argument("--timezone", help="Library time zone, e.g. Europe/London (default: the host's)")
@@ -105,6 +107,8 @@ def add_parser(sub) -> None:
     ba = isub.add_parser("_bootstrap-admin")
     ba.add_argument("--username", required=True)
     ba.add_argument("--email", required=True)
+    ln = isub.add_parser("_set-library-name")
+    ln.add_argument("library_name")
 
 
 def make_manager(dry_run: bool = False):
@@ -122,6 +126,11 @@ def dispatch(args: argparse.Namespace) -> int:
         from .bootstrap import probe
 
         print(json.dumps(probe(), default=str))
+        return 0
+    if cmd == "_set-library-name":
+        from .bootstrap import set_library_name
+
+        print(json.dumps(set_library_name(args.library_name)))
         return 0
     if cmd == "_bootstrap-admin":
         from .bootstrap import bootstrap_admin
@@ -150,7 +159,7 @@ def _dispatch(args: argparse.Namespace) -> int:
     if cmd == "create":
         opts = CreateOptions(
             name=args.name, domain=args.domain, port=args.port, bind=args.bind, db=args.db, db_url=args.db_url,
-            proxy=args.proxy, admin_email=args.admin_email, admin_user=args.admin_user, timezone=args.timezone,
+            proxy=args.proxy, library_name=_library_name(args, m), admin_email=args.admin_email, admin_user=args.admin_user, timezone=args.timezone,
             demo_data=args.demo_data, start=args.start, web_workers=args.web_workers,
             credentials_file=args.credentials_file)
         res = m.create(opts)
@@ -211,6 +220,32 @@ def _dispatch(args: argparse.Namespace) -> int:
         cmd_ = m.as_service_user(m.component_command(args.name, args.component, values))
         return m.sys.exec_foreground(cmd_, env=m.child_env(args.name, values), cwd=m.layout.data_dir(args.name))
     raise InstanceError(f"unknown action {cmd}")
+
+
+def _library_name(args: argparse.Namespace, m) -> str | None:
+    """The library's name: from --library-name, else asked for interactively when creating a new instance.
+
+    There is deliberately no built-in default; repairing an existing instance keeps its current name.
+    """
+    from .common import validate_name
+
+    validate_name(args.name)  # report a bad instance name before asking anything
+    name = " ".join((args.library_name or "").split())
+    if name:
+        return name
+    if m.load_registry()["instances"].get(args.name):
+        return None
+    if sys.stdin.isatty() and not getattr(args, "dry_run", False):
+        while not name:
+            try:
+                name = " ".join(input("Library name (shown in the catalogue and notices): ").split())
+            except EOFError:
+                break
+        if name:
+            return name
+    if args.demo_data:
+        return None  # the demo data names it "Demo Library"
+    raise InstanceError("give your library's name with --library-name \"...\" (it is shown in the catalogue and notices)")
 
 
 def _print_created(m, res, args, dry: bool) -> None:

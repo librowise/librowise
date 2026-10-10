@@ -86,10 +86,17 @@ def seed_structure(db: Session) -> dict:
     return {"branches": b, "itypes": t, "cats": c}
 
 
+DEMO_LIBRARY_NAME = "Demo Library"
+
+
 def seed(db: Session, *, patrons: int = 60, history_days: int = 365, rng_seed: int = 42) -> dict:
     if db.scalar(select(Branch.id).limit(1)):
         raise RuntimeError("Database already contains data; use `reset` first")
     rng = random.Random(rng_seed)
+    from .services import settings as settings_svc
+
+    if not settings_svc.library_name_is_set(db):
+        settings_svc.set_value(db, "library_name", DEMO_LIBRARY_NAME)
     s = seed_structure(db)
     branches, itypes, cats = s["branches"], s["itypes"], s["cats"]
     branch_list = list(branches.values())

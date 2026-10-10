@@ -122,6 +122,19 @@ def test_notifications_feed_is_permission_filtered(client, db, lib, make_book):
     assert client.get("/api/v1/ui/notifications", headers=reader).status_code == 403
 
 
+def test_unnamed_library_reminds_administrators(client, db, lib):
+    from librowise.services import settings as settings_svc
+
+    kinds = lambda who: {i["kind"] for i in client.get("/api/v1/ui/notifications", headers=login(client, who)).json()["items"]}  # noqa: E731
+    assert "library_name_unset" in kinds("admin") and "library_name_unset" not in kinds("librarian")
+    assert client.get("/").text.count("Librowise") >= 1  # the product name stands in until it is set
+    settings_svc.set_value(db, "library_name", "Riverside Library")
+    db.commit()
+    assert "library_name_unset" not in kinds("admin")
+    assert client.get("/api/v1/opac/config").json()["library_name"] == "Riverside Library"
+    assert "Riverside Library" in client.get("/").text
+
+
 # ------------------------------------------------------------------ patrons list (reference page API)
 
 

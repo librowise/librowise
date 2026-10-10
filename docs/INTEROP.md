@@ -124,7 +124,7 @@ A minimal session, for testing with `nc` or the bundled client:
 → 9300CNkiosk-ground-floor|COsecret|CPMAIN|AY0AZEFCE
 ← 941AY0AZFDFD
 → 9900802.00AY1AZFCA0
-← 98YYYYNY100003...2.00AOLIBROWISE|AMLibrowise Public Library|BXYYYYYYYYYYYNYYYY|ANMAIN|...
+← 98YYYYNY100003...2.00AOLIBROWISE|AMRiverside Library|BXYYYYYYYYYYYNYYYY|ANMAIN|...
 ```
 
 ```python

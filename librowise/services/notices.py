@@ -178,7 +178,7 @@ def patron_ctx(p: Patron) -> dict:
 
 
 def library_ctx(db: Session) -> dict:
-    return {"name": str(settings_svc.get(db, "library_name") or "")}
+    return {"name": settings_svc.library_name(db)}
 
 
 def biblio_ctx(b) -> dict:

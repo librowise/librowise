@@ -281,7 +281,7 @@ def build(db: Session, params: Mapping) -> dict:
     copies = min(max(_int(params.get("copies"), 1), 1), 20)
     missing: list[str] = []
     if kind == "patron":
-        library = settings_svc.get(db, "library_name")
+        library = settings_svc.library_name(db)
         entries = [patron_entry(p, library) for p in select_patrons(db, params)]
     else:
         items, missing = select_items(db, params)

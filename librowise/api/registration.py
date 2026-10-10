@@ -48,7 +48,7 @@ ACCEPTED = {"ok": True, "status": "pending",
 @router.get("/opac/register/config")
 def register_config(db: Session = Depends(get_db)):
     return {"enabled": bool(settings_svc.get(db, "allow_self_registration")),
-            "library_name": settings_svc.get(db, "library_name")}
+            "library_name": settings_svc.library_name(db)}
 
 
 @router.post("/opac/register", status_code=201)

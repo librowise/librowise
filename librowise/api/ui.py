@@ -92,6 +92,14 @@ def notifications(db: Session = Depends(get_db), user: Patron = Depends(require(
             add(f"jobs_failed:{today}:{failed_jobs}", "jobs_failed", "danger", "activity",
                 f"{failed_jobs} background job(s) failed", "In the last 24 hours.", "/staff/system", {"count": failed_jobs})
 
+    if has_permission(user, "settings:manage"):
+        from ..services import settings as settings_svc
+
+        if not settings_svc.library_name_is_set(db):
+            add("library_name_unset", "library_name_unset", "warning", "settings",
+                "Give your library a name", "It is shown in the catalogue, notices and receipts.",
+                "/staff/admin", {})
+
     order = {"danger": 0, "warning": 1, "info": 2, "success": 3}
     items.sort(key=lambda i: order.get(i["tone"], 9))
     return {"generated_at": now, "items": items}

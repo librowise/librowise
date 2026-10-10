@@ -20,8 +20,9 @@ router = APIRouter(prefix="/opac", tags=["opac"])
 
 @router.get("/config")
 def config(db: Session = Depends(get_db)):
-    return {k: settings_svc.get(db, k) for k in (
-        "library_name", "opac_announcement", "allow_patron_self_renewal", "allow_reviews", "ai_opac_enabled")}
+    out = {k: settings_svc.get(db, k) for k in (
+        "opac_announcement", "allow_patron_self_renewal", "allow_reviews", "ai_opac_enabled")}
+    return {"library_name": settings_svc.library_name(db), **out}
 
 
 @router.get("/home")

@@ -155,7 +155,7 @@ def _validate(pairs: list[tuple[str, str]]) -> dict[str, str]:
 
 def _identify(db: Session, verb: str, args: dict, base_url: str, site: str) -> ET.Element:
     el = ET.Element(q(O, verb))
-    sub(el, O, "repositoryName", settings_svc.get(db, "library_name"))
+    sub(el, O, "repositoryName", settings_svc.library_name(db))
     sub(el, O, "baseURL", base_url)
     sub(el, O, "protocolVersion", "2.0")
     email = os.environ.get("LIBROWISE_OAI_ADMIN_EMAIL") or db.scalar(

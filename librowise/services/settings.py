@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..models import Setting
 
 DEFAULTS: dict[str, tuple[Any, str]] = {
-    "library_name": ("Librowise Public Library", "Name shown in the OPAC and notices"),
+    "library_name": ("", "Name shown in the OPAC and notices (asked for at install time)"),
     "opac_announcement": ("", "Banner message shown on the public catalogue"),
     "allow_patron_self_renewal": (True, "Patrons may renew their own loans from the OPAC"),
     "allow_reviews": (True, "Patrons may rate and review titles"),
@@ -28,6 +28,19 @@ DEFAULTS: dict[str, tuple[Any, str]] = {
     "allow_purchase_suggestions": (True, "Patrons may suggest titles for purchase from the OPAC"),
     "notice_max_attempts": (5, "Delivery attempts before an outgoing notice is marked failed"),
 }
+
+
+# Shown wherever the library's name would appear until an administrator sets one.
+UNNAMED_LIBRARY = "Librowise"
+
+
+def library_name(db: Session) -> str:
+    """The library's own name, or the product name until it has been set."""
+    return str(get(db, "library_name") or "").strip() or UNNAMED_LIBRARY
+
+
+def library_name_is_set(db: Session) -> bool:
+    return bool(str(get(db, "library_name") or "").strip())
 
 
 def get(db: Session, key: str) -> Any:

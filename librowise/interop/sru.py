@@ -236,7 +236,7 @@ def _explain(db: Session, base: str, host: str, port: int, version: str) -> byte
     sub(server, ZR, "port", port)
     sub(server, ZR, "database", "sru")
     info = sub(ex, ZR, "databaseInfo")
-    name = settings_svc.get(db, "library_name")
+    name = settings_svc.library_name(db)
     sub(info, ZR, "title", f"{name} catalogue", lang="en", primary="true")
     sub(info, ZR, "description", f"Bibliographic records of {name}, searchable with CQL.", lang="en",
         primary="true")

@@ -52,7 +52,7 @@ def mfa_setup(body: PasswordIn, request: Request, user: Patron = Depends(interac
     if not identity.reauthenticate(db, user, body.password):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is incorrect")
     try:
-        out = identity.begin_enrollment(db, user, settings_svc.get(db, "library_name") or "Librowise")
+        out = identity.begin_enrollment(db, user, settings_svc.library_name(db))
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
     audit.record(db, "mfa_setup_started", "patron", user.id, actor=user, ip=client_ip(request))

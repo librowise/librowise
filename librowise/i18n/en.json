@@ -793,7 +793,9 @@
           "one": "{count} background job failed",
           "other": "{count} background jobs failed"
         },
-        "jobs_failed_body": "In the last 24 hours."
+        "jobs_failed_body": "In the last 24 hours.",
+        "library_name_unset": "Give your library a name",
+        "library_name_unset_body": "It is shown in the catalogue, notices and receipts."
       }
     },
     "state": {

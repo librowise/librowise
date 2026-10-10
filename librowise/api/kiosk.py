@@ -205,7 +205,7 @@ def delete_device(device_id: int, request: Request, db: Session = Depends(get_db
 @router.get("/hello")
 def hello(device: KioskDevice = Depends(kiosk_device), db: Session = Depends(get_db)):
     return {"device": {"id": device.id, "name": device.name}, "branch": {"id": device.branch.id, "name": device.branch.name},
-            "library_name": settings_svc.get(db, "library_name"),
+            "library_name": settings_svc.library_name(db),
             "allow_renewal": bool(settings_svc.get(db, "allow_patron_self_renewal")),
             "session_idle_seconds": int(SESSION_IDLE.total_seconds())}
 
@@ -320,7 +320,7 @@ def _receipt(db: Session, session: KioskSession) -> dict:
             continue
         lines.append({"kind": entry.get("kind"), "title": loan.item.biblio.title, "barcode": loan.item.barcode,
                       "due_at": loan.due_at, "at": entry.get("at")})
-    return {"library_name": settings_svc.get(db, "library_name"), "branch": session.device.branch.name,
+    return {"library_name": settings_svc.library_name(db), "branch": session.device.branch.name,
             "kiosk": session.device.name, "patron": {"first_name": session.patron.first_name, "card": _mask(session.patron.card_number)},
             "generated_at": utcnow(), "lines": lines,
             "open_loans": [{"title": loan.item.biblio.title, "due_at": loan.due_at}

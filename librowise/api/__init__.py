@@ -64,3 +64,8 @@ for module in (ui, covers):
 from . import record_tools  # noqa: E402
 
 api_router.include_router(record_tools.router)
+
+# ---- first-launch setup wizard ----
+from . import setup  # noqa: E402
+
+api_router.include_router(setup.router)

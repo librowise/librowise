@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     p_admin = sub.add_parser("create-admin", help="Create an administrator account")
     p_admin.add_argument("--username", required=True, help="Card number / login name")
     p_admin.add_argument("--email", required=True)
+    p_code = sub.add_parser("setup-code", help="Show the one-time code for the browser setup wizard (/setup)")
+    p_code.add_argument("--new", action="store_true", help="Replace the current code with a new one")
     p_unlock = sub.add_parser("reset-2fa", help="Break-glass: remove 2FA, clear lockout and end all sessions of an account")
     p_unlock.add_argument("--username", required=True, help="Card number or email")
     sub.add_parser("nightly", help="Run nightly jobs: notices, hold expiry, anonymisation")
@@ -116,7 +118,23 @@ def main(argv: list[str] | None = None) -> int:
             db.flush()
             db.add(Patron(card_number=args.username, email=args.email.lower(), first_name="Admin", last_name=args.username,
                           role=Role.admin, category_id=cat.id, home_branch_id=branch.id, password_hash=hash_password(pw)))
+            from .services import setup as setup_svc
+
+            setup_svc.arm_if_new(db)  # a brand-new library: send this administrator to the setup wizard
         print(f"Administrator {args.username} created.")
+    elif args.cmd == "setup-code":
+        from .config import get_settings
+        from .migrations import prepare_schema
+        from .services import setup as setup_svc
+
+        prepare_schema(get_settings().environment)
+        with session_scope() as db:
+            code = setup_svc.ensure_code(db, rotate=args.new)
+        if code is None:
+            print("This library already has an administrator: sign in at /login (setup is under Administration).")
+            return 0
+        print(f"Setup code: {setup_svc.format_code(code)}")
+        print("Open /setup on this server in a browser and enter the code to create the first administrator.")
     elif args.cmd == "reset-2fa":
         from .services import audit, identity
 

@@ -1,0 +1,174 @@
+/* First-launch setup wizard (/setup). Loaded before app.css/ui.css (head_extra), so rules are scoped under
+   .setup-app to win on specificity. Logical properties throughout: the wizard works right-to-left (Urdu). */
+
+.setup-app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background:
+  radial-gradient(60rem 30rem at 100% -10%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
+  radial-gradient(40rem 24rem at -10% 110%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%), var(--bg); }
+
+.setup-app [hidden] { display: none !important; }
+
+/* ---- top bar */
+.setup-app .setup-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem clamp(1rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(8px); }
+.setup-app .setup-brand { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.setup-app .setup-wordmark { font-weight: var(--fw-bold); font-size: 1.15rem; letter-spacing: var(--tracking-tight); color: var(--wordmark-ink, var(--text)); }
+.setup-app .setup-tag { font-size: .75rem; font-weight: var(--fw-semibold); color: var(--primary); background: var(--primary-soft);
+  padding: .15rem .55rem; border-radius: var(--radius-full); }
+.setup-app .setup-top-actions { display: flex; align-items: center; gap: .4rem; }
+
+/* ---- shell: step rail + card */
+.setup-app .setup-shell { flex: 1; width: 100%; max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 15.5rem minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem); padding: clamp(1.25rem, 4vw, 2.75rem) clamp(1rem, 3vw, 2rem) 3rem; align-items: start; }
+.setup-app .setup-rail { position: sticky; top: 1.5rem; }
+.setup-app .setup-rail-title { margin: 0 0 .75rem; font-size: .75rem; font-weight: var(--fw-semibold); text-transform: uppercase;
+  letter-spacing: var(--tracking-caps); color: var(--muted); }
+.setup-app .setup-rail-note { color: var(--muted); margin-top: 1.25rem; line-height: var(--lh-snug); }
+.setup-app .setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; counter-reset: none; }
+.setup-app .setup-step { position: relative; }
+.setup-app .setup-step:not(:last-child)::after { content: ""; position: absolute; inset-inline-start: 1.05rem; top: 2.35rem; height: calc(100% - 2.1rem);
+  width: 2px; background: var(--border); border-radius: 2px; }
+.setup-app .setup-step.is-done:not(:last-child)::after { background: var(--primary); }
+.setup-app .setup-step-btn { display: flex; align-items: center; gap: .7rem; width: 100%; padding: .45rem .5rem; border-radius: var(--radius-sm);
+  background: none; border: 0; font: inherit; color: var(--text-2); text-align: start; min-height: 2.75rem; }
+.setup-app button.setup-step-btn { cursor: pointer; }
+.setup-app button.setup-step-btn:hover { background: var(--surface-2); color: var(--text); }
+.setup-app .setup-step-dot { flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-size: .8rem;
+  font-weight: var(--fw-semibold); border: 2px solid var(--border-strong); background: var(--surface); color: var(--muted); }
+.setup-app .setup-step-dot .icon { width: .9rem; height: .9rem; }
+.setup-app .is-done .setup-step-dot { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.setup-app .is-current .setup-step-dot { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+.setup-app .is-current .setup-step-btn { color: var(--text); font-weight: var(--fw-semibold); }
+
+/* ---- the card */
+.setup-app .setup-main { min-width: 0; outline: none; }
+.setup-app .setup-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+  padding: clamp(1.25rem, 4vw, 2.5rem); display: flex; flex-direction: column; gap: 1.1rem; max-width: 46rem; }
+.setup-app .setup-loading { min-height: 24rem; }
+.setup-app .setup-card h1 { margin: 0; font-size: clamp(1.5rem, 3.2vw, 2rem); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); outline: none; }
+.setup-app .setup-card h2 { font-size: 1rem; margin: 0; }
+.setup-app .setup-card .lead { margin: 0; color: var(--text-2); font-size: 1.02rem; line-height: var(--lh-base); max-width: 60ch; }
+.setup-app .setup-eyebrow { margin: 0 0 -.6rem; font-size: .78rem; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--primary); }
+.setup-app .setup-progress { margin: 0; color: var(--muted); display: none; }
+.setup-app .setup-card .field label, .setup-app .setup-card legend { font-weight: var(--fw-semibold); font-size: .9rem; color: var(--text); }
+.setup-app .setup-card .field { gap: .3rem; }
+.setup-app .setup-card .field .hint, .setup-app .setup-card .hint { font-size: .8rem; color: var(--muted); margin: 0; }
+.setup-app .setup-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.setup-app .setup-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem 1.1rem; }
+.setup-app .setup-grid-branch { display: grid; grid-template-columns: minmax(0, 1fr) 10rem; gap: 1rem; }
+.setup-app .setup-note { margin: 0; }
+
+/* ---- welcome */
+.setup-app .setup-checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
+.setup-app .setup-checklist li { display: flex; align-items: flex-start; gap: .6rem; }
+.setup-app .setup-checklist .icon { color: var(--success); flex: none; margin-top: .15rem; }
+.setup-app .setup-time { display: flex; align-items: center; gap: .45rem; margin: 0; color: var(--muted); font-size: .9rem; }
+.setup-app .setup-code-box { border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 1rem 1.1rem; background: var(--surface-2); display: grid; gap: .75rem; }
+.setup-app .setup-code-input { font-family: var(--mono); font-size: 1.35rem; letter-spacing: .2em; text-transform: uppercase; max-width: 15rem; text-align: center; }
+.setup-app .setup-help summary { cursor: pointer; color: var(--primary); font-weight: var(--fw-medium); font-size: .9rem; width: fit-content; }
+.setup-app .setup-help[open] { display: grid; gap: .5rem; }
+.setup-app .setup-help p { margin: .25rem 0 0; color: var(--text-2); font-size: .9rem; }
+.setup-app .setup-help pre { margin: 0; padding: .55rem .75rem; background: var(--surface-3); border-radius: var(--radius-sm); overflow-x: auto; font-size: .85rem; }
+
+/* ---- choice cards (kind of library, how to start) */
+.setup-app .setup-choices { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: .5rem; }
+.setup-app .setup-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.setup-app .setup-choice-list { display: grid; gap: .75rem; }
+.setup-app .setup-choice { margin: 0; position: relative; display: flex; align-items: flex-start; gap: .8rem; padding: .95rem 1rem; border: 1.5px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2), box-shadow var(--dur-2); }
+.setup-app .setup-choice:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.setup-app .setup-choice input { position: absolute; inset-inline-end: .9rem; top: 1rem; margin: 0; }
+.setup-app .setup-choice:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 1px var(--primary); }
+.setup-app .setup-choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.setup-app .setup-choice.is-disabled { cursor: not-allowed; opacity: .7; }
+.setup-app .setup-choice-icon { flex: none; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: var(--radius-sm);
+  background: var(--surface-3); color: var(--primary); }
+.setup-app .setup-choice:has(input:checked) .setup-choice-icon { background: var(--primary); color: var(--primary-text); }
+.setup-app .setup-choice-text { display: grid; gap: .2rem; padding-inline-end: 1.5rem; font-weight: var(--fw-regular); font-size: 1rem; }
+.setup-app .setup-choice-text strong { font-weight: var(--fw-semibold); font-size: .98rem; color: var(--text); }
+.setup-app .setup-choice-text span { font-size: .85rem; color: var(--text-2); line-height: var(--lh-snug); }
+
+/* ---- branches */
+.setup-app .setup-branches { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+.setup-app .setup-branch { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem 1.15rem; display: grid; gap: .85rem; background: var(--surface-2); }
+.setup-app .setup-branch-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 2rem; }
+.setup-app .setup-branch-title { font-size: .85rem !important; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--muted); }
+.setup-app #branch-add { justify-self: start; width: fit-content; }
+
+/* ---- lending */
+.setup-app .setup-unit { display: flex; align-items: stretch; border: 1px solid var(--border-input); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.setup-app .setup-unit:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent); }
+.setup-app .setup-unit:has([aria-invalid="true"]) { border-color: var(--danger); }
+.setup-app .setup-unit input { border: 0; box-shadow: none !important; min-width: 0; }
+.setup-app .setup-unit span { display: flex; align-items: center; padding: 0 .7rem; background: var(--surface-2); color: var(--text-2); font-size: .85rem; white-space: nowrap; }
+.setup-app .setup-preview { padding: .9rem 1rem; border-radius: var(--radius); background: var(--info-soft); color: var(--text); line-height: var(--lh-base);
+  border-inline-start: 3px solid var(--info); }
+.setup-app .setup-dl { display: grid; grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr); gap: .45rem 1.25rem; margin: 0; }
+.setup-app .setup-dl dt { color: var(--muted); font-size: .88rem; }
+.setup-app .setup-dl dd { margin: 0; overflow-wrap: anywhere; }
+.setup-app #ln-reset { justify-self: start; width: fit-content; }
+
+/* ---- review */
+.setup-app .setup-review-block { border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1.1rem 1rem; display: grid; gap: .6rem; }
+.setup-app .setup-review-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+
+/* ---- actions */
+.setup-app .setup-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .5rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+.setup-app .setup-actions .btn.primary { min-width: 9rem; justify-content: center; }
+
+/* ---- done */
+.setup-app .setup-done { align-items: flex-start; }
+.setup-app .setup-done-mark { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: var(--success-soft); color: var(--success); }
+.setup-app .setup-done-mark .icon { width: 1.8rem; height: 1.8rem; }
+.setup-app .setup-next-title { margin-top: .5rem !important; }
+.setup-app .setup-next { display: flex; flex-wrap: wrap; gap: .75rem; }
+.setup-app .setup-tips { list-style: none; margin: .5rem 0 0; padding: 1rem 0 0; border-top: 1px solid var(--border); display: grid; gap: .55rem; color: var(--text-2); font-size: .92rem; }
+.setup-app .setup-tips li { display: flex; gap: .6rem; align-items: flex-start; }
+.setup-app .setup-tips .icon { color: var(--primary); flex: none; margin-top: .15rem; }
+
+/* ---- password meter (same look as the catalogue's account pages) */
+.setup-app .pw-wrap { position: relative; }
+.setup-app .pw-wrap input { padding-inline-end: 3rem; }
+.setup-app .pw-toggle { position: absolute; inset-inline-end: .25rem; top: 50%; transform: translateY(-50%); min-height: 2rem; width: 2.4rem; padding: 0; }
+.setup-app .pw-meter { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .3rem; margin-top: .5rem; }
+.setup-app .pw-meter span { height: .32rem; border-radius: var(--radius-full); background: var(--surface-3); transition: background var(--dur-2); }
+.setup-app .pw-meter[data-score="1"] span:nth-child(-n+1) { background: var(--danger); }
+.setup-app .pw-meter[data-score="2"] span:nth-child(-n+2) { background: var(--warning); }
+.setup-app .pw-meter[data-score="3"] span:nth-child(-n+3) { background: var(--info); }
+.setup-app .pw-meter[data-score="4"] span { background: var(--success); }
+.setup-app .pw-verdict { font-size: .82rem; font-weight: var(--fw-semibold); margin-top: .3rem; color: var(--text-2); min-height: 1.25rem; }
+.setup-app .pw-rules { list-style: none; margin: .2rem 0 0; padding: 0; display: grid; gap: .2rem; font-size: .82rem; color: var(--muted); }
+.setup-app .pw-rules li { display: flex; align-items: center; gap: .4rem; }
+.setup-app .pw-rules li .icon { width: .95rem; height: .95rem; }
+.setup-app .pw-rules li .ok { display: none; }
+.setup-app .pw-rules li.met { color: var(--success); }
+.setup-app .pw-rules li.met .ok { display: inline; }
+.setup-app .pw-rules li.met .no { display: none; }
+
+/* ---- narrow screens: the rail becomes a compact progress strip */
+@media (max-width: 860px) {
+  .setup-app .setup-shell { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .setup-app .setup-rail { position: static; }
+  .setup-app .setup-rail-title, .setup-app .setup-rail-note { display: none; }
+  .setup-app .setup-steps { display: flex; gap: .35rem; }
+  .setup-app .setup-step { flex: 1; }
+  .setup-app .setup-step::after { display: none; }
+  .setup-app .setup-step-btn { padding: 0; min-height: 2.75rem; justify-content: center; }
+  .setup-app .setup-step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .setup-app .setup-step-dot { width: 100%; height: .4rem; border-radius: var(--radius-full); border: 0; background: var(--surface-3); font-size: 0; }
+  .setup-app .setup-step-dot .icon { display: none; }
+  .setup-app .is-done .setup-step-dot, .setup-app .is-current .setup-step-dot { background: var(--primary); box-shadow: none; }
+  .setup-app .setup-progress { display: block; }
+  .setup-app .setup-card { border-radius: var(--radius-lg); }
+}
+@media (max-width: 600px) {
+  .setup-app .setup-grid-2, .setup-app .setup-grid-3, .setup-app .setup-grid-branch, .setup-app .setup-choice-grid { grid-template-columns: minmax(0, 1fr); }
+  .setup-app .setup-tag { display: none; }
+  .setup-app .setup-actions { position: sticky; bottom: 0; background: var(--surface); margin-inline: calc(-1 * clamp(1.25rem, 4vw, 2.5rem));
+    padding-inline: clamp(1.25rem, 4vw, 2.5rem); padding-bottom: .75rem; z-index: 2; }
+  .setup-app .setup-dl { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+  .setup-app .setup-dl dd { margin-bottom: .5rem; }
+  .setup-app .setup-next .btn { flex: 1 1 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup-app * { transition: none !important; }
+}

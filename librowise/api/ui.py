@@ -94,8 +94,12 @@ def notifications(db: Session = Depends(get_db), user: Patron = Depends(require(
 
     if has_permission(user, "settings:manage"):
         from ..services import settings as settings_svc
+        from ..services import setup as setup_svc
 
-        if not settings_svc.library_name_is_set(db):
+        if setup_svc.status(db) in ("pending", "skipped"):
+            add("setup_pending", "setup_pending", "warning", "settings", "Finish setting up your library",
+                "Branches, lending rules and how to start your catalogue.", "/setup", {})
+        elif not settings_svc.library_name_is_set(db):
             add("library_name_unset", "library_name_unset", "warning", "settings",
                 "Give your library a name", "It is shown in the catalogue, notices and receipts.",
                 "/staff/admin", {})

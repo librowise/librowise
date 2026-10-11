@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{#- First-launch setup wizard (static/js/pages/setup.js). setup_mode: "bootstrap" (no administrator yet: the
+    one-time setup code is required and the first administrator is created) or "admin" (signed-in administrator
+    finishing the configuration of a new library). The steps are rendered by the page script. -#}
+{% block title %}{{ t('setup.title') }} · {{ product_name }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/pages/setup.css?v={{ version }}">{% endblock %}
+{% block body %}
+<div class="setup-app" data-mode="{{ setup_mode }}">
+  <header class="setup-top">
+    <div class="setup-brand">
+      <img src="/static/brand/librowise-mark.svg" alt="" width="32" height="32">
+      <span class="setup-wordmark">{{ product_name }}</span>
+      <span class="setup-tag">{{ t('setup.tag') }}</span>
+    </div>
+    <div class="setup-top-actions">
+      {% include "_lang_switch.html" %}
+      <button type="button" class="btn ghost icon-only" data-appearance aria-label="{{ t('common.appearance') }}" title="{{ t('common.appearance') }}"><svg class="icon" aria-hidden="true"><use href="#i-palette"></use></svg></button>
+    </div>
+  </header>
+  <div class="setup-shell">
+    <nav class="setup-rail" aria-label="{{ t('setup.steps_label') }}">
+      <p class="setup-rail-title">{{ t('setup.rail_title') }}</p>
+      <ol class="setup-steps" id="setup-steps"></ol>
+      <p class="setup-rail-note small">{{ t('setup.rail_note') }}</p>
+    </nav>
+    <main id="main" class="setup-main" tabindex="-1">
+      <div id="setup-root" aria-busy="true">
+        <div class="setup-card setup-loading">
+          <div class="skeleton" style="height:1.8rem;width:55%"></div>
+          <div class="skeleton" style="height:1rem;width:85%;margin-top:1rem"></div>
+          <div class="skeleton" style="height:2.4rem;margin-top:2rem"></div>
+          <div class="skeleton" style="height:2.4rem;margin-top:1rem"></div>
+        </div>
+        <noscript><div class="alert bad">{{ t('setup.noscript') }}</div></noscript>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

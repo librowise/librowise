@@ -20,6 +20,7 @@ from .deps import optional_user
 from .models import Patron
 from .security import RESTRICTED_ATTR, has_permission
 from .services import settings as settings_svc
+from .services import setup as setup_svc
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 i18n_mod.install(templates)
@@ -178,9 +179,30 @@ def _render(request: Request, template: str, page: str, user: Patron | None, db:
 # ------------------------------------------------------------------ OPAC
 
 
+def _unclaimed(db: Session) -> bool:
+    """No administrator yet: the only useful page is the setup wizard."""
+    return not setup_svc.has_admin(db)
+
+
 @router.get("/", response_class=HTMLResponse)
 def opac_home(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    if _unclaimed(db):
+        return RedirectResponse("/setup", status_code=303)
     return _render(request, "opac/home.html", "opac-home", user, db)
+
+
+@router.get("/setup", response_class=HTMLResponse)
+def setup_page(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    """First-launch wizard. Unclaimed servers show it to anyone (the setup code protects it); afterwards it
+    is for administrators only."""
+    if not _unclaimed(db):
+        if user is None:
+            return RedirectResponse("/login?next=/setup", status_code=303)
+        if not has_permission(user, "settings:manage"):
+            return RedirectResponse("/staff" if has_permission(user, "catalog:read") else "/account", status_code=303)
+    response = _render(request, "setup.html", "setup", user, db, setup_mode="bootstrap" if _unclaimed(db) else "admin")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @router.get("/search", response_class=HTMLResponse)
@@ -219,6 +241,8 @@ def _show_demo_logins() -> bool:
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
+    if _unclaimed(db):
+        return RedirectResponse("/setup", status_code=303)
     demo_logins = None
     if _show_demo_logins():
         from .seed import DEMO_ACCOUNTS
@@ -234,11 +258,15 @@ def login_page(request: Request, db: Session = Depends(get_db), user: Patron | N
 def _staff(page: str, template: str):
     def view(request: Request, db: Session = Depends(get_db), user: Patron | None = Depends(optional_user)):
         if user is None:
+            if _unclaimed(db):
+                return RedirectResponse("/setup", status_code=303)
             return RedirectResponse(f"/login?next={request.url.path}", status_code=303)
         if getattr(user, RESTRICTED_ATTR, False):  # staff must enrol in 2FA first (security policy)
             return RedirectResponse("/staff/security?enroll=1", status_code=303)
         if not has_permission(user, "catalog:read"):
             return RedirectResponse("/account", status_code=303)
+        if page == "staff-dashboard" and has_permission(user, "settings:manage") and setup_svc.status(db) == "pending":
+            return RedirectResponse("/setup", status_code=303)  # a new library: finish setting it up first
         return _render(request, template, page, user, db, path_params=request.path_params)
 
     return view

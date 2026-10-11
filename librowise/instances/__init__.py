@@ -277,6 +277,8 @@ def _print_created(m, res, args, dry: bool) -> None:
         print("  Demo data: admin / Librowise#Admin2026 - demo passwords are public; do not use in production")
     if entry.get("proxy") == "nginx":
         print(f"  HTTPS:     sudo certbot --nginx -d {entry['domain']}  (see the comment in the nginx site)")
+    if admin.get("created") and not entry.get("demo_data"):
+        print(f"  Next:      sign in at {res.url.rstrip('/')}/staff - the setup wizard adds branches and lending rules")
     print(f"Check it:   {PRODUCT} instance doctor {name}")
 
 

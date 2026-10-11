@@ -202,6 +202,15 @@ PAGES: list[Page] = [
     *[_staff(f"staff-admin-{tab}", "Admin", f"/staff/admin#{tab}", route="/staff/admin", role="admin")
       for tab in ("branches", "item-types", "categories", "rules", "settings", "audit", "system")],
     _staff("staff-system", "Admin", "/staff/system", role="admin"),
+    # First-launch setup wizard (admin mode on the seeded database; bootstrap mode is covered by tests).
+    _staff("setup", "Admin", "/setup", role="admin", note="setup wizard: welcome"),
+    _staff("setup-lending", "Admin", "/setup", route="/setup", role="admin", note="setup wizard: lending rules",
+           actions=[("wait_for", "#step-next"), ("click", "#step-next"), ("wait_for", "#lib-name"), ("click", "#step-next"),
+                    ("wait_for", "#branch-add"), ("click", "#step-next"), ("wait_for", "#ln-loan_days")]),
+    _staff("setup-review", "Admin", "/setup", route="/setup", role="admin", note="setup wizard: review",
+           actions=[("wait_for", "#step-next"), ("click", "#step-next"), ("wait_for", "#lib-name"), ("click", "#step-next"),
+                    ("wait_for", "#branch-add"), ("click", "#step-next"), ("wait_for", "#ln-loan_days"), ("click", "#step-next"),
+                    ("wait_for", "input[name=start]"), ("click", "#step-next"), ("wait_for", "[data-goto]")]),
     _staff("staff-styleguide", "Admin", "/staff/styleguide"),
     *[_staff(f"staff-interop-{tab}", "Admin", f"/staff/interop#{tab}", route="/staff/interop")
       for tab in ("sip", "targets", "endpoints")],

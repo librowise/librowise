@@ -795,7 +795,9 @@
         },
         "jobs_failed_body": "In the last 24 hours.",
         "library_name_unset": "Give your library a name",
-        "library_name_unset_body": "It is shown in the catalogue, notices and receipts."
+        "library_name_unset_body": "It is shown in the catalogue, notices and receipts.",
+        "setup_pending": "Finish setting up your library",
+        "setup_pending_body": "Branches, lending rules and how to start your catalogue."
       }
     },
     "state": {

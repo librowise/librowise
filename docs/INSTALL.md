@@ -45,6 +45,8 @@ The installer:
 4. opens ports 80/443 if `ufw` is active and prints the address and the administrator's one-time
    password. The password is shown on the terminal only — never written to the log
    (`/var/log/librowise/install.log`).
+5. when the administrator first signs in, the **setup wizard** opens (see [First-launch setup
+   wizard](#first-launch-setup-wizard)) to add branches, choose lending rules and start the catalogue.
 
 Options: `--instance NAME`, `--version TAG`, `--source DIR`, `--no-proxy` (no Caddy; the app
 listens on 127.0.0.1 only), `--nginx` (nginx instead of Caddy, HTTPS via certbot), `--sqlite`,
@@ -89,8 +91,12 @@ is a complete stack with PostgreSQL:
 ```bash
 export LIBROWISE_SECRET_KEY=$(python3 -c "import secrets;print(secrets.token_urlsafe(64))")
 docker compose up -d
-docker compose run --rm app python -m librowise create-admin --username admin --email admin@example.org
+docker compose exec app python -m librowise setup-code   # then open the site and follow the wizard
 ```
+
+The first visit opens the [setup wizard](#first-launch-setup-wizard), which creates the first
+administrator. (`python -m librowise create-admin --username admin --email you@example.org` still works
+for scripted deployments.)
 
 Put a TLS proxy in front of port 8000; [DEPLOYMENT.md](DEPLOYMENT.md) covers configuration,
 scaling and observability. The `instance` commands are not used with containers: the compose file
@@ -167,6 +173,30 @@ Files of a system instance `NAME`:
 | `/etc/caddy/librowise.d/NAME.caddy` or `/etc/nginx/sites-available/librowise-NAME.conf` | proxy site |
 
 ---
+
+## First-launch setup wizard
+
+Every new library is finished in the browser at `/setup`, in English, Hindi or Urdu:
+
+1. **Welcome**: on a server with no administrator yet (a plain `pip install`, Docker), anyone who
+   reaches the site is sent to the wizard, so it first asks for a one-time **setup code**. Only the
+   operator can see it: it is written to the server log at start-up and printed by
+   `librowise setup-code` (`--new` replaces it). Wrong codes are rate-limited.
+2. **Your library**: the name, and the kind of library (public, college/university, school,
+   special). The kind sets sensible lending rules, item types and borrower categories.
+3. **Administrator**: only on a server without one; the account is signed in when setup finishes.
+4. **Branches**: one or more, with short codes used on labels and in reports.
+5. **Lending rules**: loan period, renewals, items per borrower, hold shelf time and overdue fines,
+   with a plain-language summary.
+6. **Catalogue**: start empty, add a sample catalogue (about a hundred titles, no demo accounts),
+   or go straight to the MARC import for records exported from Koha.
+7. **Review**, then **Finish setup**: everything is saved in one transaction.
+
+On instances made by the installer or `librowise instance create`, the administrator already exists
+and the library name was given at install time: the wizard opens after the first sign-in, skips the
+administrator step, and can be postponed with **Skip for now** (a reminder stays in the notification
+centre). Libraries configured before the wizard existed are never sent to it, and an administrator
+can reopen `/setup` at any time.
 
 ## Managing instances
 

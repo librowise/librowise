@@ -95,6 +95,9 @@ def bootstrap_admin(username: str, email: str) -> dict:
                       password_hash=hash_password(password))
         db.add(user)
         db.flush()
+        from ..services import setup as setup_svc
+
+        setup_svc.arm_if_new(db)  # the administrator finishes configuring the library in the browser
         emailed = False
         if settings.email_backend == "smtp" and email:
             try:

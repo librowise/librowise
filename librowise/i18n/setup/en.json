@@ -1,0 +1,223 @@
+{
+  "setup": {
+    "title": "Set up your library",
+    "tag": "Setup",
+    "steps_label": "Setup steps",
+    "rail_title": "Setting up",
+    "rail_note": "Nothing is saved until you finish. You can change all of this later under Administration.",
+    "noscript": "The setup wizard needs JavaScript. Turn it on, or create an administrator with `librowise create-admin`.",
+    "progress": "Step {n} of {total}",
+    "back": "Back",
+    "continue": "Continue",
+    "finish": "Finish setup",
+    "skip": "Skip for now",
+    "fix_one": "Please fix the highlighted field.",
+    "fix_many": {
+      "one": "Please fix the highlighted field.",
+      "other": "Please fix the {count} highlighted fields."
+    },
+    "step": {
+      "welcome": "Welcome",
+      "library": "Your library",
+      "admin": "Administrator",
+      "branches": "Branches",
+      "lending": "Lending rules",
+      "start": "Catalogue",
+      "review": "Review"
+    },
+    "state": {
+      "done": "completed",
+      "current": "current step",
+      "todo": "not started"
+    },
+    "welcome": {
+      "eyebrow": "Welcome to Librowise",
+      "title": "Let's get your library ready",
+      "lead_bootstrap": "This server has no administrator yet. In a few short steps you will name your library, create your administrator account and choose how lending works.",
+      "lead_admin": "Your administrator account is ready. A few short steps will finish setting up the library itself.",
+      "item_library": "Name your library and say what kind it is",
+      "item_admin": "Create the first administrator account",
+      "item_branches": "Add your branches",
+      "item_lending": "Choose loan periods, renewals and fines",
+      "item_start": "Start with an empty catalogue, sample books or your Koha records",
+      "time": "About five minutes.",
+      "code_label": "Setup code",
+      "code_hint": "To make sure you run this server, enter the 8-character code from the server log.",
+      "code_where": "Where do I find the setup code?",
+      "code_where_log": "It is printed in the server log when Librowise starts. You can also show it on the server with:",
+      "code_where_docker": "With Docker:"
+    },
+    "library": {
+      "eyebrow": "Your library",
+      "title": "About your library",
+      "lead": "Your library's name appears in the catalogue, on notices, receipts and library cards.",
+      "name": "Library name",
+      "name_hint": "For example \"Riverside Library\" or \"St. Mary's College Library\".",
+      "kind": "What kind of library is it?",
+      "kind_hint": "This picks sensible lending rules, item types and borrower categories. You can change everything later."
+    },
+    "kind": {
+      "public": "Public library",
+      "public_desc": "Adults and children, books, DVDs, magazines and audiobooks.",
+      "academic": "College or university",
+      "academic_desc": "Students and faculty, longer loans, reference books and theses.",
+      "school": "School library",
+      "school_desc": "Pupils and teachers, short loans, no fines.",
+      "special": "Special or research library",
+      "special_desc": "A company, institute or society: members, reports and reference."
+    },
+    "admin": {
+      "eyebrow": "Administrator",
+      "title": "Your administrator account",
+      "lead": "This account can change every setting and create accounts for your staff.",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "username": "Username",
+      "username_hint": "Used to sign in, together with your e-mail address.",
+      "email": "E-mail",
+      "email_hint": "For password resets and security alerts.",
+      "password": "Password",
+      "confirm": "Repeat the password",
+      "note_2fa": "After setup, turn on two-step verification for this account under My account & security."
+    },
+    "branches": {
+      "eyebrow": "Branches",
+      "title": "Where are your books?",
+      "lead": "Add each building or service point that lends items. A single library needs just one branch.",
+      "branch_n": "Branch {n}",
+      "name": "Branch name",
+      "code": "Short code",
+      "code_hint": "Capital letters and digits, e.g. MAIN. Used on labels and in reports.",
+      "address": "Address",
+      "email": "E-mail",
+      "phone": "Phone",
+      "add": "Add another branch",
+      "remove": "Remove",
+      "removed": "Removed {name}.",
+      "untitled": "the branch",
+      "later": "Opening hours and holidays are set later in the library calendar."
+    },
+    "lending": {
+      "eyebrow": "Lending",
+      "title": "How lending works",
+      "lead": "These are suggested rules for your kind of library ({kind}). Adjust them to match yours.",
+      "loan_days": "Loan period",
+      "max_renewals": "Renewals allowed",
+      "max_loans": "Items per borrower",
+      "hold_pickup_days": "Holds wait on the shelf for",
+      "fine_per_day": "Overdue fine per day",
+      "fine_cap": "Maximum fine per item",
+      "no_fines_hint": "Enter 0 for no overdue fines.",
+      "sentence_loan": {
+        "one": "Borrowers can take home {items} item for {days} days.",
+        "other": "Borrowers can take home up to {items} items for {days} days."
+      },
+      "sentence_renew": {
+        "one": "Each loan can be renewed once.",
+        "other": "Each loan can be renewed {n} times."
+      },
+      "sentence_no_renew": "Loans cannot be renewed.",
+      "sentence_holds": "Holds wait {days} days for collection.",
+      "sentence_fine": "Late items cost {fine} a day, up to {cap} per item.",
+      "sentence_no_fine": "There are no overdue fines.",
+      "also_title": "What else is created",
+      "also_lead": "So you can start lending straight away, setup adds:",
+      "item_types": "Item types",
+      "categories": "Borrower categories",
+      "later": "Fine-tune rules per branch, category or item type later in Administration → Circulation rules.",
+      "reset": "Restore the suggested rules"
+    },
+    "unit": {
+      "days": "days",
+      "times": "times",
+      "items": "items"
+    },
+    "itype": {
+      "BOOK": "Book",
+      "REF": "Reference",
+      "DVD": "DVD",
+      "MAG": "Magazine",
+      "AUDIO": "Audiobook",
+      "THESIS": "Thesis",
+      "REPORT": "Report"
+    },
+    "cat": {
+      "ADULT": "Adult",
+      "CHILD": "Child",
+      "STAFF": "Library staff",
+      "STUDENT": "Student",
+      "FACULTY": "Faculty",
+      "PUPIL": "Pupil",
+      "TEACHER": "Teacher",
+      "MEMBER": "Member"
+    },
+    "start": {
+      "eyebrow": "Catalogue",
+      "title": "How would you like to start?",
+      "lead": "You can add records by hand, by ISBN lookup or by importing MARC files at any time.",
+      "lead_existing": "Your catalogue already has {count} records.",
+      "empty": "Start with an empty catalogue",
+      "empty_desc": "Add your own records from the staff client: by ISBN, from another library (Z39.50/SRU) or by hand.",
+      "sample": "Add a sample catalogue",
+      "sample_desc": "About a hundred well-known titles to try searching, lending and holds. Delete them whenever you like.",
+      "sample_disabled": "Not offered because the catalogue already has records.",
+      "import": "Import from Koha or another system",
+      "import_desc": "After setup you will go straight to the MARC import (MARCXML or ISO 2709, with Koha 952 holdings)."
+    },
+    "review": {
+      "eyebrow": "Review",
+      "title": "Check and finish",
+      "lead": "Look over your choices. Nothing has been saved yet.",
+      "library": "Library",
+      "admin": "Administrator",
+      "branches": "Branches",
+      "lending": "Lending rules",
+      "start": "Catalogue",
+      "edit": "Edit",
+      "admin_name": "Name",
+      "lending_rule": "Default rule",
+      "start_with": "Start with",
+      "note": "Finishing saves everything at once. You can change any of it later under Administration.",
+      "kind": "Kind of library"
+    },
+    "done": {
+      "short": "All set",
+      "title": "{library} is ready",
+      "lead_signed_in": "You are signed in as the administrator.",
+      "lead": "Your settings are saved.",
+      "branches": {
+        "one": "{n} branch set up",
+        "other": "{n} branches set up"
+      },
+      "rules": "Lending rules, item types and borrower categories created",
+      "sample": {
+        "one": "{n} sample title added",
+        "other": "{n} sample titles added"
+      },
+      "next": "What next?",
+      "dashboard": "Go to the staff dashboard",
+      "catalogue": "Open the catalogue",
+      "import": "Import your records",
+      "tip_2fa": "Turn on two-step verification for your account (My account & security).",
+      "tip_staff": "Add staff accounts and give them roles under Patrons and Administration → Roles.",
+      "tip_settings": "Set opening hours in the calendar and notice delivery (e-mail, SMS) under Administration."
+    },
+    "err": {
+      "required": "This field is required.",
+      "code_format": "Enter the 8-character code, for example ABCD-2345.",
+      "code_wrong": "That setup code is not right. Check the server log or run librowise setup-code.",
+      "code_rate": "Too many attempts. Wait a few minutes and try again.",
+      "library_name": "Enter your library's name.",
+      "username": "Use 3-64 letters, digits, dots, hyphens or underscores.",
+      "email": "Enter a valid e-mail address, like name@example.org.",
+      "password": "Choose a password that meets all the requirements below.",
+      "confirm": "The two passwords do not match.",
+      "branch_name": "Enter the branch name.",
+      "branch_code": "Use 1-16 capital letters, digits, hyphens or underscores.",
+      "branch_code_dup": "Each branch needs a different code.",
+      "range": "Enter a whole number from {min} to {max}.",
+      "money": "Enter an amount (0 or more).",
+      "generic": "Setup could not be saved. Please try again."
+    }
+  }
+}

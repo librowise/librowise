@@ -85,7 +85,9 @@ curl -fsSL https://raw.githubusercontent.com/librowise/librowise/main/install/in
   | sudo bash -s -- --domain catalogue.example.org --library-name "Riverside Library" --email admin@example.org
 ```
 
-Then manage libraries like Koha's `koha-*` tools: `librowise instance create|list|doctor|upgrade|backup|remove`.
+Sign in and the **setup wizard** walks you through branches, lending rules and how to start the
+catalogue (empty, a sample catalogue, or your Koha records). Then manage libraries like Koha's
+`koha-*` tools: `librowise instance create|list|doctor|upgrade|backup|remove`.
 Debian packages, Docker, a Windows evaluation installer and manual setups are covered in
 **[docs/INSTALL.md](docs/INSTALL.md)**.
 
@@ -98,6 +100,9 @@ pip install -e ".[dev]"
 python -m librowise seed       # creates librowise.db with demo data
 python -m librowise run        # http://127.0.0.1:8000
 ```
+
+Skip `seed` to try the first-launch experience instead: the site opens the setup wizard and asks for
+the setup code printed in the server log (or by `python -m librowise setup-code`).
 
 **Demo accounts** (seeded databases only; defined in `librowise/seed.py`):
 

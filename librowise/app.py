@@ -49,8 +49,21 @@ async def lifespan(app: FastAPI):
 
         prepare_schema(environment)
     _prepare_search()
+    _announce_setup()
     log.info("Librowise %s ready", __version__)
     yield
+
+
+def _announce_setup() -> None:
+    """While nobody has claimed this server, log the code the setup wizard asks for."""
+    from .db import session_scope
+    from .services import setup
+
+    try:
+        with session_scope() as db:
+            setup.announce_code(db)
+    except Exception:  # pragma: no cover - never block start-up
+        log.exception("setup code check failed")
 
 
 def _prepare_search() -> None:

@@ -55,7 +55,7 @@ def test_staff_shell_accessibility(client, lib):
     assert "aria-label" not in user.group(0).split(">")[0] and 'class="sr-only"' in user.group(1)
 
 
-def test_demo_accounts_hidden_outside_development(client, monkeypatch):
+def test_demo_accounts_hidden_outside_development(client, lib, monkeypatch):
     from librowise import web
 
     monkeypatch.setattr(web, "_show_demo_logins", lambda: False)

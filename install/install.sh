@@ -361,6 +361,9 @@ summary() {
         else
             printf '   Admin:      unchanged (the instance already had an administrator)\n'
         fi
+        if [[ $DEMO_DATA -eq 0 ]]; then
+            printf '   Next:       sign in; the setup wizard adds branches and lending rules\n'
+        fi
         printf '   Manage:     librowise instance --help   (status: librowise instance doctor %s)\n' "$INSTANCE"
         printf '   Log:        %s\n' "$LOG_FILE"
         printf '============================================================\n'
